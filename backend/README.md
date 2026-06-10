@@ -122,6 +122,7 @@ GET /api/v1/prs/{id}/reviews
 GET /api/v1/prs/{id}/checks
 
 GET /api/v1/releases
+GET /api/v1/releases/{id}
 GET /api/v1/executions
 GET /api/v1/public-stats
 ```
@@ -255,7 +256,90 @@ Regras implementadas:
 - O autor real é o cidadão do JWT; `authorName` enviado pelo cliente é ignorado.
 - Apoios usam tabelas próprias com unicidade por cidadão e entidade.
 - Cada criação, comentário e novo apoio registra `audit_event`.
-- Votação e merge institucional continuam fora do escopo.
+- Votação formal e merge institucional continuam fora do escopo.
+
+## Votações
+
+Endpoints públicos:
+
+```text
+GET /api/v1/votings
+GET /api/v1/votings/{id}
+GET /api/v1/votings/{id}/results
+```
+
+Endpoint autenticado:
+
+```text
+POST /api/v1/votings/{id}/vote
+```
+
+Votar:
+
+```bash
+curl -X POST http://localhost:8080/api/v1/votings/vote-046/vote \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -d '{ "selection": "Aprovo" }'
+```
+
+Opções aceitas:
+
+```text
+Aprovo
+Rejeito
+Abstenção
+```
+
+Regras implementadas:
+
+- Somente cidadão autenticado pode votar.
+- Cada cidadão só pode votar uma vez por votação.
+- A tabela `voting_votes` usa `UNIQUE(voting_id, citizen_id)`.
+- O resultado público é agregado.
+- Nenhum endpoint expõe voto individual.
+- O `receiptCode` é aleatório e não codifica a escolha do voto.
+- Cada voto aceito registra `audit_event` com ação `vote_cast`, sem incluir a escolha no metadata.
+
+## Merge Institucional e Releases
+
+Endpoint institucional autenticado:
+
+```text
+POST /api/v1/prs/{id}/merge
+```
+
+Consulta pública de releases:
+
+```text
+GET /api/v1/releases
+GET /api/v1/releases/{id}
+```
+
+Merge institucional:
+
+```bash
+curl -X POST http://localhost:8080/api/v1/prs/%23046/merge \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token-institucional>" \
+  -d '{
+    "promulgatedBy": "Mesa Diretora da Câmara Municipal",
+    "formalApprovalReference": "Emenda Orgânica Municipal nº 01/2026",
+    "officialDocumentUrl": "Diário Oficial Eletrônico - Edição 2601",
+    "releaseDate": "2026-06-10"
+  }'
+```
+
+Regras implementadas:
+
+- O merge exige cidadão autenticado com papel institucional no campo `role`.
+- Papéis aceitos: `admin`, `institutional_admin`, `legislative_admin`, `procurador`, `secretario`, `vereador`, `mesa_diretora`.
+- O PR só pode ser incorporado se estiver em `Aprovado formalmente`.
+- O merge aplica o `afterText` dos diffs normativos nos artigos afetados.
+- O PR muda para `Incorporado ao texto oficial`.
+- Uma release legislativa é criada automaticamente, com versão gerada como `vANO.N` se `version` não for enviada.
+- São registrados `audit_event` com ações `pr_merged` e `release_created`.
+- O merge representa o cumprimento do rito formal; votos e apoios populares não executam incorporação por si só.
 
 ## Escopo Desta Etapa
 
@@ -268,6 +352,8 @@ Implementado:
 - middleware JWT;
 - criação de issues e PRs cívicos autenticados;
 - comentários e apoios autenticados em issues e PRs;
+- módulo de votação com recibo e resultado agregado;
+- merge institucional com criação de release legislativa;
 - auditoria de ações cívicas relevantes;
 - conexão com PostgreSQL;
 - conexão com Redis;
@@ -283,6 +369,4 @@ Ainda não implementado:
 - autorização por permissões;
 - repositórios;
 - comandos de negócio;
-- votação;
-- merge institucional;
 - integração com o front-end.

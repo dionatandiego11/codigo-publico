@@ -2,10 +2,13 @@ package publicapi
 
 import (
 	"context"
+	"crypto/rand"
 	"database/sql"
+	"encoding/base32"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -15,6 +18,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -204,6 +208,77 @@ type PublicStats struct {
 	CivicParticipationRate string `json:"civicParticipationRate"`
 }
 
+type Voting struct {
+	ID              string   `json:"id"`
+	Title           string   `json:"title"`
+	CitizenSummary  string   `json:"citizenSummary"`
+	TextChanges     string   `json:"textChanges"`
+	IntendedImpact  string   `json:"intendedImpact"`
+	Pros            []string `json:"pros"`
+	Cons            []string `json:"cons"`
+	ReviewsOverview string   `json:"reviewsOverview"`
+	Deadline        string   `json:"deadline"`
+	QuorumNeeded    int      `json:"quorumNeeded"`
+	QuorumReached   int      `json:"quorumReached"`
+	VotesYes        int      `json:"votesYes"`
+	VotesNo         int      `json:"votesNo"`
+	VotesAbstain    int      `json:"votesAbstain"`
+	Status          string   `json:"status"`
+}
+
+type VotingResults struct {
+	ID              string  `json:"id"`
+	Title           string  `json:"title"`
+	Status          string  `json:"status"`
+	Deadline        string  `json:"deadline"`
+	QuorumNeeded    int     `json:"quorumNeeded"`
+	QuorumReached   int     `json:"quorumReached"`
+	QuorumPercent   float64 `json:"quorumPercent"`
+	TotalVotes      int     `json:"totalVotes"`
+	VotesYes        int     `json:"votesYes"`
+	VotesNo         int     `json:"votesNo"`
+	VotesAbstain    int     `json:"votesAbstain"`
+	YesPercent      float64 `json:"yesPercent"`
+	NoPercent       float64 `json:"noPercent"`
+	AbstainPercent  float64 `json:"abstainPercent"`
+	ApprovalPercent float64 `json:"approvalPercent"`
+}
+
+type voteRequest struct {
+	Selection string `json:"selection"`
+	Vote      string `json:"vote"`
+}
+
+type voteResponse struct {
+	ReceiptCode string        `json:"receiptCode"`
+	Voting      Voting        `json:"voting"`
+	Results     VotingResults `json:"results"`
+}
+
+type mergePRRequest struct {
+	Version                 *string `json:"version"`
+	ReleaseTitle            *string `json:"releaseTitle"`
+	ReleaseDate             *string `json:"releaseDate"`
+	OfficialDocumentURL     *string `json:"officialDocumentUrl"`
+	PromulgatedBy           string  `json:"promulgatedBy"`
+	FormalApprovalReference string  `json:"formalApprovalReference"`
+}
+
+type mergedArticle struct {
+	ID            string `json:"id"`
+	Number        int    `json:"number"`
+	Title         string `json:"title"`
+	Version       string `json:"version"`
+	LastUpdated   string `json:"lastUpdated"`
+	AmendmentNote string `json:"amendmentNote"`
+}
+
+type mergePRResponse struct {
+	PR              CivicPR         `json:"pr"`
+	Release         Release         `json:"release"`
+	UpdatedArticles []mergedArticle `json:"updatedArticles"`
+}
+
 type apiError struct {
 	Error string `json:"error"`
 }
@@ -212,6 +287,22 @@ type citizenActor struct {
 	ID   string
 	Name string
 	Role string
+}
+
+type prMergeIdentity struct {
+	InternalID string
+	PublicID   string
+	Title      string
+	Repository string
+	Status     string
+}
+
+type normativeDiffToMerge struct {
+	ID            string
+	ArticleID     sql.NullString
+	ArticleNumber int
+	TitleRef      string
+	AfterText     string
 }
 
 type createIssueRequest struct {
@@ -1040,6 +1131,192 @@ func (h *Handler) UpvotePR(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, pr)
 }
 
+func (h *Handler) MergePR(w http.ResponseWriter, r *http.Request) {
+	actor, err := h.authenticatedCitizen(r.Context())
+	if err != nil {
+		writeAuthOrQueryError(w, err)
+		return
+	}
+	if !isInstitutionalRole(actor.Role) {
+		writeErrorMessage(w, http.StatusForbidden, "merge institucional exige papel institucional")
+		return
+	}
+
+	var input mergePRRequest
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		writeErrorMessage(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+
+	input.PromulgatedBy = strings.TrimSpace(input.PromulgatedBy)
+	input.FormalApprovalReference = strings.TrimSpace(input.FormalApprovalReference)
+	if input.PromulgatedBy == "" || input.FormalApprovalReference == "" {
+		writeErrorMessage(w, http.StatusBadRequest, "promulgatedBy and formalApprovalReference are required")
+		return
+	}
+
+	releaseDate, err := parseOptionalDate(input.ReleaseDate)
+	if err != nil {
+		writeErrorMessage(w, http.StatusBadRequest, "releaseDate must use YYYY-MM-DD")
+		return
+	}
+
+	tx, err := h.db.Begin(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	defer rollbackTx(r.Context(), tx)
+
+	prIdentity, err := findPRForMerge(r.Context(), tx, chi.URLParam(r, "id"))
+	if err != nil {
+		writeQueryError(w, err)
+		return
+	}
+	if prIdentity.Status == "Incorporado ao texto oficial" {
+		writeErrorMessage(w, http.StatusConflict, "PR already incorporated into official text")
+		return
+	}
+	if !canMergePRStatus(prIdentity.Status) {
+		writeErrorMessage(w, http.StatusConflict, "PR status does not allow institutional merge")
+		return
+	}
+
+	releaseVersion := strings.TrimSpace(valueOrEmpty(input.Version))
+	if releaseVersion == "" {
+		releaseVersion, err = nextReleaseVersion(r.Context(), tx, releaseDate)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err)
+			return
+		}
+	}
+
+	releaseTitle := strings.TrimSpace(valueOrEmpty(input.ReleaseTitle))
+	if releaseTitle == "" {
+		releaseTitle = fmt.Sprintf("Release Legislativa %s", releaseVersion)
+	}
+
+	updatedArticles, changelog, err := mergeNormativeDiffsIntoArticles(r.Context(), tx, prIdentity.InternalID, releaseVersion, releaseDate, input.FormalApprovalReference)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			writeErrorMessage(w, http.StatusConflict, "PR has no mergeable normative diff")
+			return
+		}
+
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	if len(updatedArticles) == 0 {
+		writeErrorMessage(w, http.StatusConflict, "PR has no mergeable normative diff")
+		return
+	}
+
+	var releaseInternalID string
+	err = tx.QueryRow(r.Context(), `
+		INSERT INTO releases (
+			version,
+			title,
+			release_date,
+			repository_name,
+			changelog,
+			incorporated_pr_public_ids,
+			affected_articles_count,
+			official_document_url,
+			promulgated_by
+		)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		RETURNING id::text
+	`,
+		releaseVersion,
+		releaseTitle,
+		releaseDate,
+		prIdentity.Repository,
+		changelog,
+		[]string{prIdentity.PublicID},
+		len(updatedArticles),
+		nullableString(input.OfficialDocumentURL),
+		input.PromulgatedBy,
+	).Scan(&releaseInternalID)
+	if err != nil {
+		if isUniqueViolation(err) {
+			writeErrorMessage(w, http.StatusConflict, "release version already exists")
+			return
+		}
+
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	if _, err := tx.Exec(r.Context(), `
+		UPDATE civic_prs
+		SET status = 'Incorporado ao texto oficial'
+		WHERE id = $1::uuid
+	`, prIdentity.InternalID); err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	if err := insertAuditEvent(r.Context(), tx, actor, "pr_merged", "civic_pr", prIdentity.InternalID, prIdentity.PublicID, map[string]any{
+		"releaseVersion":          releaseVersion,
+		"formalApprovalReference": input.FormalApprovalReference,
+		"updatedArticlesCount":    len(updatedArticles),
+	}); err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	if err := insertAuditEvent(r.Context(), tx, actor, "release_created", "release", releaseInternalID, releaseVersion, map[string]any{
+		"incorporatedPrId":        prIdentity.PublicID,
+		"formalApprovalReference": input.FormalApprovalReference,
+	}); err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	if err := tx.Commit(r.Context()); err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	pr, internalID, err := h.findCivicPR(r.Context(), prIdentity.PublicID)
+	if err != nil {
+		writeQueryError(w, err)
+		return
+	}
+	pr.Diffs, err = h.getPRDiffsByInternalID(r.Context(), internalID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	pr.Comments, err = h.getPRCommentsByInternalID(r.Context(), internalID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	pr.Reviews, err = h.getPRReviewsByInternalID(r.Context(), internalID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	pr.Checks, err = h.getPRChecksByInternalID(r.Context(), internalID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	release, err := h.findRelease(r.Context(), releaseVersion)
+	if err != nil {
+		writeQueryError(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusCreated, mergePRResponse{
+		PR:              pr,
+		Release:         release,
+		UpdatedArticles: updatedArticles,
+	})
+}
+
 func (h *Handler) GetPRDiff(w http.ResponseWriter, r *http.Request) {
 	internalID, err := h.findCivicPRInternalID(r.Context(), chi.URLParam(r, "id"))
 	if err != nil {
@@ -1088,19 +1365,154 @@ func (h *Handler) GetPRChecks(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, checks)
 }
 
+func (h *Handler) ListVotings(w http.ResponseWriter, r *http.Request) {
+	rows, err := h.db.Query(r.Context(), votingSelectSQL()+`
+		ORDER BY deadline ASC, public_id ASC
+	`)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	defer rows.Close()
+
+	votings := make([]Voting, 0)
+	for rows.Next() {
+		voting, _, err := scanVoting(rows)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err)
+			return
+		}
+
+		votings = append(votings, voting)
+	}
+
+	if err := rows.Err(); err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, votings)
+}
+
+func (h *Handler) GetVoting(w http.ResponseWriter, r *http.Request) {
+	voting, _, err := h.findVoting(r.Context(), chi.URLParam(r, "id"))
+	if err != nil {
+		writeQueryError(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, voting)
+}
+
+func (h *Handler) CastVote(w http.ResponseWriter, r *http.Request) {
+	actor, err := h.authenticatedCitizen(r.Context())
+	if err != nil {
+		writeAuthOrQueryError(w, err)
+		return
+	}
+
+	var input voteRequest
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		writeErrorMessage(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+
+	selection, err := normalizeVoteSelection(input)
+	if err != nil {
+		writeErrorMessage(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	tx, err := h.db.Begin(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	defer rollbackTx(r.Context(), tx)
+
+	votingID, publicID, status, deadline, err := findVotingForUpdate(r.Context(), tx, chi.URLParam(r, "id"))
+	if err != nil {
+		writeQueryError(w, err)
+		return
+	}
+	if status != "Aberta" {
+		writeErrorMessage(w, http.StatusConflict, "voting is not open")
+		return
+	}
+	if time.Now().UTC().After(deadline.UTC()) {
+		writeErrorMessage(w, http.StatusConflict, "voting deadline has passed")
+		return
+	}
+
+	receiptCode, err := generateReceiptCode()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	err = tx.QueryRow(r.Context(), `
+		INSERT INTO voting_votes (voting_id, citizen_id, vote_option, receipt_code)
+		VALUES ($1::uuid, $2::uuid, $3, $4)
+		ON CONFLICT (voting_id, citizen_id) DO NOTHING
+		RETURNING receipt_code
+	`, votingID, actor.ID, selection, receiptCode).Scan(&receiptCode)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			writeErrorMessage(w, http.StatusConflict, "citizen has already voted in this voting")
+			return
+		}
+
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	updateSQL, err := voteCounterUpdateSQL(selection)
+	if err != nil {
+		writeErrorMessage(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if _, err := tx.Exec(r.Context(), updateSQL, votingID); err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	if err := insertAuditEvent(r.Context(), tx, actor, "vote_cast", "voting", votingID, publicID, map[string]any{
+		"receiptIssued": true,
+	}); err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	if err := tx.Commit(r.Context()); err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	voting, _, err := h.findVoting(r.Context(), publicID)
+	if err != nil {
+		writeQueryError(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusCreated, voteResponse{
+		ReceiptCode: receiptCode,
+		Voting:      voting,
+		Results:     buildVotingResults(voting),
+	})
+}
+
+func (h *Handler) GetVotingResults(w http.ResponseWriter, r *http.Request) {
+	voting, _, err := h.findVoting(r.Context(), chi.URLParam(r, "id"))
+	if err != nil {
+		writeQueryError(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, buildVotingResults(voting))
+}
+
 func (h *Handler) ListReleases(w http.ResponseWriter, r *http.Request) {
-	rows, err := h.db.Query(r.Context(), `
-		SELECT
-			version,
-			title,
-			release_date,
-			repository_name,
-			changelog,
-			incorporated_pr_public_ids,
-			affected_articles_count,
-			official_document_url,
-			promulgated_by
-		FROM releases
+	rows, err := h.db.Query(r.Context(), releaseSelectSQL()+`
 		ORDER BY release_date DESC, version DESC
 	`)
 	if err != nil {
@@ -1111,27 +1523,12 @@ func (h *Handler) ListReleases(w http.ResponseWriter, r *http.Request) {
 
 	releases := make([]Release, 0)
 	for rows.Next() {
-		var release Release
-		var releaseDate time.Time
-		var officialDocumentURL sql.NullString
-
-		if err := rows.Scan(
-			&release.ID,
-			&release.Title,
-			&releaseDate,
-			&release.RepositoryName,
-			&release.Changelog,
-			&release.IncorporatedPRIDs,
-			&release.AffectedArticlesCount,
-			&officialDocumentURL,
-			&release.PromulgatedBy,
-		); err != nil {
+		release, err := scanRelease(rows)
+		if err != nil {
 			writeError(w, http.StatusInternalServerError, err)
 			return
 		}
 
-		release.Date = formatBrazilianDate(releaseDate)
-		release.OfficialDocumentURL = nullStringPtr(officialDocumentURL)
 		releases = append(releases, release)
 	}
 
@@ -1141,6 +1538,16 @@ func (h *Handler) ListReleases(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, releases)
+}
+
+func (h *Handler) GetRelease(w http.ResponseWriter, r *http.Request) {
+	release, err := h.findRelease(r.Context(), chi.URLParam(r, "id"))
+	if err != nil {
+		writeQueryError(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, release)
 }
 
 func (h *Handler) ListExecutions(w http.ResponseWriter, r *http.Request) {
@@ -1374,6 +1781,80 @@ func (h *Handler) findCivicPRInternalID(ctx context.Context, identifier string) 
 	}
 
 	return id, nil
+}
+
+func (h *Handler) findVoting(ctx context.Context, identifier string) (Voting, string, error) {
+	row := h.db.QueryRow(ctx, votingSelectSQL()+`
+		WHERE id::text = $1 OR public_id = $1
+	`, identifier)
+
+	return scanVoting(row)
+}
+
+func votingSelectSQL() string {
+	return `
+		SELECT
+			id::text,
+			public_id,
+			title,
+			citizen_summary,
+			text_changes,
+			intended_impact,
+			pros,
+			cons,
+			reviews_overview,
+			deadline,
+			quorum_needed,
+			quorum_reached,
+			votes_yes,
+			votes_no,
+			votes_abstain,
+			status
+		FROM votings
+	`
+}
+
+func findVotingForUpdate(ctx context.Context, tx pgx.Tx, identifier string) (string, string, string, time.Time, error) {
+	var id string
+	var publicID string
+	var status string
+	var deadline time.Time
+
+	err := tx.QueryRow(ctx, `
+		SELECT id::text, public_id, status, deadline
+		FROM votings
+		WHERE id::text = $1 OR public_id = $1
+		FOR UPDATE
+	`, identifier).Scan(&id, &publicID, &status, &deadline)
+	if err != nil {
+		return "", "", "", time.Time{}, err
+	}
+
+	return id, publicID, status, deadline, nil
+}
+
+func (h *Handler) findRelease(ctx context.Context, identifier string) (Release, error) {
+	row := h.db.QueryRow(ctx, releaseSelectSQL()+`
+		WHERE id::text = $1 OR version = $1
+	`, identifier)
+
+	return scanRelease(row)
+}
+
+func releaseSelectSQL() string {
+	return `
+		SELECT
+			version,
+			title,
+			release_date,
+			repository_name,
+			changelog,
+			incorporated_pr_public_ids,
+			affected_articles_count,
+			official_document_url,
+			promulgated_by
+		FROM releases
+	`
 }
 
 func (h *Handler) getPRDiffsByInternalID(ctx context.Context, internalID string) ([]NormativeDiff, error) {
@@ -1688,6 +2169,137 @@ func (h *Handler) findPRIdentity(ctx context.Context, identifier string) (string
 	return id, publicID, err
 }
 
+func findPRForMerge(ctx context.Context, tx pgx.Tx, identifier string) (prMergeIdentity, error) {
+	var pr prMergeIdentity
+	err := tx.QueryRow(ctx, `
+		SELECT id::text, public_id, title, repository, status
+		FROM civic_prs
+		WHERE id::text = $1 OR public_id = $1
+		FOR UPDATE
+	`, identifier).Scan(&pr.InternalID, &pr.PublicID, &pr.Title, &pr.Repository, &pr.Status)
+	if err != nil {
+		return prMergeIdentity{}, err
+	}
+
+	return pr, nil
+}
+
+func nextReleaseVersion(ctx context.Context, tx pgx.Tx, releaseDate time.Time) (string, error) {
+	if _, err := tx.Exec(ctx, "SELECT pg_advisory_xact_lock($1)", int64(2026061004)); err != nil {
+		return "", err
+	}
+
+	versionPattern := fmt.Sprintf("^v%d\\.([0-9]+)$", releaseDate.Year())
+	versionFilter := fmt.Sprintf("^v%d\\.[0-9]+$", releaseDate.Year())
+	var nextNumber int
+	if err := tx.QueryRow(ctx, `
+		SELECT COALESCE(MAX(substring(version from $1)::int), 0) + 1
+		FROM releases
+		WHERE version ~ $2
+	`, versionPattern, versionFilter).Scan(&nextNumber); err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("v%d.%d", releaseDate.Year(), nextNumber), nil
+}
+
+func mergeNormativeDiffsIntoArticles(ctx context.Context, tx pgx.Tx, civicPRID string, releaseVersion string, releaseDate time.Time, amendmentNote string) ([]mergedArticle, []string, error) {
+	rows, err := tx.Query(ctx, `
+		SELECT
+			nd.id::text,
+			nd.article_id::text,
+			nd.article_number,
+			nd.title_ref,
+			nd.after_text
+		FROM normative_diffs nd
+		WHERE nd.civic_pr_id = $1::uuid
+		ORDER BY nd.sort_order ASC, nd.article_number ASC
+	`, civicPRID)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	diffs := make([]normativeDiffToMerge, 0)
+	for rows.Next() {
+		var diff normativeDiffToMerge
+
+		if err := rows.Scan(&diff.ID, &diff.ArticleID, &diff.ArticleNumber, &diff.TitleRef, &diff.AfterText); err != nil {
+			rows.Close()
+			return nil, nil, err
+		}
+
+		diffs = append(diffs, diff)
+	}
+
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return nil, nil, err
+	}
+	rows.Close()
+
+	updatedArticles := make([]mergedArticle, 0, len(diffs))
+	changelog := make([]string, 0, len(diffs))
+	for _, diff := range diffs {
+		article, err := updateArticleFromDiff(ctx, tx, diff.ArticleID, diff.ArticleNumber, diff.AfterText, releaseVersion, releaseDate, amendmentNote)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return nil, nil, fmt.Errorf("%w: normative diff %s references article %d, but no matching article exists", pgx.ErrNoRows, diff.ID, diff.ArticleNumber)
+			}
+
+			return nil, nil, err
+		}
+
+		updatedArticles = append(updatedArticles, article)
+		changelog = append(changelog, fmt.Sprintf("Atualizado Art. %d — %s", article.Number, diff.TitleRef))
+	}
+
+	if len(updatedArticles) == 0 {
+		return nil, nil, pgx.ErrNoRows
+	}
+
+	return updatedArticles, changelog, nil
+}
+
+func updateArticleFromDiff(ctx context.Context, tx pgx.Tx, articleIDValue sql.NullString, articleNumber int, afterText string, releaseVersion string, releaseDate time.Time, amendmentNote string) (mergedArticle, error) {
+	var article mergedArticle
+	var id string
+	var lastUpdated time.Time
+
+	if articleIDValue.Valid {
+		err := tx.QueryRow(ctx, `
+			UPDATE law_articles
+			SET content = $1,
+				version = $2,
+				last_updated = $3,
+				amendment_number = $4
+			WHERE id = $5::uuid
+			RETURNING id::text, article_number, title, version, last_updated
+		`, afterText, releaseVersion, releaseDate, amendmentNote, articleIDValue.String).Scan(&id, &article.Number, &article.Title, &article.Version, &lastUpdated)
+		if err != nil {
+			return mergedArticle{}, err
+		}
+	} else {
+		err := tx.QueryRow(ctx, `
+			UPDATE law_articles
+			SET content = $1,
+				version = $2,
+				last_updated = $3,
+				amendment_number = $4
+			WHERE article_number = $5
+			RETURNING id::text, article_number, title, version, last_updated
+		`, afterText, releaseVersion, releaseDate, amendmentNote, articleNumber).Scan(&id, &article.Number, &article.Title, &article.Version, &lastUpdated)
+		if err != nil {
+			return mergedArticle{}, err
+		}
+	}
+
+	article.ID = articleID(article.Number)
+	article.LastUpdated = formatBrazilianDate(lastUpdated)
+	article.AmendmentNote = amendmentNote
+	_ = id
+	return article, nil
+}
+
 func (h *Handler) insertNormativeDiffs(ctx context.Context, tx pgx.Tx, civicPRID string, diffs []NormativeDiff) error {
 	for diffIndex, diff := range diffs {
 		if diff.ArticleNumber <= 0 {
@@ -1765,6 +2377,60 @@ func (h *Handler) insertNormativeDiffs(ctx context.Context, tx pgx.Tx, civicPRID
 
 type scanner interface {
 	Scan(dest ...any) error
+}
+
+func scanRelease(row scanner) (Release, error) {
+	var release Release
+	var releaseDate time.Time
+	var officialDocumentURL sql.NullString
+
+	if err := row.Scan(
+		&release.ID,
+		&release.Title,
+		&releaseDate,
+		&release.RepositoryName,
+		&release.Changelog,
+		&release.IncorporatedPRIDs,
+		&release.AffectedArticlesCount,
+		&officialDocumentURL,
+		&release.PromulgatedBy,
+	); err != nil {
+		return Release{}, err
+	}
+
+	release.Date = formatBrazilianDate(releaseDate)
+	release.OfficialDocumentURL = nullStringPtr(officialDocumentURL)
+	return release, nil
+}
+
+func scanVoting(row scanner) (Voting, string, error) {
+	var voting Voting
+	var internalID string
+	var deadline time.Time
+
+	if err := row.Scan(
+		&internalID,
+		&voting.ID,
+		&voting.Title,
+		&voting.CitizenSummary,
+		&voting.TextChanges,
+		&voting.IntendedImpact,
+		&voting.Pros,
+		&voting.Cons,
+		&voting.ReviewsOverview,
+		&deadline,
+		&voting.QuorumNeeded,
+		&voting.QuorumReached,
+		&voting.VotesYes,
+		&voting.VotesNo,
+		&voting.VotesAbstain,
+		&voting.Status,
+	); err != nil {
+		return Voting{}, "", err
+	}
+
+	voting.Deadline = formatDateTime(deadline)
+	return voting, internalID, nil
 }
 
 func scanLawArticle(row scanner) (LawArticle, error) {
@@ -1948,10 +2614,15 @@ func insertAuditEvent(ctx context.Context, tx pgx.Tx, actor citizenActor, action
 	if metadata == nil {
 		metadata = map[string]any{}
 	}
+	metadata["actorRole"] = actor.Role
 
 	metadataJSON, err := json.Marshal(metadata)
 	if err != nil {
 		return err
+	}
+	actorType := "citizen"
+	if isInstitutionalRole(actor.Role) {
+		actorType = "institutional"
 	}
 
 	_, err = tx.Exec(ctx, `
@@ -1965,10 +2636,141 @@ func insertAuditEvent(ctx context.Context, tx pgx.Tx, actor citizenActor, action
 			entity_public_id,
 			metadata
 		)
-		VALUES ('citizen', $1::uuid, $2, $3, $4, $5::uuid, $6, $7::jsonb)
-	`, actor.ID, actor.Name, action, entityType, entityID, entityPublicID, string(metadataJSON))
+		VALUES ($1, $2::uuid, $3, $4, $5, $6::uuid, $7, $8::jsonb)
+	`, actorType, actor.ID, actor.Name, action, entityType, entityID, entityPublicID, string(metadataJSON))
 
 	return err
+}
+
+func parseOptionalDate(value *string) (time.Time, error) {
+	if value == nil || strings.TrimSpace(*value) == "" {
+		return time.Now().UTC(), nil
+	}
+
+	parsed, err := time.Parse("2006-01-02", strings.TrimSpace(*value))
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	return parsed, nil
+}
+
+func isInstitutionalRole(role string) bool {
+	switch strings.ToLower(strings.TrimSpace(role)) {
+	case "admin", "institutional_admin", "legislative_admin", "procurador", "secretario", "vereador", "mesa_diretora":
+		return true
+	default:
+		return false
+	}
+}
+
+func canMergePRStatus(status string) bool {
+	return status == "Aprovado formalmente"
+}
+
+func isUniqueViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		return pgErr.Code == "23505"
+	}
+
+	return false
+}
+
+func normalizeVoteSelection(input voteRequest) (string, error) {
+	selection := strings.TrimSpace(input.Selection)
+	if selection == "" {
+		selection = strings.TrimSpace(input.Vote)
+	}
+
+	switch {
+	case strings.EqualFold(selection, "Aprovo"):
+		return "Aprovo", nil
+	case strings.EqualFold(selection, "Rejeito"):
+		return "Rejeito", nil
+	case strings.EqualFold(selection, "Abstenção"), strings.EqualFold(selection, "Abstencao"):
+		return "Abstenção", nil
+	default:
+		return "", errors.New("selection must be Aprovo, Rejeito or Abstenção")
+	}
+}
+
+func voteCounterUpdateSQL(selection string) (string, error) {
+	switch selection {
+	case "Aprovo":
+		return `
+			UPDATE votings
+			SET quorum_reached = quorum_reached + 1,
+				votes_yes = votes_yes + 1
+			WHERE id = $1::uuid
+		`, nil
+	case "Rejeito":
+		return `
+			UPDATE votings
+			SET quorum_reached = quorum_reached + 1,
+				votes_no = votes_no + 1
+			WHERE id = $1::uuid
+		`, nil
+	case "Abstenção":
+		return `
+			UPDATE votings
+			SET quorum_reached = quorum_reached + 1,
+				votes_abstain = votes_abstain + 1
+			WHERE id = $1::uuid
+		`, nil
+	default:
+		return "", errors.New("selection must be Aprovo, Rejeito or Abstenção")
+	}
+}
+
+func generateReceiptCode() (string, error) {
+	randomBytes := make([]byte, 10)
+	if _, err := rand.Read(randomBytes); err != nil {
+		return "", err
+	}
+
+	encoded := base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(randomBytes)
+	if len(encoded) < 12 {
+		return "", errors.New("failed to generate receipt code")
+	}
+
+	return fmt.Sprintf(
+		"CP-%s-%s-%s-%s",
+		time.Now().UTC().Format("2006"),
+		encoded[0:4],
+		encoded[4:8],
+		encoded[8:12],
+	), nil
+}
+
+func buildVotingResults(voting Voting) VotingResults {
+	totalVotes := voting.VotesYes + voting.VotesNo + voting.VotesAbstain
+
+	return VotingResults{
+		ID:              voting.ID,
+		Title:           voting.Title,
+		Status:          voting.Status,
+		Deadline:        voting.Deadline,
+		QuorumNeeded:    voting.QuorumNeeded,
+		QuorumReached:   voting.QuorumReached,
+		QuorumPercent:   percent(voting.QuorumReached, voting.QuorumNeeded),
+		TotalVotes:      totalVotes,
+		VotesYes:        voting.VotesYes,
+		VotesNo:         voting.VotesNo,
+		VotesAbstain:    voting.VotesAbstain,
+		YesPercent:      percent(voting.VotesYes, totalVotes),
+		NoPercent:       percent(voting.VotesNo, totalVotes),
+		AbstainPercent:  percent(voting.VotesAbstain, totalVotes),
+		ApprovalPercent: percent(voting.VotesYes, totalVotes),
+	}
+}
+
+func percent(part int, total int) float64 {
+	if total <= 0 {
+		return 0
+	}
+
+	return math.Round((float64(part)/float64(total))*10000) / 100
 }
 
 func rollbackTx(ctx context.Context, tx pgx.Tx) {

@@ -68,6 +68,8 @@ func main() {
 			r.Post("/prs", publicHandler.CreatePR)
 			r.Post("/prs/{id}/comments", publicHandler.CreatePRComment)
 			r.Post("/prs/{id}/upvote", publicHandler.UpvotePR)
+			r.Post("/prs/{id}/merge", publicHandler.MergePR)
+			r.Post("/votings/{id}/vote", publicHandler.CastVote)
 		})
 
 		r.Get("/territories", publicHandler.ListTerritories)
@@ -85,7 +87,12 @@ func main() {
 		r.Get("/prs/{id}/reviews", publicHandler.GetPRReviews)
 		r.Get("/prs/{id}/checks", publicHandler.GetPRChecks)
 
+		r.Get("/votings", publicHandler.ListVotings)
+		r.Get("/votings/{id}", publicHandler.GetVoting)
+		r.Get("/votings/{id}/results", publicHandler.GetVotingResults)
+
 		r.Get("/releases", publicHandler.ListReleases)
+		r.Get("/releases/{id}", publicHandler.GetRelease)
 		r.Get("/executions", publicHandler.ListExecutions)
 		r.Get("/public-stats", publicHandler.GetPublicStats)
 	})
