@@ -311,7 +311,7 @@ export default function IssueTracker({
 
       {/* 2. ISSUE DETAIL MODULE */}
       {selectedIssueId && selectedIssue && (
-        <div className="space-y-6">
+        <div className="space-y-6 max-w-4xl mx-auto w-full">
           <button
             onClick={() => setSelectedIssueId(null)}
             className="inline-flex items-center space-x-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors"
@@ -458,7 +458,7 @@ export default function IssueTracker({
 
       {/* 3. NEW ISSUE CREATION FORM CONTAINER */}
       {showNewForm && (
-        <div className="space-y-6">
+        <div className="space-y-6 max-w-3xl mx-auto w-full">
           <button
             onClick={() => setShowNewForm(false)}
             className="inline-flex items-center space-x-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors"

@@ -80,7 +80,7 @@ export default function ArticleDetailView({
   };
 
   return (
-    <div className="space-y-6 pb-12 fade-in" id="article-detail-manager">
+    <div className="space-y-6 pb-12 fade-in max-w-4xl mx-auto w-full" id="article-detail-manager">
       {/* Back navigation */}
       <button
         onClick={onBack}

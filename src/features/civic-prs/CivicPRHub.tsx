@@ -288,7 +288,7 @@ export default function CivicPRHub({
 
       {/* 2. DETAILED SINGLE PR CÍVICO VIEWER WORKSPACE */}
       {selectedPRId && selectedPR && (
-        <div className="space-y-6">
+        <div className="space-y-6 max-w-4xl mx-auto w-full">
           {/* Back button */}
           <button
             onClick={() => setSelectedPRId(null)}
@@ -941,7 +941,7 @@ export default function CivicPRHub({
 
       {/* 3. NEW PR CREATION FORM WORKSPACE */}
       {showNewForm && (
-        <div className="space-y-6">
+        <div className="space-y-6 max-w-3xl mx-auto w-full">
           <button
             onClick={() => setShowNewForm(false)}
             className="inline-flex items-center space-x-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors"

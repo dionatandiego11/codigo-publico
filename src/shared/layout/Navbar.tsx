@@ -22,7 +22,9 @@ import {
   Terminal,
   RefreshCw,
   Copy,
-  Check
+  Check,
+  Menu,
+  ChevronDown
 } from 'lucide-react';
 
 interface NotificationItem {
@@ -42,6 +44,7 @@ interface NavbarProps {
 
 export default function Navbar({ currentPath, initialNotifications, setPath, onRequestOpenNotification }: NavbarProps) {
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showMenuDropdown, setShowMenuDropdown] = useState(false);
   const [notifications, setNotifications] = useState(initialNotifications);
   const [copied, setCopied] = useState(false);
 
@@ -79,7 +82,7 @@ export default function Navbar({ currentPath, initialNotifications, setPath, onR
   return (
     <header className="sticky top-0 z-40 w-full border-b border-slate-200 bg-white shadow-sm">
       {/* Real-time branding and public metadata bar */}
-      <div className="flex h-12 w-full items-center justify-between px-4 bg-slate-900 text-white text-xs font-medium shrink-0">
+      <div className="flex h-12 w-full items-center justify-between px-4 sm:px-6 lg:px-8 bg-slate-900 text-white text-xs font-medium shrink-0">
         <div className="flex items-center space-x-2">
           <Globe className="h-4 w-4 text-emerald-400 animate-pulse" />
           <span className="tracking-wide">SISTEMA OPERACIONAL CÍVICO: NOVO HORIZONTE</span>
@@ -94,7 +97,7 @@ export default function Navbar({ currentPath, initialNotifications, setPath, onR
       </div>
 
       {/* Main navigation header */}
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
+      <div className="w-full flex h-16 max-w-full items-center justify-between px-4 sm:px-6 lg:px-8">
         {/* Logo and title */}
         <div 
           onClick={() => setPath('/')} 
@@ -110,28 +113,59 @@ export default function Navbar({ currentPath, initialNotifications, setPath, onR
           </div>
         </div>
 
-        {/* Desktop menu tabs */}
-        <nav className="hidden lg:flex items-center space-x-1">
-          {navItems.filter(item => !item.isAdmin).map((item) => {
-            const Icon = item.icon;
-            const isActive = currentPath === item.path || (item.path !== '/' && currentPath.startsWith(item.path));
-            return (
-              <button
-                key={item.path}
-                id={`nav-${item.label.toLowerCase().replace(/\s/g, '-')}`}
-                onClick={() => setPath(item.path)}
-                className={`flex items-center space-x-1.5 px-3 py-2 rounded-md font-medium text-xs transition-colors ${
-                  isActive
-                    ? 'bg-slate-100 text-indigo-700'
-                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                }`}
-              >
-                <Icon className={`h-4 w-4 ${isActive ? 'text-indigo-600' : 'text-slate-400'}`} />
-                <span>{item.label}</span>
-              </button>
-            );
-          })}
-        </nav>
+        {/* Consolidated Dropdown Menu Button for Desktop */}
+        <div 
+          className="hidden lg:relative lg:block"
+          onMouseLeave={() => setShowMenuDropdown(false)}
+        >
+          <button
+            onClick={() => setShowMenuDropdown(!showMenuDropdown)}
+            className={`flex items-center space-x-2 px-4 py-2 rounded-xl border text-xs font-semibold shadow-xs transition-all ${
+              showMenuDropdown
+                ? 'bg-indigo-50 border-indigo-200 text-indigo-700 font-bold'
+                : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+            }`}
+            id="main-menu-dropdown-btn"
+          >
+            <Menu className="h-4 w-4 text-slate-500" />
+            <span>Módulos Cívicos</span>
+            <ChevronDown className={`h-3.5 w-3.5 text-slate-400 transition-transform duration-200 ${showMenuDropdown ? 'rotate-180 text-indigo-500' : ''}`} />
+          </button>
+
+          {showMenuDropdown && (
+            <div
+              className="absolute left-0 mt-2 w-64 rounded-2xl border border-slate-205 bg-white py-2 shadow-xl z-50 animate-in fade-in slide-in-from-top-2 duration-150 divide-y divide-slate-100"
+              id="main-menu-dropdown-box"
+            >
+              <div className="px-4 py-2 bg-slate-50 rounded-t-2xl">
+                <span className="font-mono text-[9px] font-bold text-slate-400 uppercase tracking-widest">Navegação da Plataforma</span>
+              </div>
+              <div className="py-1">
+                {navItems.filter(item => !item.isAdmin && item.path !== '/').map((item) => {
+                  const Icon = item.icon;
+                  const isActive = currentPath === item.path || (item.path !== '/' && currentPath.startsWith(item.path));
+                  return (
+                    <button
+                      key={item.path}
+                      onClick={() => {
+                        setPath(item.path);
+                        setShowMenuDropdown(false);
+                      }}
+                      className={`w-full flex items-center space-x-3 px-4 py-2.5 text-left text-xs font-semibold transition-colors ${
+                        isActive
+                          ? 'bg-indigo-50/50 text-indigo-700 border-l-2 border-indigo-600'
+                          : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 border-l-2 border-transparent'
+                      }`}
+                    >
+                      <Icon className={`h-4.5 w-4.5 shrink-0 ${isActive ? 'text-indigo-600' : 'text-slate-400'}`} />
+                      <span>{item.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Right side utilities */}
         <div className="flex items-center space-x-3">
@@ -232,7 +266,7 @@ export default function Navbar({ currentPath, initialNotifications, setPath, onR
 
       {/* Simulated Browser Address Bar for Architecture Auditability */}
       <div className="border-t border-slate-200 bg-slate-50 px-4 py-2.5 hidden sm:block">
-        <div className="mx-auto max-w-7xl flex items-center justify-between space-x-2">
+        <div className="w-full max-w-full flex items-center justify-between space-x-2 px-2 sm:px-4 lg:px-6">
           {/* Navigation Controls */}
           <div className="flex items-center space-x-1.5 shrink-0 text-slate-400">
             <button 

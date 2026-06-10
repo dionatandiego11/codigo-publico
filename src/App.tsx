@@ -110,7 +110,7 @@ export default function App() {
       />
 
       {/* Primary content router workspace card wrapper with center spacing constraints */}
-      <main className="flex-1 max-w-7xl mx-auto w-full p-4 sm:p-6 md:p-8">
+      <main className="flex-1 max-w-6xl mx-auto w-full p-4 sm:p-6 md:p-8">
         {currentPath === '/' && (
           <HomeView
             setPath={setPath}
@@ -313,7 +313,7 @@ export default function App() {
 
       {/* Civic Footer */}
       <footer className="border-t border-slate-200 bg-white py-6 shrink-0 text-center font-mono text-[10px] text-slate-400">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
           <span>© 2026 Município de Novo Horizonte • Código Público Eletrônico</span>
           <span>Iniciativa Open Source Licenciada sob Licença Apache 2.0</span>
         </div>
