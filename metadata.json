@@ -1,0 +1,6 @@
+{
+  "name": "Código Público",
+  "description": "Plataforma de democracia direta municipal baseada no versionamento e colaboração do direito público local.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
