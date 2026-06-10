@@ -1,49 +1,168 @@
+/// <reference types="vite/client" />
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
 
 import {
-  MOCK_ARTIGOS,
+  MOCK_MEB,
   MOCK_REPOSITORIOS,
-  MOCK_ISSUES,
-  MOCK_PRS,
-  MOCK_VOTACOES,
-  MOCK_RELEASES,
-  MOCK_FISCALIZACOES,
-  MOCK_TERRITORIOS,
-  MOCK_ESTATISTICAS,
-  MOCK_MEB
+  MOCK_VOTACOES
 } from './mock-data';
 
-import { LawArticle, Issue, CivicPR, Voting, Release, ExecutionTracker, Territory } from '../types';
+import {
+  CivicPR,
+  ExecutionTracker,
+  InstitutionalCheck,
+  Issue,
+  LawArticle,
+  NormativeDiff,
+  PRReview,
+  Release,
+  Territory,
+  Voting
+} from '../types';
 
-// Helper function to simulate short network latency, mimicking Go framework APIs
-const delay = (ms = 150) => new Promise(resolve => setTimeout(resolve, ms));
+const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8080/api/v1';
 
-// Session cache to support adding issues/PRs in the client session state
-let localIssues = [...MOCK_ISSUES];
-let localPRs = [...MOCK_PRS];
-let localVotings = [...MOCK_VOTACOES];
+export interface PublicStats {
+  totalCitizens: number;
+  organicLawArticles: number;
+  openIssuesCount: number;
+  prsInReviewCount: number;
+  activeVotingsCount: number;
+  releasesCount: number;
+  civicParticipationRate: string;
+}
 
-export async function getOrganicLaw(): Promise<LawArticle[]> {
-  await delay();
-  return MOCK_ARTIGOS;
+async function requestJSON<T>(path: string): Promise<T> {
+  const response = await fetch(`${API_URL}${path}`, {
+    headers: {
+      Accept: 'application/json'
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+  }
+
+  return response.json() as Promise<T>;
+}
+
+async function requestOptionalJSON<T>(path: string): Promise<T | undefined> {
+  const response = await fetch(`${API_URL}${path}`, {
+    headers: {
+      Accept: 'application/json'
+    }
+  });
+
+  if (response.status === 404) {
+    return undefined;
+  }
+
+  if (!response.ok) {
+    throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+  }
+
+  return response.json() as Promise<T>;
+}
+
+function routeId(id: string) {
+  return encodeURIComponent(id);
+}
+
+// Public read endpoints backed by PostgreSQL.
+export async function getTerritories(): Promise<Territory[]> {
+  return requestJSON<Territory[]>('/territories');
+}
+
+export async function getOrganicLawArticles(): Promise<LawArticle[]> {
+  return requestJSON<LawArticle[]>('/organic-law/articles');
 }
 
 export async function getOrganicLawArticle(id: string): Promise<LawArticle | undefined> {
-  await delay();
-  return MOCK_ARTIGOS.find(art => art.id === id || `art-${art.number}` === id);
+  return requestOptionalJSON<LawArticle>(`/organic-law/articles/${routeId(id)}`);
 }
 
-export async function getOrganicLawVersions(): Promise<{ version: string; date: string; description: string }[]> {
-  await delay();
-  return [
-    { version: 'v2026.0', date: '10/01/2026', description: 'Versão consolidada atual com as Emendas Sociais de 2025.' },
-    { version: 'v2024.1', date: '12/12/2024', description: 'Inclui emenda de incentivo à agricultura familiar.' },
-    { version: 'v2024.0', date: '10/06/2024', description: 'Incorpora diretriz essencial sobre transparência climática.' }
-  ];
+export async function getIssues(): Promise<Issue[]> {
+  return requestJSON<Issue[]>('/issues');
 }
+
+export async function getIssueById(id: string): Promise<Issue | undefined> {
+  return requestOptionalJSON<Issue>(`/issues/${routeId(id)}`);
+}
+
+export async function getCivicPRs(): Promise<CivicPR[]> {
+  return requestJSON<CivicPR[]>('/prs');
+}
+
+export async function getCivicPRById(id: string): Promise<CivicPR | undefined> {
+  return requestOptionalJSON<CivicPR>(`/prs/${routeId(id)}`);
+}
+
+export async function getPRDiff(id: string): Promise<NormativeDiff[]> {
+  return requestJSON<NormativeDiff[]>(`/prs/${routeId(id)}/diff`);
+}
+
+export async function getPRReviews(id: string): Promise<PRReview[]> {
+  return requestJSON<PRReview[]>(`/prs/${routeId(id)}/reviews`);
+}
+
+export async function getPRChecks(id: string): Promise<InstitutionalCheck[]> {
+  return requestJSON<InstitutionalCheck[]>(`/prs/${routeId(id)}/checks`);
+}
+
+export async function getReleases(): Promise<Release[]> {
+  return requestJSON<Release[]>('/releases');
+}
+
+export async function getExecutions(): Promise<ExecutionTracker[]> {
+  return requestJSON<ExecutionTracker[]>('/executions');
+}
+
+export async function getPublicStats(): Promise<PublicStats> {
+  return requestJSON<PublicStats>('/public-stats');
+}
+
+// Compatibility aliases for existing front-end code and gradual migration.
+export const getOrganicLaw = getOrganicLawArticles;
+export const getInstitutionalChecks = getPRChecks;
+export const getFiscalizacao = getExecutions;
+
+export async function getOrganicLawVersions(): Promise<{ version: string; date: string; description: string }[]> {
+  const releases = await getReleases();
+
+  return releases.map(release => ({
+    version: release.id,
+    date: release.date,
+    description: release.title
+  }));
+}
+
+export async function getReleaseById(id: string): Promise<Release | undefined> {
+  const releases = await getReleases();
+  return releases.find(release => release.id === id);
+}
+
+export async function getFiscalizacaoById(id: string): Promise<ExecutionTracker | undefined> {
+  const executions = await getExecutions();
+  return executions.find(execution => execution.id === id);
+}
+
+export async function getTerritorySummary(id?: string): Promise<Territory | undefined> {
+  const territories = await getTerritories();
+
+  if (id) {
+    return territories.find(territory => territory.id === id);
+  }
+
+  return territories[0];
+}
+
+// Still mocked until corresponding backend endpoints are implemented.
+const delay = (ms = 150) => new Promise(resolve => setTimeout(resolve, ms));
+let localVotings = [...MOCK_VOTACOES];
 
 export async function getRepositories() {
   await delay();
@@ -55,110 +174,78 @@ export async function getRepositoryBySlug(slug: string) {
   return MOCK_REPOSITORIOS.find(repo => repo.slug === slug);
 }
 
-export async function getIssues(): Promise<Issue[]> {
-  await delay();
-  return localIssues;
-}
-
-export async function getIssueById(id: string): Promise<Issue | undefined> {
-  await delay();
-  return localIssues.find(issue => issue.id === id);
-}
-
 export async function createIssue(data: Omit<Issue, 'id' | 'createdAt' | 'status' | 'upvotes' | 'comments'>): Promise<Issue> {
   await delay(200);
-  const newId = `#${String(localIssues.length + 118).padStart(3, '0')}`;
-  const newIssue: Issue = {
+
+  return {
     ...data,
-    id: newId,
+    id: `#local-${Date.now()}`,
     createdAt: new Date().toISOString(),
     status: 'Aberta',
     upvotes: 1,
-    comments: [],
+    comments: []
   };
-  localIssues.unshift(newIssue);
-  return newIssue;
-}
-
-export async function getCivicPRs(): Promise<CivicPR[]> {
-  await delay();
-  return localPRs;
-}
-
-export async function getCivicPRById(id: string): Promise<CivicPR | undefined> {
-  await delay();
-  return localPRs.find(pr => pr.id === id);
 }
 
 export async function createCivicPR(data: Omit<CivicPR, 'id' | 'createdAt' | 'status' | 'upvotes' | 'comments' | 'reviews' | 'checks' | 'mergeTimeline'>): Promise<CivicPR> {
   await delay(200);
-  const newId = `#0${localPRs.length + 45}`;
-  const newPR: CivicPR = {
+
+  return {
     ...data,
-    id: newId,
+    id: `#local-${Date.now()}`,
     status: 'Rascunho',
     upvotes: 1,
     comments: [],
     createdAt: new Date().toISOString(),
     reviews: [],
     checks: [
-      { id: 'chk-auto-1', name: 'Compatibilidade com Constituição Federal', description: 'Pré-triagem automática', status: 'Pendente', feedback: 'Aguardando validação jurídica formal.' },
-      { id: 'chk-auto-2', name: 'Competência municipal', description: 'Validação de escopo', status: 'Aprovado', feedback: 'O tema se enquadra nas competências locais da prefeitura.' }
+      {
+        id: 'chk-local-1',
+        name: 'Compatibilidade com Constituição Federal',
+        description: 'Pré-triagem automática local.',
+        status: 'Pendente',
+        feedback: 'Aguardando backend de revisão institucional.'
+      }
     ],
     mergeTimeline: [
-      { title: 'Abertura de Proposta', date: 'Hoje', completed: true, description: 'Proposta registrada sob rascunho legislativo no repositório.' },
-      { title: 'Revisão Técnica de Admissão', date: 'Pendente', completed: false, description: 'Fila de análise tecnológica da controladoria.' }
+      {
+        title: 'Abertura de Proposta',
+        date: 'Hoje',
+        completed: true,
+        description: 'Proposta registrada localmente até o endpoint de criação ser implementado.'
+      }
     ]
   };
-  localPRs.unshift(newPR);
-  return newPR;
-}
-
-export async function getPRDiff(id: string) {
-  await delay();
-  const pr = localPRs.find(p => p.id === id);
-  return pr ? pr.diffs : [];
-}
-
-export async function getPRReviews(id: string) {
-  await delay();
-  const pr = localPRs.find(p => p.id === id);
-  return pr ? pr.reviews : [];
-}
-
-export async function getInstitutionalChecks(id: string) {
-  await delay();
-  const pr = localPRs.find(p => p.id === id);
-  return pr ? pr.checks : [];
 }
 
 export async function castVote(votingId: string, selection: 'Aprovo' | 'Rejeito' | 'Abstenção'): Promise<Voting | undefined> {
   await delay(300);
+
   const voteIndex = localVotings.findIndex(v => v.id === votingId);
-  if (voteIndex !== -1) {
-    const updated = { ...localVotings[voteIndex] };
-    updated.hasVoted = true;
-    updated.userVoteSelection = selection;
-    updated.voteReceipt = `CP-RECEIPT-${Math.floor(1000 + Math.random() * 9000)}-${Date.now().toString().slice(-4).toUpperCase()}`;
-    
-    if (selection === 'Aprovo') updated.votesYes += 1;
-    if (selection === 'Rejeito') updated.votesNo += 1;
-    if (selection === 'Abstenção') updated.votesAbstain += 1;
-
-    updated.quorumReached += 1;
-    localVotings[voteIndex] = updated;
-
-    // Track in citizen dashboard
-    MOCK_MEB.votedList.push({
-      id: votingId,
-      selection,
-      receipt: updated.voteReceipt,
-      txHash: `0x${Math.random().toString(16).slice(-16)}`
-    });
-
-    return updated;
+  if (voteIndex === -1) {
+    return undefined;
   }
-  return undefined;
+
+  const updated = { ...localVotings[voteIndex] };
+  updated.hasVoted = true;
+  updated.userVoteSelection = selection;
+  updated.voteReceipt = `CP-RECEIPT-${Math.floor(1000 + Math.random() * 9000)}-${Date.now().toString().slice(-4).toUpperCase()}`;
+
+  if (selection === 'Aprovo') updated.votesYes += 1;
+  if (selection === 'Rejeito') updated.votesNo += 1;
+  if (selection === 'Abstenção') updated.votesAbstain += 1;
+
+  updated.quorumReached += 1;
+  localVotings[voteIndex] = updated;
+
+  MOCK_MEB.votedList.push({
+    id: votingId,
+    selection,
+    receipt: updated.voteReceipt,
+    txHash: `0x${Math.random().toString(16).slice(-16)}`
+  });
+
+  return updated;
 }
 
 export async function getVoteReceipt(votingId: string): Promise<string | undefined> {
@@ -166,59 +253,26 @@ export async function getVoteReceipt(votingId: string): Promise<string | undefin
   return localVotings.find(v => v.id === votingId)?.voteReceipt;
 }
 
-export async function getReleases(): Promise<Release[]> {
-  await delay();
-  return MOCK_RELEASES;
-}
-
-export async function getReleaseById(id: string): Promise<Release | undefined> {
-  await delay();
-  return MOCK_RELEASES.find(rel => rel.id === id);
-}
-
-export async function getFiscalizacao(): Promise<ExecutionTracker[]> {
-  await delay();
-  return MOCK_FISCALIZACOES;
-}
-
-export async function getFiscalizacaoById(id: string): Promise<ExecutionTracker | undefined> {
-  await delay();
-  return MOCK_FISCALIZACOES.find(f => f.id === id);
-}
-
 export async function getCitizenDashboard() {
   await delay();
   return MOCK_MEB;
 }
 
-export async function getTerritorySummary(id?: string): Promise<Territory | undefined> {
-  await delay();
-  if (id) {
-    return MOCK_TERRITORIOS.find(t => t.id === id);
-  }
-  return MOCK_TERRITORIOS[0]; // Retorna Campo Grande por padrão
-}
-
-export async function getPublicStats() {
-  await delay();
-  return {
-    ...MOCK_ESTATISTICAS,
-    openIssuesCount: localIssues.length,
-    prsInReviewCount: localPRs.length,
-    activeVotingsCount: localVotings.filter(v => !v.hasVoted).length
-  };
-}
-
 export async function getAdminDashboard() {
-  await delay();
+  const [issues, prs, releases] = await Promise.all([
+    getIssues(),
+    getCivicPRs(),
+    getReleases()
+  ]);
+
   return {
     metrics: {
-      openIssues: localIssues.length,
-      prsInReview: localPRs.length,
-      pendingReviews: 3,
-      activeVotings: localVotings.length,
-      releasesCount: MOCK_RELEASES.length,
-      comentedArticles: 14
+      openIssues: issues.length,
+      prsInReview: prs.length,
+      pendingReviews: prs.reduce((total, pr) => total + pr.reviews.filter(review => review.status === 'Pendente').length, 0),
+      activeVotings: 0,
+      releasesCount: releases.length,
+      comentedArticles: 0
     },
     flaggedCommentsCount: 0
   };

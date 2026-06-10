@@ -1,0 +1,38 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: codigo-publico-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-codigo_publico}
+      POSTGRES_USER: ${POSTGRES_USER:-codigo_publico}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-codigo_publico}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - codigo_publico_postgres_data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-codigo_publico} -d ${POSTGRES_DB:-codigo_publico}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: codigo-publico-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - codigo_publico_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  codigo_publico_postgres_data:
+  codigo_publico_redis_data:
