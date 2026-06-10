@@ -29,7 +29,7 @@ import {
   ShieldAlert,
   FileText
 } from 'lucide-react';
-import { CivicPR, PRStatus, LawArticle, Voting, PRReview, InstitutionalCheck, Issue } from '../types';
+import { CivicPR, PRStatus, LawArticle, Voting, PRReview, InstitutionalCheck, Issue } from '@/src/types';
 
 interface CivicPRHubProps {
   prs: CivicPR[];

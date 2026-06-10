@@ -3,49 +3,46 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
-import Navbar from './components/Navbar';
-import HomeView from './components/HomeView';
-import OrganicLawViewer from './components/OrganicLawViewer';
-import ArticleDetailView from './components/ArticleDetailView';
-import RepositoryHub from './components/RepositoryHub';
-import IssueTracker from './components/IssueTracker';
-import CivicPRHub from './components/CivicPRHub';
-import ReleasesView from './components/ReleasesView';
-import FiscalizacaoView from './components/FiscalizacaoView';
-import MeuTerritorioView from './components/MeuTerritorioView';
-import MinhaAreaView from './components/MinhaAreaView';
-import DadosPublicosView from './components/DadosPublicosView';
-import AdminPanel from './components/AdminPanel';
-
+import { useState } from 'react';
+import { Navbar } from './shared/layout';
+import HomeView from './features/home';
+import { OrganicLawViewer, ArticleDetailView } from './features/organic-law';
+import RepositoryHub from './features/repositories';
+import IssueTracker from './features/issues';
+import CivicPRHub from './features/civic-prs';
+import ReleasesView from './features/releases';
+import FiscalizacaoView from './features/executions';
+import MeuTerritorioView from './features/territories';
+import MinhaAreaView from './features/citizen-area';
+import DadosPublicosView from './features/open-data';
+import AdminPanel from './features/admin';
 import {
-  MOCK_ARTIGOS,
-  MOCK_ISSUES,
-  MOCK_PRS,
-  MOCK_VOTACOES,
-  MOCK_RELEASES,
-  MOCK_FISCALIZACOES,
-  MOCK_REPOSITORIOS,
-  MOCK_MEB,
-  MOCK_ESTATISTICAS
-} from './lib/mock-data';
-
-import { Issue, CivicPR, Voting, LawArticle, ExecutionTracker } from './types';
+  useIssues,
+  usePRs,
+  usePublicData,
+  useVotings
+} from './hooks';
+import type { VoteSelection } from './hooks';
 
 export default function App() {
   const [currentPath, setPath] = useState<string>('/');
   const [selectedArticleId, setSelectedArticleId] = useState<string | null>(null);
 
-  // Core application states
-  const [artigos, setArtigos] = useState<LawArticle[]>(MOCK_ARTIGOS);
-  const [issues, setIssues] = useState<Issue[]>(MOCK_ISSUES);
-  const [prs, setPrs] = useState<CivicPR[]>(MOCK_PRS);
-  const [votacoes, setVotacoes] = useState<Voting[]>(MOCK_VOTACOES);
-  const [releases, setReleases] = useState(MOCK_RELEASES);
-  const [trackers, setTrackers] = useState<ExecutionTracker[]>(MOCK_FISCALIZACOES);
-  
-  // Local session state
-  const [userProfile, setUserProfile] = useState(MOCK_MEB);
+  const {
+    artigos,
+    releases,
+    trackers,
+    territories,
+    repositories,
+    stats,
+    notifications,
+    userProfile,
+    addVoteReceipt,
+    applyMergedPR
+  } = usePublicData();
+  const { issues, addIssue, triageIssue } = useIssues();
+  const { prs, addPR, triagePR } = usePRs({ onPRMerged: applyMergedPR });
+  const { votacoes, castVote } = useVotings();
 
   // Notification action router
   const handleRequestNotificationPR = (prId: string) => {
@@ -65,184 +62,29 @@ export default function App() {
 
   // Submitting a new issue from the form
   const handleAddNewIssue = (formData: any) => {
-    const nextNum = issues.length + 120;
-    const newIssueObj: Issue = {
-      id: `#${nextNum}`,
-      title: formData.title,
-      type: formData.type,
-      territory: formData.territory,
-      theme: formData.theme,
-      description: formData.description,
-      authorName: formData.authorName,
-      createdAt: new Date().toISOString(),
-      status: 'Aberta',
-      upvotes: 1,
-      comments: [],
-      assignedDepartment: formData.assignedDepartment,
-      relatedArticleId: formData.relatedArticleId,
-      relatedRepository: formData.relatedRepository
-    };
-
-    setIssues([newIssueObj, ...issues]);
+    addIssue(formData);
     setPath('/issues');
   };
 
   // Submitting a new PR from the form
   const handleAddNewPR = (formData: any) => {
-    const nextPRNum = prs.length + 50;
-    const newPrId = `#${nextPRNum}`;
-
-    const newPrObj: CivicPR = {
-      id: newPrId,
-      title: formData.title,
-      repository: formData.repository,
-      targetTitle: formData.targetTitle,
-      affectedArticles: formData.affectedArticles,
-      authorName: formData.authorName,
-      authorType: formData.authorType,
-      status: 'Aberto para debate',
-      citizenSummary: formData.citizenSummary,
-      justification: formData.justification,
-      diffs: formData.diffs,
-      linkedIssueIds: formData.linkedIssueIds || [],
-      upvotes: formData.upvotes || 1,
-      comments: [
-        {
-          id: `comment-init-${Date.now()}`,
-          authorName: 'Sistema',
-          content: 'PR cívico inicializado com testes de Admissibilidade da esteira de CI em progresso.',
-          createdAt: new Date().toISOString()
-        }
-      ],
-      reviews: [],
-      checks: [
-        { id: 'chk-c-1', name: 'Simetria Constitucional', description: 'Validação frente à Constituição Federal e Estadual.', status: 'Aprovado', feedback: 'O tema de fomento à participação direta do munícipe é harmônico aos artigos 1º e 29 da CF/88.' },
-        { id: 'chk-c-2', name: 'Lei de Responsabilidade Fiscal', description: 'Impacto nos limites de despesas correntes do município.', status: 'Atenção', feedback: 'Requer revisão técnica preliminar caso gere despesa com infraestrutura de rede municipal.' }
-      ],
-      createdAt: new Date().toISOString(),
-      mergeTimeline: [
-        { title: 'Abertura de Proposta Popular', date: 'Hoje', completed: true, description: 'Protocolo eletrônico computado no Código Público.' },
-        { title: 'Testes Estáticos (CI Jurídico)', date: 'Hoje', completed: true, description: 'Checks de integridade constitucional validados.' },
-        { title: 'Parecer Técnico da Câmara', date: 'Pendente', completed: false, description: 'Revisores legislativos analisam a viabilidade orgânica.' },
-        { title: 'Merge na Branch Principal', date: 'Pendente', completed: false, description: 'Sancionada e incorporada ao texto oficial da lei.' }
-      ]
-    };
-
-    setPrs([newPrObj, ...prs]);
+    addPR(formData);
     setPath('/prs');
   };
 
   // User casting a vote on public box
-  const handleCastVote = (votingId: string, selection: 'Aprovo' | 'Rejeito' | 'Abstenção') => {
-    // 1. Update voting metrics
-    const shortHash = `CP-2026-${Math.random().toString(36).substring(3, 7).toUpperCase()}-${Math.random().toString(36).substring(3, 7).toUpperCase()}`;
-    const txSimHash = '0x' + Array.from({ length: 16 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
-
-    setVotacoes(prev =>
-      prev.map(v => {
-        if (v.id === votingId) {
-          return {
-            ...v,
-            hasVoted: true,
-            userVoteSelection: selection,
-            voteReceipt: shortHash,
-            votesYes: selection === 'Aprovo' ? v.votesYes + 1 : v.votesYes,
-            votesNo: selection === 'Rejeito' ? v.votesNo + 1 : v.votesNo,
-            votesAbstain: selection === 'Abstenção' ? v.votesAbstain + 1 : v.votesAbstain,
-            quorumReached: v.quorumReached + 1
-          };
-        }
-        return v;
-      })
-    );
-
-    // 2. Insert receipt into user's personal portfolio instantly
-    const newReceipt = {
-      id: votingId,
-      selection: selection,
-      receipt: shortHash,
-      txHash: txSimHash
-    };
-
-    setUserProfile(prev => ({
-      ...prev,
-      votedList: [newReceipt, ...prev.votedList]
-    }));
+  const handleCastVote = (votingId: string, selection: VoteSelection) => {
+    const receipt = castVote(votingId, selection);
+    addVoteReceipt(receipt);
   };
 
   // Moderation / triage helper functions inside Backdoor Console
   const handleTriageIssue = (issueId: string, newStatus: any) => {
-    setIssues(prev =>
-      prev.map(i => (i.id === issueId ? { ...i, status: newStatus } : i))
-    );
+    triageIssue(issueId, newStatus);
   };
 
   const handleTriagePR = (prId: string, newStatus: any) => {
-    // 1. Update PR status
-    setPrs(prev =>
-      prev.map(p => {
-        if (p.id === prId) {
-          const updatedMergeTimeline = p.mergeTimeline.map(step => {
-            if (newStatus === 'Incorporado ao texto oficial') {
-              return { ...step, completed: true };
-            }
-            if (newStatus === 'Em votação' && step.title === 'Parecer Técnico da Câmara') {
-              return { ...step, completed: true };
-            }
-            return step;
-          });
-
-          return {
-            ...p,
-            status: newStatus,
-            mergeTimeline: updatedMergeTimeline
-          };
-        }
-        return p;
-      })
-    );
-
-    // 2. METAPHOR HEURISTIC INTEGRATION:
-    // If PR is merged ("Incorporado ao texto oficial"), we dynamically update the live "Master branch"
-    // of the technical article of law!
-    if (newStatus === 'Incorporado ao texto oficial') {
-      const targetPrObj = prs.find(p => p.id === prId);
-      if (targetPrObj && targetPrObj.diffs && targetPrObj.diffs.length > 0) {
-        const firstDiff = targetPrObj.diffs[0];
-        setArtigos(prev =>
-          prev.map(art => {
-            if (art.number === firstDiff.articleNumber) {
-              return {
-                ...art,
-                content: firstDiff.afterText, // Dynamic rewrite of our state!
-                amendmentNumber: `Emenda Cívica Merged ${prId}`,
-                version: 'v2026.1-merged-pop'
-              };
-            }
-            return art;
-          })
-        );
-
-        // Also add a custom compiled "Release" in state to celebrate!
-        const nextRelease: any = {
-          id: `v2026.1-pop`,
-          title: `Release Especial — Incorporação Popular ${prId}`,
-          date: '10/06/2026',
-          repositoryName: 'Lei Orgânica Municipal',
-          changelog: [
-            `Incorporação do PR Cívico ${prId} regulando: "${targetPrObj.title}"`,
-            `Atualização do Artigo ${firstDiff.articleNumber} no kernel municipal.`,
-            `Saneamento estático de todas as licitações correlacionadas via CI Jurídico`
-          ],
-          incorporatedPRIds: [prId],
-          affectedArticlesCount: 1,
-          officialDocumentUrl: `Diário Oficial Online — SEI nº 29A9`,
-          promulgatedBy: 'Mesa Organizadora Popular e Cidadania Ativa'
-        };
-
-        setReleases([nextRelease, ...releases]);
-      }
-    }
+    triagePR(prId, newStatus);
   };
 
   const handleForceRunChecks = () => {
@@ -259,6 +101,7 @@ export default function App() {
     <div className="min-h-screen bg-slate-50 flex flex-col justify-between selection:bg-indigo-600 selection:text-white antialiased font-sans">
       <Navbar
         currentPath={currentPath}
+        initialNotifications={notifications}
         setPath={(newPath) => {
           setPath(newPath);
           setSelectedArticleId(null);
@@ -271,7 +114,7 @@ export default function App() {
         {currentPath === '/' && (
           <HomeView
             setPath={setPath}
-            stats={MOCK_ESTATISTICAS}
+            stats={stats}
           />
         )}
 
@@ -322,6 +165,7 @@ export default function App() {
 
         {currentPath === '/repositorios' && (
           <RepositoryHub
+            repositories={repositories}
             setPath={setPath}
             onSelectRep={(slug) => setPath(`/repositorios/${slug}`)}
           />
@@ -331,7 +175,8 @@ export default function App() {
           <IssueTracker
             issues={issues}
             artigos={artigos}
-            repos={MOCK_REPOSITORIOS}
+            repos={repositories}
+            territories={territories}
             onBackToHome={() => setPath('/')}
             onSubmitNewIssue={handleAddNewIssue}
             onNavigateToPR={(prId) => {
@@ -401,6 +246,9 @@ export default function App() {
 
         {currentPath === '/meu-territorio' && (
           <MeuTerritorioView
+            territories={territories}
+            issues={issues}
+            prs={prs}
             onSelectIssue={(issueId) => {
               setPath('/issues');
               setTimeout(() => {
@@ -424,6 +272,8 @@ export default function App() {
 
         {currentPath === '/minha-area' && (
           <MinhaAreaView
+            userProfile={userProfile}
+            territories={territories}
             onSelectIssue={(issueId) => {
               setPath('/issues');
               setTimeout(() => {

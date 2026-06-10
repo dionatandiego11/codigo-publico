@@ -5,21 +5,26 @@
 
 import React, { useState } from 'react';
 import { MapPin, AlertCircle, GitPullRequest, Vote, Activity, Users, Globe, ExternalLink, Compass } from 'lucide-react';
-import { MOCK_TERRITORIOS, MOCK_ISSUES, MOCK_PRS } from '../lib/mock-data';
+import { CivicPR, Issue, Territory } from '@/src/types';
 
 interface MeuTerritorioViewProps {
+  territories: Territory[];
+  issues: Issue[];
+  prs: CivicPR[];
   onSelectIssue: (id: string) => void;
   onSelectPR: (id: string) => void;
 }
 
-export default function MeuTerritorioView({ onSelectIssue, onSelectPR }: MeuTerritorioViewProps) {
+export default function MeuTerritorioView({ territories, issues, prs, onSelectIssue, onSelectPR }: MeuTerritorioViewProps) {
   const [selectedTerritoryId, setSelectedTerritoryId] = useState<string>('campo-grande');
 
-  const selectedTerritory = MOCK_TERRITORIOS.find(t => t.id === selectedTerritoryId) || MOCK_TERRITORIOS[0];
+  const selectedTerritory = territories.find(t => t.id === selectedTerritoryId) || territories[0];
 
   // Filters issues and PRs based on the selected territory
-  const localIssues = MOCK_ISSUES.filter(issue => issue.territory === selectedTerritory.name);
-  const localPRs = MOCK_PRS.filter(pr => pr.affectedArticles.includes(selectedTerritory.name) || pr.citizenSummary.includes(selectedTerritory.name));
+  const localIssues = selectedTerritory ? issues.filter(issue => issue.territory === selectedTerritory.name) : [];
+  const localPRs = selectedTerritory
+    ? prs.filter(pr => pr.affectedArticles.includes(selectedTerritory.name) || pr.citizenSummary.includes(selectedTerritory.name))
+    : [];
 
   return (
     <div className="space-y-8 fade-in" id="territory-dashboard">
@@ -38,7 +43,7 @@ export default function MeuTerritorioView({ onSelectIssue, onSelectPR }: MeuTerr
 
       {/* Territory selector pills */}
       <div className="flex items-center space-x-2 overflow-x-auto pb-1.5 scrollbar-thin">
-        {MOCK_TERRITORIOS.map((t) => (
+        {territories.map((t) => (
           <button
             key={t.id}
             onClick={() => setSelectedTerritoryId(t.id)}
@@ -56,11 +61,11 @@ export default function MeuTerritorioView({ onSelectIssue, onSelectPR }: MeuTerr
       {/* Main stats indicators of territory */}
       <section className="grid grid-cols-2 md:grid-cols-5 gap-4">
         {[
-          { label: 'Issues do Bairro', value: selectedTerritory.activeIssuesCount, icon: AlertCircle, color: 'text-amber-600 bg-amber-50' },
-          { label: 'PRs com Impacto Regional', value: selectedTerritory.linkedPRsCount, icon: GitPullRequest, color: 'text-indigo-600 bg-indigo-50' },
-          { label: 'Votações Locais Ativas', value: selectedTerritory.activeVotingsCount, icon: Vote, color: 'text-purple-600 bg-purple-50' },
-          { label: 'Projetos em Execução', value: selectedTerritory.executionProjectsCount, icon: Activity, color: 'text-emerald-300 bg-emerald-50/50' },
-          { label: 'Cidadãos Residentes Ativos', value: selectedTerritory.activeCitizensCount, icon: Users, color: 'text-slate-600 bg-slate-50' },
+          { label: 'Issues do Bairro', value: selectedTerritory?.activeIssuesCount ?? 0, icon: AlertCircle, color: 'text-amber-600 bg-amber-50' },
+          { label: 'PRs com Impacto Regional', value: selectedTerritory?.linkedPRsCount ?? 0, icon: GitPullRequest, color: 'text-indigo-600 bg-indigo-50' },
+          { label: 'Votações Locais Ativas', value: selectedTerritory?.activeVotingsCount ?? 0, icon: Vote, color: 'text-purple-600 bg-purple-50' },
+          { label: 'Projetos em Execução', value: selectedTerritory?.executionProjectsCount ?? 0, icon: Activity, color: 'text-emerald-300 bg-emerald-50/50' },
+          { label: 'Cidadãos Residentes Ativos', value: selectedTerritory?.activeCitizensCount ?? 0, icon: Users, color: 'text-slate-600 bg-slate-50' },
         ].map((stat, idx) => {
           const Icon = stat.icon;
           return (

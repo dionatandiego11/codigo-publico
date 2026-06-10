@@ -5,7 +5,7 @@
 
 import React, { useState } from 'react';
 import { Activity, Paperclip, Clock, Calendar, CheckSquare, Sparkles, TrendingUp, AlertTriangle, ExternalLink, MessageSquare, ChevronRight } from 'lucide-react';
-import { ExecutionTracker, ExecutionStatus } from '../types';
+import { ExecutionTracker, ExecutionStatus } from '@/src/types';
 
 interface FiscalizacaoViewProps {
   trackers: ExecutionTracker[];

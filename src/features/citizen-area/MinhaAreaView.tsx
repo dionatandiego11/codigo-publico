@@ -5,16 +5,45 @@
 
 import React from 'react';
 import { User, AlertCircle, GitPullRequest, Vote, Key, Eye, HelpCircle, ShieldAlert, CheckCircle, Clock } from 'lucide-react';
-import { MOCK_MEB, MOCK_TERRITORIOS } from '../lib/mock-data';
+import { Territory } from '@/src/types';
+
+interface CitizenDashboard {
+  name: string;
+  email: string;
+  territoryId: string;
+  registeredAt: string;
+  citizenId: string;
+  createdIssues: {
+    id: string;
+    title: string;
+    status: string;
+  }[];
+  votedList: {
+    id: string;
+    selection: string;
+    receipt: string;
+    txHash: string;
+  }[];
+  supportedPRs: string[];
+}
 
 interface MinhaAreaViewProps {
+  userProfile: CitizenDashboard;
+  territories: Territory[];
   onSelectIssue: (id: string) => void;
   onSelectPR: (id: string) => void;
   votacoes: { id: string; title: string }[];
 }
 
-export default function MinhaAreaView({ onSelectIssue, onSelectPR, votacoes }: MinhaAreaViewProps) {
-  const userTerritory = MOCK_TERRITORIOS.find(t => t.id === MOCK_MEB.territoryId)?.name || 'Campo Grande';
+export default function MinhaAreaView({ userProfile, territories, onSelectIssue, onSelectPR, votacoes }: MinhaAreaViewProps) {
+  const userTerritory = territories.find(t => t.id === userProfile.territoryId)?.name || 'Campo Grande';
+  const initials = userProfile.name
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(part => part[0])
+    .join('')
+    .toUpperCase();
 
   return (
     <div className="space-y-8 fade-in" id="personal-dashboard">
@@ -35,17 +64,17 @@ export default function MinhaAreaView({ onSelectIssue, onSelectPR, votacoes }: M
       <div className="rounded-2xl border border-slate-200 bg-white p-6 md:p-8 shadow-xs grid md:grid-cols-3 gap-6 items-center">
         <div className="md:col-span-2 flex items-center space-x-5">
           <div className="flex h-16 w-16 items-center justify-center rounded-full bg-slate-900 text-white font-bold text-xl uppercase shadow-sm shrink-0">
-            DS
+            {initials || 'CP'}
           </div>
           <div className="space-y-1">
             <h3 className="font-display font-extrabold text-base md:text-lg text-slate-900 leading-none">
-              {MOCK_MEB.name}
+              {userProfile.name}
             </h3>
-            <p className="font-mono text-xs text-indigo-600 font-bold">{MOCK_MEB.citizenId}</p>
+            <p className="font-mono text-xs text-indigo-600 font-bold">{userProfile.citizenId}</p>
             <div className="flex items-center space-x-3 text-xs text-slate-500 pt-0.5">
               <span><b>Território:</b> {userTerritory}</span>
               <span>•</span>
-              <span><b>Registrado em:</b> {MOCK_MEB.registeredAt}</span>
+              <span><b>Registrado em:</b> {userProfile.registeredAt}</span>
             </div>
           </div>
         </div>
@@ -68,12 +97,12 @@ export default function MinhaAreaView({ onSelectIssue, onSelectPR, votacoes }: M
           <div className="flex items-center justify-between border-b border-slate-100 pb-2">
             <h3 className="font-display font-bold text-slate-900 text-sm flex items-center space-x-1.5">
               <AlertCircle className="h-4.5 w-4.5 text-amber-500" />
-              <span>Minhas Issues Abertas ({MOCK_MEB.createdIssues.length})</span>
+              <span>Minhas Issues Abertas ({userProfile.createdIssues.length})</span>
             </h3>
           </div>
 
           <div className="space-y-3">
-            {MOCK_MEB.createdIssues.map((issue) => (
+            {userProfile.createdIssues.map((issue) => (
               <div
                 key={issue.id}
                 onClick={() => onSelectIssue(issue.id)}
@@ -96,13 +125,13 @@ export default function MinhaAreaView({ onSelectIssue, onSelectPR, votacoes }: M
           <div className="flex items-center justify-between border-b border-slate-100 pb-2">
             <h3 className="font-display font-bold text-slate-900 text-sm flex items-center space-x-1.5">
               <Vote className="h-4.5 w-4.5 text-indigo-500" />
-              <span>Comprovantes de Votação ({MOCK_MEB.votedList.length})</span>
+              <span>Comprovantes de Votação ({userProfile.votedList.length})</span>
             </h3>
           </div>
 
           <div className="space-y-3">
-            {MOCK_MEB.votedList.length > 0 ? (
-              MOCK_MEB.votedList.map((voteReceipt) => {
+            {userProfile.votedList.length > 0 ? (
+              userProfile.votedList.map((voteReceipt) => {
                 const votingObj = votacoes.find(v => v.id === voteReceipt.id);
                 return (
                   <div key={voteReceipt.id} className="rounded-xl border border-slate-205 bg-white p-4 space-y-3.5 shadow-xs font-mono text-[11px] leading-relaxed relative">

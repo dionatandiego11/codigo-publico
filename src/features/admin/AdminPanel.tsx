@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { Shield, CheckSquare, RefreshCw, AlertTriangle, GitMerge, FileText, Sparkles, Trash2, ArrowUpRight } from 'lucide-react';
-import { Issue, CivicPR } from '../types';
+import { Issue, CivicPR } from '@/src/types';
 
 interface AdminPanelProps {
   issues: Issue[];

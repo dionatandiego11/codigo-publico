@@ -24,17 +24,25 @@ import {
   Copy,
   Check
 } from 'lucide-react';
-import { MOCK_NOTIFICACOES } from '../lib/mock-data';
+
+interface NotificationItem {
+  id: string;
+  prId: string;
+  title: string;
+  date: string;
+  unread: boolean;
+}
 
 interface NavbarProps {
   currentPath: string;
+  initialNotifications: NotificationItem[];
   setPath: (path: string) => void;
   onRequestOpenNotification: (prId: string) => void;
 }
 
-export default function Navbar({ currentPath, setPath, onRequestOpenNotification }: NavbarProps) {
+export default function Navbar({ currentPath, initialNotifications, setPath, onRequestOpenNotification }: NavbarProps) {
   const [showNotifications, setShowNotifications] = useState(false);
-  const [notifications, setNotifications] = useState(MOCK_NOTIFICACOES);
+  const [notifications, setNotifications] = useState(initialNotifications);
   const [copied, setCopied] = useState(false);
 
   // Mark notification read

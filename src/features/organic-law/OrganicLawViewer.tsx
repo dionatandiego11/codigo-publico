@@ -18,7 +18,7 @@ import {
   Sparkles,
   ExternalLink
 } from 'lucide-react';
-import { LawArticle } from '../types';
+import { LawArticle } from '@/src/types';
 
 interface OrganicLawViewerProps {
   artigos: LawArticle[];

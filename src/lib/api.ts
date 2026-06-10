@@ -1,5 +1,3 @@
-/// <reference types="vite/client" />
-
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -23,8 +21,7 @@ import {
   Territory,
   Voting
 } from '../types';
-
-const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8080/api/v1';
+import { requestJSON, requestOptionalJSON, routeId } from '../api/client';
 
 export interface PublicStats {
   totalCitizens: number;
@@ -34,42 +31,6 @@ export interface PublicStats {
   activeVotingsCount: number;
   releasesCount: number;
   civicParticipationRate: string;
-}
-
-async function requestJSON<T>(path: string): Promise<T> {
-  const response = await fetch(`${API_URL}${path}`, {
-    headers: {
-      Accept: 'application/json'
-    }
-  });
-
-  if (!response.ok) {
-    throw new Error(`API request failed: ${response.status} ${response.statusText}`);
-  }
-
-  return response.json() as Promise<T>;
-}
-
-async function requestOptionalJSON<T>(path: string): Promise<T | undefined> {
-  const response = await fetch(`${API_URL}${path}`, {
-    headers: {
-      Accept: 'application/json'
-    }
-  });
-
-  if (response.status === 404) {
-    return undefined;
-  }
-
-  if (!response.ok) {
-    throw new Error(`API request failed: ${response.status} ${response.statusText}`);
-  }
-
-  return response.json() as Promise<T>;
-}
-
-function routeId(id: string) {
-  return encodeURIComponent(id);
 }
 
 // Public read endpoints backed by PostgreSQL.
@@ -117,12 +78,24 @@ export async function getReleases(): Promise<Release[]> {
   return requestJSON<Release[]>('/releases');
 }
 
+export async function getRelease(id: string): Promise<Release | undefined> {
+  return requestOptionalJSON<Release>(`/releases/${routeId(id)}`);
+}
+
 export async function getExecutions(): Promise<ExecutionTracker[]> {
   return requestJSON<ExecutionTracker[]>('/executions');
 }
 
 export async function getPublicStats(): Promise<PublicStats> {
   return requestJSON<PublicStats>('/public-stats');
+}
+
+export async function getVotings(): Promise<Voting[]> {
+  return requestJSON<Voting[]>('/votings');
+}
+
+export async function getVotingById(id: string): Promise<Voting | undefined> {
+  return requestOptionalJSON<Voting>(`/votings/${routeId(id)}`);
 }
 
 // Compatibility aliases for existing front-end code and gradual migration.
@@ -141,8 +114,7 @@ export async function getOrganicLawVersions(): Promise<{ version: string; date: 
 }
 
 export async function getReleaseById(id: string): Promise<Release | undefined> {
-  const releases = await getReleases();
-  return releases.find(release => release.id === id);
+  return getRelease(id);
 }
 
 export async function getFiscalizacaoById(id: string): Promise<ExecutionTracker | undefined> {

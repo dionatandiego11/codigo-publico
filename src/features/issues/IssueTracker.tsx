@@ -23,13 +23,13 @@ import {
   Send,
   HelpCircle
 } from 'lucide-react';
-import { Issue, IssueType, IssueStatus, LawArticle } from '../types';
-import { MOCK_TERRITORIOS } from '../lib/mock-data';
+import { Issue, IssueType, IssueStatus, LawArticle, Territory } from '@/src/types';
 
 interface IssueTrackerProps {
   issues: Issue[];
   artigos: LawArticle[];
   repos: { slug: string; name: string }[];
+  territories: Territory[];
   onBackToHome: () => void;
   onSubmitNewIssue: (data: any) => void;
   onNavigateToPR: (prId: string) => void;
@@ -39,6 +39,7 @@ export default function IssueTracker({
   issues,
   artigos,
   repos,
+  territories,
   onBackToHome,
   onSubmitNewIssue,
   onNavigateToPR
@@ -212,7 +213,7 @@ export default function IssueTracker({
                 >
                   <option value="all">Todos os Territórios</option>
                   <option value="Todo o Município">Todo o Município (Geral)</option>
-                  {MOCK_TERRITORIOS.map(t => (
+                  {territories.map(t => (
                     <option key={t.id} value={t.name}>{t.name}</option>
                   ))}
                 </select>
@@ -502,7 +503,7 @@ export default function IssueTracker({
                   className="w-full rounded-lg border border-slate-200 bg-white p-2.5 text-xs text-slate-705 outline-none focus:border-indigo-500"
                 >
                   <option value="Todo o Município">Todo o Município (Geral)</option>
-                  {MOCK_TERRITORIOS.map(t => (
+                  {territories.map(t => (
                     <option key={t.id} value={t.name}>{t.name}</option>
                   ))}
                 </select>

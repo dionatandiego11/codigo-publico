@@ -21,7 +21,7 @@ import {
   Send,
   ThumbsUp
 } from 'lucide-react';
-import { LawArticle, Issue, CivicPR, ArticleComment } from '../types';
+import { LawArticle, Issue, CivicPR, ArticleComment } from '@/src/types';
 
 interface ArticleDetailViewProps {
   article: LawArticle;

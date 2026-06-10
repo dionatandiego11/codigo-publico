@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { History, FileText, Calendar, Building2, CheckCircle2, ChevronRight, ArrowUpRight, HelpCircle } from 'lucide-react';
-import { Release } from '../types';
+import { Release } from '@/src/types';
 
 interface ReleasesViewProps {
   releases: Release[];

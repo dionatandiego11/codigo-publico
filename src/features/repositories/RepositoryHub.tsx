@@ -21,21 +21,34 @@ import {
   ExternalLink,
   ChevronRight
 } from 'lucide-react';
-import { MOCK_REPOSITORIOS } from '../lib/mock-data';
+
+interface RepositorySummary {
+  slug: string;
+  name: string;
+  description: string;
+  version: string;
+  docsCount: number;
+  activeIssues: number;
+  activePRs: number;
+  releasesCount: number;
+  status: string;
+  category: string;
+}
 
 interface RepositoryHubProps {
+  repositories: RepositorySummary[];
   setPath: (path: string) => void;
   onSelectRep: (slug: string) => void;
 }
 
-export default function RepositoryHub({ setPath, onSelectRep }: RepositoryHubProps) {
+export default function RepositoryHub({ repositories, setPath, onSelectRep }: RepositoryHubProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [selectedRepoSlug, setSelectedRepoSlug] = useState<string | null>(null);
 
   const categories = ['all', 'Kernel', 'Desenvolvimento', 'Cotidiano', 'Orçamento', 'Tributos'];
 
-  const filteredRepos = MOCK_REPOSITORIOS.filter(repo => {
+  const filteredRepos = repositories.filter(repo => {
     const matchesSearch =
       repo.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       repo.description.toLowerCase().includes(searchTerm.toLowerCase());
@@ -45,7 +58,7 @@ export default function RepositoryHub({ setPath, onSelectRep }: RepositoryHubPro
     return matchesSearch && matchesCategory;
   });
 
-  const selectedRepo = MOCK_REPOSITORIOS.find(r => r.slug === selectedRepoSlug);
+  const selectedRepo = repositories.find(r => r.slug === selectedRepoSlug);
 
   return (
     <div className="space-y-8 fade-in" id="repos-manager">
