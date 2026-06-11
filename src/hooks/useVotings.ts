@@ -5,8 +5,9 @@
 
 import { useEffect, useState } from 'react';
 import { fallbackVotings } from '../app/fallback-data';
-import { getVotings } from '../lib/api';
+import { castVote as apiCastVote, getVotings } from '../lib/api';
 import { Voting } from '../types';
+import type { WriteSource } from './useIssues';
 
 export type VoteSelection = NonNullable<Voting['userVoteSelection']>;
 
@@ -15,7 +16,11 @@ export interface LocalVoteReceipt {
   selection: VoteSelection;
   receipt: string;
   txHash: string;
+  source: WriteSource;
 }
+
+const buildTxHash = () =>
+  '0x' + Array.from({ length: 16 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
 
 export function useVotings() {
   const [votacoes, setVotacoes] = useState<Voting[]>(fallbackVotings);
@@ -39,33 +44,61 @@ export function useVotings() {
     };
   }, []);
 
-  const castVote = (votingId: string, selection: VoteSelection): LocalVoteReceipt => {
-    const receipt = `CP-2026-${Math.random().toString(36).substring(3, 7).toUpperCase()}-${Math.random().toString(36).substring(3, 7).toUpperCase()}`;
-    const txHash = '0x' + Array.from({ length: 16 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+  const castVote = async (votingId: string, selection: VoteSelection): Promise<LocalVoteReceipt> => {
+    try {
+      const response = await apiCastVote(votingId, selection);
 
-    setVotacoes(prev =>
-      prev.map(voting => {
-        if (voting.id !== votingId) return voting;
+      setVotacoes(prev =>
+        prev.map(voting =>
+          voting.id === votingId
+            ? {
+                ...voting,
+                ...response.voting,
+                hasVoted: true,
+                userVoteSelection: selection,
+                voteReceipt: response.receiptCode
+              }
+            : voting
+        )
+      );
 
-        return {
-          ...voting,
-          hasVoted: true,
-          userVoteSelection: selection,
-          voteReceipt: receipt,
-          votesYes: selection === 'Aprovo' ? voting.votesYes + 1 : voting.votesYes,
-          votesNo: selection === 'Rejeito' ? voting.votesNo + 1 : voting.votesNo,
-          votesAbstain: selection === 'Abstenção' ? voting.votesAbstain + 1 : voting.votesAbstain,
-          quorumReached: voting.quorumReached + 1
-        };
-      })
-    );
+      return {
+        id: votingId,
+        selection,
+        receipt: response.receiptCode,
+        txHash: buildTxHash(),
+        source: 'api'
+      };
+    } catch (error) {
+      console.warn('Falha ao registrar voto na API; aplicando voto local.', error);
 
-    return {
-      id: votingId,
-      selection,
-      receipt,
-      txHash
-    };
+      const receipt = `CP-2026-${Math.random().toString(36).substring(3, 7).toUpperCase()}-${Math.random().toString(36).substring(3, 7).toUpperCase()}`;
+
+      setVotacoes(prev =>
+        prev.map(voting => {
+          if (voting.id !== votingId) return voting;
+
+          return {
+            ...voting,
+            hasVoted: true,
+            userVoteSelection: selection,
+            voteReceipt: receipt,
+            votesYes: selection === 'Aprovo' ? voting.votesYes + 1 : voting.votesYes,
+            votesNo: selection === 'Rejeito' ? voting.votesNo + 1 : voting.votesNo,
+            votesAbstain: selection === 'Abstenção' ? voting.votesAbstain + 1 : voting.votesAbstain,
+            quorumReached: voting.quorumReached + 1
+          };
+        })
+      );
+
+      return {
+        id: votingId,
+        selection,
+        receipt,
+        txHash: buildTxHash(),
+        source: 'local'
+      };
+    }
   };
 
   return {

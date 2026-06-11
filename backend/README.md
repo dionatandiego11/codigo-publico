@@ -137,6 +137,7 @@ Endpoints disponíveis:
 POST /api/v1/citizens/register
 POST /api/v1/auth/login
 GET /api/v1/me
+GET /api/v1/me/dashboard
 ```
 
 Cadastro:
@@ -340,6 +341,37 @@ Regras implementadas:
 - Uma release legislativa é criada automaticamente, com versão gerada como `vANO.N` se `version` não for enviada.
 - São registrados `audit_event` com ações `pr_merged` e `release_created`.
 - O merge representa o cumprimento do rito formal; votos e apoios populares não executam incorporação por si só.
+
+## Painel do Cidadão
+
+Endpoint autenticado:
+
+```text
+GET /api/v1/me/dashboard
+```
+
+Retorna o painel pessoal do cidadão logado: issues e PRs criados, recibos de votação (com a seleção do próprio cidadão), PRs apoiados, território e data de registro. O CPF nunca aparece na resposta.
+
+## Triagem Institucional
+
+Endpoints autenticados que exigem papel institucional (`admin`, `institutional_admin`, `legislative_admin`, `procurador`, `secretario`, `vereador`, `mesa_diretora`):
+
+```text
+POST /api/v1/issues/{id}/status
+POST /api/v1/prs/{id}/status
+```
+
+Corpo:
+
+```json
+{ "status": "Em triagem" }
+```
+
+Regras implementadas:
+
+- O status é validado contra a lista oficial de status de issues e PRs.
+- `Incorporado ao texto oficial` não é aceito pela triagem; a incorporação exige o endpoint de merge institucional.
+- Cada mudança registra `audit_event` com `fromStatus` e `toStatus`.
 
 ## Escopo Desta Etapa
 

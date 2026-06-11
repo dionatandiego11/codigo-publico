@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   GitPullRequest,
   Search,
@@ -36,9 +36,14 @@ interface CivicPRHubProps {
   artigos: LawArticle[];
   votacoes: Voting[];
   allIssues: Issue[];
+  initialSelectedId?: string | null;
+  onSelectedChange?: (prId: string | null) => void;
   onBackToHome: () => void;
   onSubmitNewPR: (data: any) => void;
   onCastVote: (votingId: string, selection: 'Aprovo' | 'Rejeito' | 'Abstenção') => void;
+  onUpvotePR: (prId: string) => void;
+  onCommentPR: (prId: string, content: string) => void;
+  currentUserName?: string;
 }
 
 export default function CivicPRHub({
@@ -46,11 +51,26 @@ export default function CivicPRHub({
   artigos,
   votacoes,
   allIssues,
+  initialSelectedId = null,
+  onSelectedChange,
   onBackToHome,
   onSubmitNewPR,
-  onCastVote
+  onCastVote,
+  onUpvotePR,
+  onCommentPR,
+  currentUserName
 }: CivicPRHubProps) {
-  const [selectedPRId, setSelectedPRId] = useState<string | null>(null);
+  const [selectedPRId, setSelectedPRIdState] = useState<string | null>(initialSelectedId);
+
+  // Sincroniza a seleção com a rota (/prs/:id) e propaga mudanças à URL.
+  useEffect(() => {
+    setSelectedPRIdState(initialSelectedId);
+  }, [initialSelectedId]);
+
+  const setSelectedPRId = (prId: string | null) => {
+    setSelectedPRIdState(prId);
+    onSelectedChange?.(prId);
+  };
   const [showNewForm, setShowNewForm] = useState(false);
   const [activeTab, setActiveTab] = useState<'resumo' | 'diff' | 'debate' | 'reviews' | 'issues' | 'historico' | 'votacao' | 'tramitacao'>('resumo');
 
@@ -119,7 +139,7 @@ export default function CivicPRHub({
       repository: formRepo,
       targetTitle: formTargetTitle || 'Geral',
       affectedArticles: formAffectedArticles || 'Artigos Diversos',
-      authorName: 'Dionatan Santos',
+      authorName: currentUserName ?? 'Cidadão de Novo Horizonte',
       authorType: 'Iniciativa Popular' as any,
       citizenSummary: formCitizenSummary,
       justification: formJustification,
@@ -460,10 +480,7 @@ export default function CivicPRHub({
                       </div>
 
                       <button
-                        onClick={() => {
-                          selectedPR.upvotes += 1;
-                          setSelectedPRId(selectedPR.id); // Trigger state update
-                        }}
+                        onClick={() => onUpvotePR(selectedPR.id)}
                         className="w-full inline-flex items-center justify-center space-x-1.5 rounded-xl bg-slate-900 px-4 py-2.5 text-xs font-semibold text-white hover:bg-slate-800 transition-colors"
                         id="pr-upvote-action"
                       >
@@ -555,14 +572,8 @@ export default function CivicPRHub({
                       <button
                         onClick={() => {
                           if (!newComment.trim()) return;
-                          selectedPR.comments.push({
-                            id: `local-pr-c-${Date.now()}`,
-                            authorName: 'Dionatan Santos',
-                            content: newComment,
-                            createdAt: new Date().toISOString()
-                          });
+                          onCommentPR(selectedPR.id, newComment);
                           setNewComment('');
-                          setSelectedPRId(selectedPR.id); // update view
                         }}
                         className="rounded-lg bg-slate-900 text-white font-semibold text-xs px-4 py-2 hover:bg-slate-800 transition-colors"
                       >
@@ -745,7 +756,7 @@ export default function CivicPRHub({
 
                         <div className="space-y-2 text-[11px]">
                           <p><b>Objeto:</b> {relatedVoting.title}</p>
-                          <p><b>Eleitor:</b> Dionatan Santos (CP-CITIZEN-938217)</p>
+                          <p><b>Eleitor:</b> {currentUserName ?? 'Cidadão autenticado'}</p>
                           <p><b>Data:</b> {currentLocalTime} (UTC)</p>
                           <p><b>Hash de Transação Cívica:</b> <span className="text-emerald-600 font-bold">{relatedVoting.voteReceipt || 'CP-2026-8K29-ZP41'}</span></p>
                           <p className="text-slate-400 text-[10px] break-all"><b>Cifragem de Segurança:</b> 0x8a92fb10d3da9f1a2083cb0a8da928120b3cd981d392019abfe02f</p>

@@ -5,8 +5,17 @@
 
 import { useEffect, useState } from 'react';
 import { fallbackPRs } from '../app/fallback-data';
-import { getCivicPRs } from '../lib/api';
+import {
+  createCivicPR as apiCreateCivicPR,
+  createPRComment as apiCreatePRComment,
+  getCivicPRs,
+  mergePR as apiMergePR,
+  MergePRResponse,
+  updatePRStatus as apiUpdatePRStatus,
+  upvotePR as apiUpvotePR
+} from '../lib/api';
 import { CivicPR, PRStatus } from '../types';
+import type { WriteSource } from './useIssues';
 
 export type NewCivicPRData = Omit<
   CivicPR,
@@ -16,7 +25,10 @@ export type NewCivicPRData = Omit<
 };
 
 interface UsePRsOptions {
+  /** Merge simulado localmente (API indisponível ou sem permissão). */
   onPRMerged?: (pr: CivicPR) => void;
+  /** Merge institucional efetivado pelo backend. */
+  onPRMergedRemotely?: (response: MergePRResponse) => void;
 }
 
 export function usePRs(options: UsePRsOptions = {}) {
@@ -41,11 +53,11 @@ export function usePRs(options: UsePRsOptions = {}) {
     };
   }, []);
 
-  const addPR = (formData: NewCivicPRData) => {
+  const buildLocalPR = (formData: NewCivicPRData): CivicPR => {
     const nextPRNum = prs.length + 50;
     const newPrId = `#${nextPRNum}`;
 
-    const newPR: CivicPR = {
+    return {
       id: newPrId,
       title: formData.title,
       repository: formData.repository,
@@ -112,12 +124,71 @@ export function usePRs(options: UsePRsOptions = {}) {
         }
       ]
     };
-
-    setPrs(prev => [newPR, ...prev]);
-    return newPR;
   };
 
-  const triagePR = (prId: string, newStatus: PRStatus) => {
+  const addPR = async (formData: NewCivicPRData): Promise<{ pr: CivicPR; source: WriteSource }> => {
+    try {
+      const created = await apiCreateCivicPR({
+        title: formData.title,
+        repository: formData.repository,
+        targetTitle: formData.targetTitle,
+        affectedArticles: formData.affectedArticles,
+        authorType: formData.authorType,
+        citizenSummary: formData.citizenSummary,
+        justification: formData.justification,
+        diffs: formData.diffs,
+        linkedIssueIds: formData.linkedIssueIds || []
+      });
+
+      setPrs(prev => [created, ...prev]);
+      return { pr: created, source: 'api' };
+    } catch (error) {
+      console.warn('Falha ao registrar PR cívico na API; aplicando registro local.', error);
+      const localPR = buildLocalPR(formData);
+      setPrs(prev => [localPR, ...prev]);
+      return { pr: localPR, source: 'local' };
+    }
+  };
+
+  const commentOnPR = async (prId: string, content: string, authorName: string): Promise<WriteSource> => {
+    let comment: CivicPR['comments'][number];
+    let source: WriteSource = 'api';
+
+    try {
+      comment = await apiCreatePRComment(prId, content);
+    } catch (error) {
+      console.warn('Falha ao registrar comentário na API; aplicando comentário local.', error);
+      source = 'local';
+      comment = {
+        id: `local-pr-c-${Date.now()}`,
+        authorName,
+        content,
+        createdAt: new Date().toISOString()
+      };
+    }
+
+    setPrs(prev =>
+      prev.map(pr => (pr.id === prId ? { ...pr, comments: [...pr.comments, comment] } : pr))
+    );
+
+    return source;
+  };
+
+  const upvotePR = async (prId: string): Promise<WriteSource> => {
+    try {
+      const updated = await apiUpvotePR(prId);
+      setPrs(prev => prev.map(pr => (pr.id === updated.id ? updated : pr)));
+      return 'api';
+    } catch (error) {
+      console.warn('Falha ao registrar apoio na API; aplicando apoio local.', error);
+      setPrs(prev =>
+        prev.map(pr => (pr.id === prId ? { ...pr, upvotes: pr.upvotes + 1 } : pr))
+      );
+      return 'local';
+    }
+  };
+
+  const applyLocalTriage = (prId: string, newStatus: PRStatus) => {
     const targetPR = prs.find(pr => pr.id === prId);
 
     setPrs(prev =>
@@ -149,9 +220,42 @@ export function usePRs(options: UsePRsOptions = {}) {
     }
   };
 
+  const triagePR = async (prId: string, newStatus: PRStatus): Promise<WriteSource> => {
+    // Incorporação ao texto oficial segue o rito formal: endpoint de merge
+    // institucional, que aplica os diffs e gera a release legislativa.
+    if (newStatus === 'Incorporado ao texto oficial') {
+      try {
+        const response = await apiMergePR(prId, {
+          promulgatedBy: 'Console Administrativo — Código Público',
+          formalApprovalReference: `Triagem administrativa de ${new Date().toLocaleDateString('pt-BR')}`
+        });
+
+        setPrs(prev => prev.map(pr => (pr.id === response.pr.id ? response.pr : pr)));
+        options.onPRMergedRemotely?.(response);
+        return 'api';
+      } catch (error) {
+        console.warn('Falha no merge institucional via API; aplicando merge local.', error);
+        applyLocalTriage(prId, newStatus);
+        return 'local';
+      }
+    }
+
+    try {
+      const updated = await apiUpdatePRStatus(prId, newStatus);
+      setPrs(prev => prev.map(pr => (pr.id === updated.id ? updated : pr)));
+      return 'api';
+    } catch (error) {
+      console.warn('Falha ao triar PR na API; aplicando triagem local.', error);
+      applyLocalTriage(prId, newStatus);
+      return 'local';
+    }
+  };
+
   return {
     prs,
     addPR,
+    commentOnPR,
+    upvotePR,
     triagePR
   };
 }

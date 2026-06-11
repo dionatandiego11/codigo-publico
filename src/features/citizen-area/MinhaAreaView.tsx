@@ -4,39 +4,32 @@
  */
 
 import React from 'react';
-import { User, AlertCircle, GitPullRequest, Vote, Key, Eye, HelpCircle, ShieldAlert, CheckCircle, Clock } from 'lucide-react';
-import { Territory } from '@/src/types';
-
-interface CitizenDashboard {
-  name: string;
-  email: string;
-  territoryId: string;
-  registeredAt: string;
-  citizenId: string;
-  createdIssues: {
-    id: string;
-    title: string;
-    status: string;
-  }[];
-  votedList: {
-    id: string;
-    selection: string;
-    receipt: string;
-    txHash: string;
-  }[];
-  supportedPRs: string[];
-}
+import { User, AlertCircle, GitPullRequest, Vote, Key, Eye, HelpCircle, ShieldAlert, CheckCircle, Clock, LogIn } from 'lucide-react';
+import { CitizenDashboardData, Territory } from '@/src/types';
 
 interface MinhaAreaViewProps {
-  userProfile: CitizenDashboard;
+  userProfile: CitizenDashboardData;
   territories: Territory[];
+  isAuthenticated?: boolean;
+  onRequestLogin?: () => void;
   onSelectIssue: (id: string) => void;
   onSelectPR: (id: string) => void;
   votacoes: { id: string; title: string }[];
 }
 
-export default function MinhaAreaView({ userProfile, territories, onSelectIssue, onSelectPR, votacoes }: MinhaAreaViewProps) {
-  const userTerritory = territories.find(t => t.id === userProfile.territoryId)?.name || 'Campo Grande';
+export default function MinhaAreaView({
+  userProfile,
+  territories,
+  isAuthenticated = true,
+  onRequestLogin,
+  onSelectIssue,
+  onSelectPR,
+  votacoes
+}: MinhaAreaViewProps) {
+  const userTerritory =
+    territories.find(t => t.id === userProfile.territoryId)?.name ||
+    userProfile.territoryName ||
+    'Não informado';
   const initials = userProfile.name
     .split(' ')
     .filter(Boolean)
@@ -59,6 +52,30 @@ export default function MinhaAreaView({ userProfile, territories, onSelectIssue,
           Revise suas participações, acompanhe suas demandas abertas e consulte seus comprovantes criptográficos de voto.
         </p>
       </div>
+
+      {/* Demo-mode banner when there is no authenticated session */}
+      {!isAuthenticated && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex items-start space-x-3">
+            <ShieldAlert className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-display font-bold text-amber-900 text-sm">Você está vendo dados de demonstração</p>
+              <p className="text-amber-800 text-xs mt-0.5">
+                Entre com seu CPF para carregar suas issues, apoios e comprovantes de votação reais.
+              </p>
+            </div>
+          </div>
+          {onRequestLogin && (
+            <button
+              onClick={onRequestLogin}
+              className="shrink-0 inline-flex items-center space-x-1.5 rounded-xl bg-amber-600 px-4 py-2 text-xs font-bold text-white hover:bg-amber-700 transition-colors"
+            >
+              <LogIn className="h-3.5 w-3.5" />
+              <span>Entrar na plataforma</span>
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Profile summary card */}
       <div className="rounded-2xl border border-slate-200 bg-white p-6 md:p-8 shadow-xs grid md:grid-cols-3 gap-6 items-center">

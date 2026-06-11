@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   fallbackArticles,
   fallbackCitizenDashboard,
@@ -19,17 +19,29 @@ import {
   getExecutions,
   getOrganicLawArticles,
   getPublicStats,
-  getRepositories,
   getReleases,
+  getRepositories,
   getTerritories,
   PublicStats
 } from '../lib/api';
-import { CivicPR, ExecutionTracker, LawArticle, Release, Territory } from '../types';
+import {
+  CitizenDashboardData,
+  CivicPR,
+  ExecutionTracker,
+  LawArticle,
+  Release,
+  Territory
+} from '../types';
 
-type CitizenDashboard = typeof fallbackCitizenDashboard;
-export type CitizenVoteReceipt = CitizenDashboard['votedList'][number];
+export type CitizenVoteReceipt = CitizenDashboardData['votedList'][number];
 
-export function usePublicData() {
+interface UsePublicDataOptions {
+  isAuthenticated?: boolean;
+}
+
+export function usePublicData(options: UsePublicDataOptions = {}) {
+  const { isAuthenticated = false } = options;
+
   const [artigos, setArtigos] = useState<LawArticle[]>(fallbackArticles);
   const [releases, setReleases] = useState<Release[]>(fallbackReleases);
   const [trackers, setTrackers] = useState<ExecutionTracker[]>(fallbackExecutions);
@@ -37,7 +49,7 @@ export function usePublicData() {
   const [repositories, setRepositories] = useState(fallbackRepositories);
   const [stats, setStats] = useState<PublicStats>(fallbackStats);
   const [notifications] = useState(fallbackNotifications);
-  const [userProfile, setUserProfile] = useState(fallbackCitizenDashboard);
+  const [userProfile, setUserProfile] = useState<CitizenDashboardData>(fallbackCitizenDashboard);
 
   useEffect(() => {
     let isMounted = true;
@@ -50,16 +62,14 @@ export function usePublicData() {
           apiTrackers,
           apiStats,
           apiTerritories,
-          apiRepositories,
-          apiCitizenDashboard
+          apiRepositories
         ] = await Promise.all([
           getOrganicLawArticles(),
           getReleases(),
           getExecutions(),
           getPublicStats(),
           getTerritories(),
-          getRepositories(),
-          getCitizenDashboard()
+          getRepositories()
         ]);
 
         if (!isMounted) return;
@@ -70,7 +80,6 @@ export function usePublicData() {
         setStats(apiStats);
         setTerritories(apiTerritories);
         setRepositories(apiRepositories);
-        setUserProfile(apiCitizenDashboard);
       } catch (error) {
         console.warn('Não foi possível carregar dados públicos da API; mantendo fallback local.', error);
       }
@@ -83,12 +92,50 @@ export function usePublicData() {
     };
   }, []);
 
+  // Painel pessoal: carregado da API apenas com sessão ativa.
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setUserProfile(fallbackCitizenDashboard);
+      return;
+    }
+
+    let isMounted = true;
+
+    getCitizenDashboard()
+      .then(dashboard => {
+        if (isMounted) setUserProfile(dashboard);
+      })
+      .catch(error => {
+        console.warn('Não foi possível carregar o painel do cidadão; mantendo dados locais.', error);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isAuthenticated]);
+
   const addVoteReceipt = (receipt: CitizenVoteReceipt) => {
     setUserProfile(prev => ({
       ...prev,
       votedList: [receipt, ...prev.votedList]
     }));
   };
+
+  // Após um merge institucional real, o texto da lei e as releases mudam no
+  // backend; recarrega ambos para refletir o estado oficial.
+  const refreshNormativeState = useCallback(async () => {
+    try {
+      const [apiArtigos, apiReleases] = await Promise.all([
+        getOrganicLawArticles(),
+        getReleases()
+      ]);
+
+      setArtigos(apiArtigos);
+      setReleases(apiReleases);
+    } catch (error) {
+      console.warn('Não foi possível recarregar o estado normativo após o merge.', error);
+    }
+  }, []);
 
   const applyMergedPR = (targetPr: CivicPR) => {
     if (!targetPr.diffs || targetPr.diffs.length === 0) return;
@@ -139,6 +186,7 @@ export function usePublicData() {
     notifications,
     userProfile,
     addVoteReceipt,
-    applyMergedPR
+    applyMergedPR,
+    refreshNormativeState
   };
 }

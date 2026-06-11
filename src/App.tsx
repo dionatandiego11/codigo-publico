@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { Navbar } from './shared/layout';
 import HomeView from './features/home';
 import { OrganicLawViewer, ArticleDetailView } from './features/organic-law';
@@ -22,11 +22,15 @@ import {
   usePublicData,
   useVotings
 } from './hooks';
-import type { VoteSelection } from './hooks';
+import type { VoteSelection, WriteSource } from './hooks';
+import { AuthModal, useAuth } from './auth';
+import { useToast } from './shared/feedback/ToastContext';
+import { entityPath, routeEntityId, useBrowserRouter } from './app/useBrowserRouter';
 
 export default function App() {
-  const [currentPath, setPath] = useState<string>('/');
-  const [selectedArticleId, setSelectedArticleId] = useState<string | null>(null);
+  const { currentPath, setPath } = useBrowserRouter();
+  const { citizen, isAuthenticated, requireAuth, openAuthModal } = useAuth();
+  const { pushToast } = useToast();
 
   const {
     artigos,
@@ -38,63 +42,139 @@ export default function App() {
     notifications,
     userProfile,
     addVoteReceipt,
-    applyMergedPR
-  } = usePublicData();
-  const { issues, addIssue, triageIssue } = useIssues();
-  const { prs, addPR, triagePR } = usePRs({ onPRMerged: applyMergedPR });
+    applyMergedPR,
+    refreshNormativeState
+  } = usePublicData({ isAuthenticated });
+  const { issues, addIssue, commentOnIssue, upvoteIssue, triageIssue } = useIssues();
+  const { prs, addPR, commentOnPR, upvotePR, triagePR } = usePRs({
+    onPRMerged: applyMergedPR,
+    onPRMergedRemotely: () => {
+      void refreshNormativeState();
+    }
+  });
   const { votacoes, castVote } = useVotings();
 
-  // Notification action router
-  const handleRequestNotificationPR = (prId: string) => {
-    setPath('/prs');
-    // We can auto-select this specific PR ID
-    const matchedPr = prs.find(p => p.id === prId);
-    if (matchedPr) {
-      // Small timeout to allow transition
-      setTimeout(() => {
-        const prCard = document.getElementById(`pr-card-${prId.replace('#', '')}`);
-        if (prCard) {
-          prCard.click();
-        }
-      }, 50);
+  // Deep links: /prs/046, /issues/118, /lei-organica/artigo/art-12
+  const selectedPRRouteId = routeEntityId(currentPath, '/prs');
+  const selectedIssueRouteId = routeEntityId(currentPath, '/issues');
+  const selectedArticleId = currentPath.startsWith('/lei-organica/artigo/')
+    ? decodeURIComponent(currentPath.slice('/lei-organica/artigo/'.length))
+    : null;
+
+  // Feedback de sessão (login/logout)
+  const previousCitizenIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const previousId = previousCitizenIdRef.current;
+    if (citizen && citizen.id !== previousId) {
+      pushToast('success', `Sessão iniciada como ${citizen.fullName}.`);
+    } else if (!citizen && previousId) {
+      pushToast('info', 'Sessão encerrada.');
+    }
+    previousCitizenIdRef.current = citizen?.id ?? null;
+  }, [citizen, pushToast]);
+
+  const notifyWriteSource = (source: WriteSource, apiMessage: string) => {
+    if (source === 'api') {
+      pushToast('success', apiMessage);
+    } else {
+      pushToast('warning', 'API indisponível ou sem permissão: ação aplicada apenas localmente (modo demonstração).');
     }
   };
 
-  // Submitting a new issue from the form
+  // Notification action router
+  const handleRequestNotificationPR = (prId: string) => {
+    setPath(entityPath('/prs', prId));
+  };
+
+  // Submitting a new issue from the form (requires authenticated citizen)
   const handleAddNewIssue = (formData: any) => {
-    addIssue(formData);
-    setPath('/issues');
+    requireAuth(authenticated => {
+      void addIssue({ ...formData, authorName: authenticated.fullName }).then(({ issue, source }) => {
+        notifyWriteSource(source, `Issue ${issue.id} registrada e auditada na plataforma.`);
+      });
+      setPath('/issues');
+    });
   };
 
-  // Submitting a new PR from the form
+  // Submitting a new PR from the form (requires authenticated citizen)
   const handleAddNewPR = (formData: any) => {
-    addPR(formData);
-    setPath('/prs');
+    requireAuth(authenticated => {
+      void addPR({ ...formData, authorName: authenticated.fullName }).then(({ pr, source }) => {
+        notifyWriteSource(source, `PR cívico ${pr.id} protocolado para debate público.`);
+      });
+      setPath('/prs');
+    });
   };
 
-  // User casting a vote on public box
+  // User casting a vote on public box (requires authenticated citizen)
   const handleCastVote = (votingId: string, selection: VoteSelection) => {
-    const receipt = castVote(votingId, selection);
-    addVoteReceipt(receipt);
+    requireAuth(() => {
+      void castVote(votingId, selection).then(receipt => {
+        addVoteReceipt(receipt);
+        notifyWriteSource(receipt.source, `Voto computado com sigilo. Recibo: ${receipt.receipt}`);
+      });
+    });
   };
 
-  // Moderation / triage helper functions inside Backdoor Console
+  // Civic engagement actions gated by authentication
+  const handleUpvoteIssue = (issueId: string) => {
+    requireAuth(() => {
+      void upvoteIssue(issueId).then(source => {
+        notifyWriteSource(source, 'Apoio registrado nesta demanda.');
+      });
+    });
+  };
+
+  const handleCommentIssue = (issueId: string, content: string) => {
+    requireAuth(authenticated => {
+      void commentOnIssue(issueId, content, authenticated.fullName).then(source => {
+        notifyWriteSource(source, 'Comentário publicado na linha do tempo.');
+      });
+    });
+  };
+
+  const handleUpvotePR = (prId: string) => {
+    requireAuth(() => {
+      void upvotePR(prId).then(source => {
+        notifyWriteSource(source, 'Apoio registrado nesta proposta.');
+      });
+    });
+  };
+
+  const handleCommentPR = (prId: string, content: string) => {
+    requireAuth(authenticated => {
+      void commentOnPR(prId, content, authenticated.fullName).then(source => {
+        notifyWriteSource(source, 'Manifestação publicada no debate cívico.');
+      });
+    });
+  };
+
+  // Moderation / triage actions inside the admin console
   const handleTriageIssue = (issueId: string, newStatus: any) => {
-    triageIssue(issueId, newStatus);
+    requireAuth(() => {
+      void triageIssue(issueId, newStatus).then(source => {
+        notifyWriteSource(source, `Status da issue ${issueId} atualizado para "${newStatus}".`);
+      });
+    });
   };
 
   const handleTriagePR = (prId: string, newStatus: any) => {
-    triagePR(prId, newStatus);
+    requireAuth(() => {
+      void triagePR(prId, newStatus).then(source => {
+        const apiMessage = newStatus === 'Incorporado ao texto oficial'
+          ? `Merge institucional do PR ${prId} concluído: release legislativa gerada.`
+          : `Status do PR ${prId} atualizado para "${newStatus}".`;
+        notifyWriteSource(source, apiMessage);
+      });
+    });
   };
 
   const handleForceRunChecks = () => {
-    // Toggle check indicators
-    console.log("Forcing compliance checks.");
+    pushToast('info', 'Checks institucionais reexecutados (simulação).');
   };
 
   const handleSelectArticleDetail = (articleId: string) => {
-    setSelectedArticleId(articleId);
-    setPath(`/lei-organica/artigo/${articleId}`);
+    setPath(`/lei-organica/artigo/${encodeURIComponent(articleId)}`);
   };
 
   return (
@@ -102,10 +182,7 @@ export default function App() {
       <Navbar
         currentPath={currentPath}
         initialNotifications={notifications}
-        setPath={(newPath) => {
-          setPath(newPath);
-          setSelectedArticleId(null);
-        }}
+        setPath={setPath}
         onRequestOpenNotification={handleRequestNotificationPR}
       />
 
@@ -129,7 +206,7 @@ export default function App() {
           />
         )}
 
-        {currentPath.startsWith('/lei-organica/artigo/') && selectedArticleId && (() => {
+        {selectedArticleId && (() => {
           const matchedArt = artigos.find(a => a.id === selectedArticleId);
           if (!matchedArt) return <p className="p-8 text-center text-slate-400 text-xs">Artigo não encontrado.</p>;
           return (
@@ -137,28 +214,13 @@ export default function App() {
               article={matchedArt}
               allIssues={issues}
               allPRs={prs}
-              onBack={() => {
-                setPath('/lei-organica');
-                setSelectedArticleId(null);
-              }}
+              onBack={() => setPath('/lei-organica')}
               onInitiatePR={() => {
                 setPath('/prs');
               }}
               setPath={setPath}
-              onNavigateToPR={(prId) => {
-                setPath('/prs');
-                setTimeout(() => {
-                  const prCard = document.getElementById(`pr-card-${prId.replace('#', '')}`);
-                  if (prCard) prCard.click();
-                }, 50);
-              }}
-              onNavigateToIssue={(issueId) => {
-                setPath('/issues');
-                setTimeout(() => {
-                  const issueRow = document.getElementById(`issue-row-${issueId.replace('#', '')}`);
-                  if (issueRow) issueRow.click();
-                }, 50);
-              }}
+              onNavigateToPR={(prId) => setPath(entityPath('/prs', prId))}
+              onNavigateToIssue={(issueId) => setPath(entityPath('/issues', issueId))}
             />
           );
         })()}
@@ -171,35 +233,41 @@ export default function App() {
           />
         )}
 
-        {currentPath === '/issues' && (
+        {(currentPath === '/issues' || selectedIssueRouteId) && (
           <IssueTracker
             issues={issues}
             artigos={artigos}
             repos={repositories}
             territories={territories}
+            initialSelectedId={selectedIssueRouteId}
+            onSelectedChange={(issueId) =>
+              setPath(issueId ? entityPath('/issues', issueId) : '/issues')
+            }
             onBackToHome={() => setPath('/')}
             onSubmitNewIssue={handleAddNewIssue}
-            onNavigateToPR={(prId) => {
-              setPath('/prs');
-              setTimeout(() => {
-                const prCard = document.getElementById(`pr-card-${prId.replace('#', '')}`);
-                if (prCard) {
-                  prCard.click();
-                }
-              }, 50);
-            }}
+            onUpvoteIssue={handleUpvoteIssue}
+            onCommentIssue={handleCommentIssue}
+            currentUserName={citizen?.fullName}
+            onNavigateToPR={(prId) => setPath(entityPath('/prs', prId))}
           />
         )}
 
-        {currentPath === '/prs' && (
+        {(currentPath === '/prs' || selectedPRRouteId) && (
           <CivicPRHub
             prs={prs}
             artigos={artigos}
             votacoes={votacoes}
             allIssues={issues}
+            initialSelectedId={selectedPRRouteId}
+            onSelectedChange={(prId) =>
+              setPath(prId ? entityPath('/prs', prId) : '/prs')
+            }
             onBackToHome={() => setPath('/')}
             onSubmitNewPR={handleAddNewPR}
             onCastVote={handleCastVote}
+            onUpvotePR={handleUpvotePR}
+            onCommentPR={handleCommentPR}
+            currentUserName={citizen?.fullName}
           />
         )}
 
@@ -221,6 +289,9 @@ export default function App() {
               onBackToHome={() => setPath('/')}
               onSubmitNewPR={handleAddNewPR}
               onCastVote={handleCastVote}
+              onUpvotePR={handleUpvotePR}
+              onCommentPR={handleCommentPR}
+              currentUserName={citizen?.fullName}
             />
           </div>
         )}
@@ -228,15 +299,7 @@ export default function App() {
         {currentPath === '/releases' && (
           <ReleasesView
             releases={releases}
-            onSelectPR={(prId) => {
-              setPath('/prs');
-              setTimeout(() => {
-                const prCard = document.getElementById(`pr-card-${prId.replace('#', '')}`);
-                if (prCard) {
-                  prCard.click();
-                }
-              }, 50);
-            }}
+            onSelectPR={(prId) => setPath(entityPath('/prs', prId))}
           />
         )}
 
@@ -249,24 +312,8 @@ export default function App() {
             territories={territories}
             issues={issues}
             prs={prs}
-            onSelectIssue={(issueId) => {
-              setPath('/issues');
-              setTimeout(() => {
-                const issueRow = document.getElementById(`issue-row-${issueId.replace('#', '')}`);
-                if (issueRow) {
-                  issueRow.click();
-                }
-              }, 50);
-            }}
-            onSelectPR={(prId) => {
-              setPath('/prs');
-              setTimeout(() => {
-                const prCard = document.getElementById(`pr-card-${prId.replace('#', '')}`);
-                if (prCard) {
-                  prCard.click();
-                }
-              }, 50);
-            }}
+            onSelectIssue={(issueId) => setPath(entityPath('/issues', issueId))}
+            onSelectPR={(prId) => setPath(entityPath('/prs', prId))}
           />
         )}
 
@@ -274,24 +321,10 @@ export default function App() {
           <MinhaAreaView
             userProfile={userProfile}
             territories={territories}
-            onSelectIssue={(issueId) => {
-              setPath('/issues');
-              setTimeout(() => {
-                const issueRow = document.getElementById(`issue-row-${issueId.replace('#', '')}`);
-                if (issueRow) {
-                  issueRow.click();
-                }
-              }, 50);
-            }}
-            onSelectPR={(prId) => {
-              setPath('/prs');
-              setTimeout(() => {
-                const prCard = document.getElementById(`pr-card-${prId.replace('#', '')}`);
-                if (prCard) {
-                  prCard.click();
-                }
-              }, 50);
-            }}
+            isAuthenticated={isAuthenticated}
+            onRequestLogin={openAuthModal}
+            onSelectIssue={(issueId) => setPath(entityPath('/issues', issueId))}
+            onSelectPR={(prId) => setPath(entityPath('/prs', prId))}
             votacoes={votacoes}
           />
         )}
@@ -310,6 +343,9 @@ export default function App() {
           />
         )}
       </main>
+
+      {/* Citizen authentication modal (login / register) */}
+      <AuthModal territories={territories} />
 
       {/* Civic Footer */}
       <footer className="border-t border-slate-200 bg-white py-6 shrink-0 text-center font-mono text-[10px] text-slate-400">

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   AlertCircle,
   Plus,
@@ -30,8 +30,13 @@ interface IssueTrackerProps {
   artigos: LawArticle[];
   repos: { slug: string; name: string }[];
   territories: Territory[];
+  initialSelectedId?: string | null;
+  onSelectedChange?: (issueId: string | null) => void;
   onBackToHome: () => void;
   onSubmitNewIssue: (data: any) => void;
+  onUpvoteIssue: (issueId: string) => void;
+  onCommentIssue: (issueId: string, content: string) => void;
+  currentUserName?: string;
   onNavigateToPR: (prId: string) => void;
 }
 
@@ -40,11 +45,26 @@ export default function IssueTracker({
   artigos,
   repos,
   territories,
+  initialSelectedId = null,
+  onSelectedChange,
   onBackToHome,
   onSubmitNewIssue,
+  onUpvoteIssue,
+  onCommentIssue,
+  currentUserName,
   onNavigateToPR
 }: IssueTrackerProps) {
-  const [selectedIssueId, setSelectedIssueId] = useState<string | null>(null);
+  const [selectedIssueId, setSelectedIssueIdState] = useState<string | null>(initialSelectedId);
+
+  // Sincroniza a seleção com a rota (/issues/:id) e propaga mudanças à URL.
+  useEffect(() => {
+    setSelectedIssueIdState(initialSelectedId);
+  }, [initialSelectedId]);
+
+  const setSelectedIssueId = (issueId: string | null) => {
+    setSelectedIssueIdState(issueId);
+    onSelectedChange?.(issueId);
+  };
   const [showNewForm, setShowNewForm] = useState(false);
 
   // Filters
@@ -112,7 +132,7 @@ export default function IssueTracker({
       territory: formTerritory,
       theme: formTheme || 'Geral',
       description: formDescription,
-      authorName: 'Dionatan Santos',
+      authorName: currentUserName ?? 'Cidadão de Novo Horizonte',
       assignedDepartment: formDepartment || 'Controladoria e Triagem Geral',
       relatedArticleId: formRelatedArticle || undefined,
       relatedRepository: formRelatedRepo || undefined,
@@ -386,10 +406,7 @@ export default function IssueTracker({
             <div className="flex items-center justify-between border-t border-slate-100 pt-4 flex-wrap gap-2 text-slate-400 text-xs font-mono">
               <div className="flex items-center space-x-4">
                 <button
-                  onClick={() => {
-                    selectedIssue.upvotes += 1;
-                    setSelectedIssueId(selectedIssue.id); // Trigger force re-render
-                  }}
+                  onClick={() => onUpvoteIssue(selectedIssue.id)}
                   className="font-semibold text-slate-600 hover:text-indigo-600 transition-colors flex items-center space-x-1.5"
                   id="issue-upvote-btn"
                 >
@@ -423,14 +440,8 @@ export default function IssueTracker({
                 <button
                   onClick={() => {
                     if (!commentText.trim()) return;
-                    selectedIssue.comments.push({
-                      id: `ic-local-${Date.now()}`,
-                      authorName: 'Dionatan Santos',
-                      content: commentText,
-                      createdAt: new Date().toISOString()
-                    });
+                    onCommentIssue(selectedIssue.id, commentText);
                     setCommentText('');
-                    setSelectedIssueId(selectedIssue.id); // Re-trigger view update
                   }}
                   className="rounded-lg bg-slate-900 text-white font-semibold text-xs px-3.5 py-1.5 hover:bg-slate-850 flex items-center space-x-1"
                 >

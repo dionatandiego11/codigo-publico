@@ -3,13 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import {
-  MOCK_MEB,
-  MOCK_REPOSITORIOS,
-  MOCK_VOTACOES
-} from './mock-data';
+import { MOCK_REPOSITORIOS } from './mock-data';
 
 import {
+  Citizen,
+  CitizenDashboardData,
   CivicPR,
   ExecutionTracker,
   InstitutionalCheck,
@@ -21,7 +19,7 @@ import {
   Territory,
   Voting
 } from '../types';
-import { requestJSON, requestOptionalJSON, routeId } from '../api/client';
+import { postJSON, requestJSON, requestOptionalJSON, routeId } from '../api/client';
 
 export interface PublicStats {
   totalCitizens: number;
@@ -132,9 +130,155 @@ export async function getTerritorySummary(id?: string): Promise<Territory | unde
   return territories[0];
 }
 
+// --- Autenticação de cidadão -------------------------------------------------
+
+export interface AuthResponse {
+  token: string;
+  citizen: Citizen;
+}
+
+export interface RegisterCitizenData {
+  fullName: string;
+  cpf: string;
+  birthDate: string;
+  phone?: string;
+  email?: string;
+  territoryId?: string;
+}
+
+export async function registerCitizen(data: RegisterCitizenData): Promise<AuthResponse> {
+  return postJSON<AuthResponse>('/citizens/register', data);
+}
+
+export async function loginCitizen(cpf: string, birthDate: string): Promise<AuthResponse> {
+  return postJSON<AuthResponse>('/auth/login', { cpf, birthDate });
+}
+
+export async function getMe(): Promise<Citizen> {
+  return requestJSON<Citizen>('/me');
+}
+
+// --- Escrita cívica autenticada ----------------------------------------------
+
+export interface CreateIssueData {
+  title: string;
+  type: string;
+  territory?: string;
+  territoryId?: string;
+  theme: string;
+  description: string;
+  assignedDepartment?: string;
+  relatedArticleId?: string;
+  relatedRepository?: string;
+  linkedPRId?: string;
+}
+
+export async function createIssue(data: CreateIssueData): Promise<Issue> {
+  return postJSON<Issue>('/issues', data);
+}
+
+export async function createIssueComment(issueId: string, content: string): Promise<Issue['comments'][number]> {
+  return postJSON<Issue['comments'][number]>(`/issues/${routeId(issueId)}/comments`, { content });
+}
+
+export async function upvoteIssue(issueId: string): Promise<Issue> {
+  return postJSON<Issue>(`/issues/${routeId(issueId)}/upvote`);
+}
+
+export async function updateIssueStatus(issueId: string, status: string): Promise<Issue> {
+  return postJSON<Issue>(`/issues/${routeId(issueId)}/status`, { status });
+}
+
+export interface CreateCivicPRData {
+  title: string;
+  repository: string;
+  targetTitle: string;
+  affectedArticles: string;
+  authorType: string;
+  citizenSummary: string;
+  justification: string;
+  diffs: NormativeDiff[];
+  linkedIssueIds: string[];
+}
+
+export async function createCivicPR(data: CreateCivicPRData): Promise<CivicPR> {
+  return postJSON<CivicPR>('/prs', data);
+}
+
+export async function createPRComment(prId: string, content: string): Promise<CivicPR['comments'][number]> {
+  return postJSON<CivicPR['comments'][number]>(`/prs/${routeId(prId)}/comments`, { content });
+}
+
+export async function upvotePR(prId: string): Promise<CivicPR> {
+  return postJSON<CivicPR>(`/prs/${routeId(prId)}/upvote`);
+}
+
+export async function updatePRStatus(prId: string, status: string): Promise<CivicPR> {
+  return postJSON<CivicPR>(`/prs/${routeId(prId)}/status`, { status });
+}
+
+// --- Votação ------------------------------------------------------------------
+
+export interface VotingResults {
+  id: string;
+  title: string;
+  status: string;
+  deadline: string;
+  quorumNeeded: number;
+  quorumReached: number;
+  quorumPercent: number;
+  totalVotes: number;
+  votesYes: number;
+  votesNo: number;
+  votesAbstain: number;
+  yesPercent: number;
+  noPercent: number;
+  abstainPercent: number;
+  approvalPercent: number;
+}
+
+export interface CastVoteResponse {
+  receiptCode: string;
+  voting: Voting;
+  results: VotingResults;
+}
+
+export async function castVote(votingId: string, selection: 'Aprovo' | 'Rejeito' | 'Abstenção'): Promise<CastVoteResponse> {
+  return postJSON<CastVoteResponse>(`/votings/${routeId(votingId)}/vote`, { selection });
+}
+
+export async function getVotingResults(votingId: string): Promise<VotingResults> {
+  return requestJSON<VotingResults>(`/votings/${routeId(votingId)}/results`);
+}
+
+// --- Merge institucional (papéis institucionais) -------------------------------
+
+export interface MergePRData {
+  version?: string;
+  releaseTitle?: string;
+  releaseDate?: string;
+  officialDocumentUrl?: string;
+  promulgatedBy: string;
+  formalApprovalReference: string;
+}
+
+export interface MergePRResponse {
+  pr: CivicPR;
+  release: Release;
+}
+
+export async function mergePR(prId: string, data: MergePRData): Promise<MergePRResponse> {
+  return postJSON<MergePRResponse>(`/prs/${routeId(prId)}/merge`, data);
+}
+
+// --- Painel do cidadão ---------------------------------------------------------
+
+export async function getCitizenDashboard(): Promise<CitizenDashboardData> {
+  return requestJSON<CitizenDashboardData>('/me/dashboard');
+}
+
 // Still mocked until corresponding backend endpoints are implemented.
 const delay = (ms = 150) => new Promise(resolve => setTimeout(resolve, ms));
-let localVotings = [...MOCK_VOTACOES];
 
 export async function getRepositories() {
   await delay();
@@ -144,90 +288,6 @@ export async function getRepositories() {
 export async function getRepositoryBySlug(slug: string) {
   await delay();
   return MOCK_REPOSITORIOS.find(repo => repo.slug === slug);
-}
-
-export async function createIssue(data: Omit<Issue, 'id' | 'createdAt' | 'status' | 'upvotes' | 'comments'>): Promise<Issue> {
-  await delay(200);
-
-  return {
-    ...data,
-    id: `#local-${Date.now()}`,
-    createdAt: new Date().toISOString(),
-    status: 'Aberta',
-    upvotes: 1,
-    comments: []
-  };
-}
-
-export async function createCivicPR(data: Omit<CivicPR, 'id' | 'createdAt' | 'status' | 'upvotes' | 'comments' | 'reviews' | 'checks' | 'mergeTimeline'>): Promise<CivicPR> {
-  await delay(200);
-
-  return {
-    ...data,
-    id: `#local-${Date.now()}`,
-    status: 'Rascunho',
-    upvotes: 1,
-    comments: [],
-    createdAt: new Date().toISOString(),
-    reviews: [],
-    checks: [
-      {
-        id: 'chk-local-1',
-        name: 'Compatibilidade com Constituição Federal',
-        description: 'Pré-triagem automática local.',
-        status: 'Pendente',
-        feedback: 'Aguardando backend de revisão institucional.'
-      }
-    ],
-    mergeTimeline: [
-      {
-        title: 'Abertura de Proposta',
-        date: 'Hoje',
-        completed: true,
-        description: 'Proposta registrada localmente até o endpoint de criação ser implementado.'
-      }
-    ]
-  };
-}
-
-export async function castVote(votingId: string, selection: 'Aprovo' | 'Rejeito' | 'Abstenção'): Promise<Voting | undefined> {
-  await delay(300);
-
-  const voteIndex = localVotings.findIndex(v => v.id === votingId);
-  if (voteIndex === -1) {
-    return undefined;
-  }
-
-  const updated = { ...localVotings[voteIndex] };
-  updated.hasVoted = true;
-  updated.userVoteSelection = selection;
-  updated.voteReceipt = `CP-RECEIPT-${Math.floor(1000 + Math.random() * 9000)}-${Date.now().toString().slice(-4).toUpperCase()}`;
-
-  if (selection === 'Aprovo') updated.votesYes += 1;
-  if (selection === 'Rejeito') updated.votesNo += 1;
-  if (selection === 'Abstenção') updated.votesAbstain += 1;
-
-  updated.quorumReached += 1;
-  localVotings[voteIndex] = updated;
-
-  MOCK_MEB.votedList.push({
-    id: votingId,
-    selection,
-    receipt: updated.voteReceipt,
-    txHash: `0x${Math.random().toString(16).slice(-16)}`
-  });
-
-  return updated;
-}
-
-export async function getVoteReceipt(votingId: string): Promise<string | undefined> {
-  await delay();
-  return localVotings.find(v => v.id === votingId)?.voteReceipt;
-}
-
-export async function getCitizenDashboard() {
-  await delay();
-  return MOCK_MEB;
 }
 
 export async function getAdminDashboard() {

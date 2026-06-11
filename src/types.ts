@@ -3,6 +3,32 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+export interface Citizen {
+  id: string;
+  fullName: string;
+  birthDate: string;
+  phone?: string;
+  email?: string;
+  territoryId?: string;
+  territoryName?: string;
+  role: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CitizenDashboardData {
+  name: string;
+  email: string;
+  territoryId: string;
+  territoryName?: string;
+  registeredAt: string;
+  citizenId: string;
+  createdIssues: { id: string; title: string; status: string }[];
+  createdPRs?: { id: string; title: string; status: string }[];
+  votedList: { id: string; selection: string; receipt: string; txHash: string }[];
+  supportedPRs: string[];
+}
+
 export interface ArticleComment {
   id: string;
   authorName: string;
