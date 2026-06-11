@@ -4,6 +4,7 @@
  */
 
 import { useEffect, useState } from 'react';
+import { isBusinessError } from '../api/client';
 import { fallbackPRs } from '../app/fallback-data';
 import {
   createCivicPR as apiCreateCivicPR,
@@ -143,6 +144,7 @@ export function usePRs(options: UsePRsOptions = {}) {
       setPrs(prev => [created, ...prev]);
       return { pr: created, source: 'api' };
     } catch (error) {
+      if (isBusinessError(error)) throw error;
       console.warn('Falha ao registrar PR cívico na API; aplicando registro local.', error);
       const localPR = buildLocalPR(formData);
       setPrs(prev => [localPR, ...prev]);
@@ -157,6 +159,7 @@ export function usePRs(options: UsePRsOptions = {}) {
     try {
       comment = await apiCreatePRComment(prId, content);
     } catch (error) {
+      if (isBusinessError(error)) throw error;
       console.warn('Falha ao registrar comentário na API; aplicando comentário local.', error);
       source = 'local';
       comment = {
@@ -180,6 +183,7 @@ export function usePRs(options: UsePRsOptions = {}) {
       setPrs(prev => prev.map(pr => (pr.id === updated.id ? updated : pr)));
       return 'api';
     } catch (error) {
+      if (isBusinessError(error)) throw error;
       console.warn('Falha ao registrar apoio na API; aplicando apoio local.', error);
       setPrs(prev =>
         prev.map(pr => (pr.id === prId ? { ...pr, upvotes: pr.upvotes + 1 } : pr))
@@ -234,6 +238,7 @@ export function usePRs(options: UsePRsOptions = {}) {
         options.onPRMergedRemotely?.(response);
         return 'api';
       } catch (error) {
+        if (isBusinessError(error)) throw error;
         console.warn('Falha no merge institucional via API; aplicando merge local.', error);
         applyLocalTriage(prId, newStatus);
         return 'local';
@@ -245,6 +250,7 @@ export function usePRs(options: UsePRsOptions = {}) {
       setPrs(prev => prev.map(pr => (pr.id === updated.id ? updated : pr)));
       return 'api';
     } catch (error) {
+      if (isBusinessError(error)) throw error;
       console.warn('Falha ao triar PR na API; aplicando triagem local.', error);
       applyLocalTriage(prId, newStatus);
       return 'local';

@@ -220,6 +220,25 @@ export async function updatePRStatus(prId: string, status: PRStatus): Promise<Ci
   return postJSON<CivicPR>(`/prs/${routeId(prId)}/status`, { status });
 }
 
+export interface PRTransitionInfo {
+  key: string;
+  toStatus: string;
+  trigger: string;
+  description: string;
+}
+
+export interface PRAllowedTransitions {
+  currentStatus: string;
+  workflowStage: string;
+  terminal: boolean;
+  transitions: PRTransitionInfo[];
+}
+
+/** Transições da máquina de estados que o cidadão autenticado pode disparar. */
+export async function getPRTransitions(prId: string): Promise<PRAllowedTransitions> {
+  return requestJSON<PRAllowedTransitions>(`/prs/${routeId(prId)}/transitions`);
+}
+
 // --- Votação ------------------------------------------------------------------
 
 export interface VotingResults {

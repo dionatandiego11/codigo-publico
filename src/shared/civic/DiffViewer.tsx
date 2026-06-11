@@ -28,9 +28,9 @@ function buildLinesFromTexts(beforeText?: string, afterText?: string): DiffLine[
 }
 
 function lineClass(type: DiffLine['type']) {
-  if (type === 'added') return 'bg-emerald-950/40 text-emerald-100';
-  if (type === 'removed') return 'bg-rose-950/40 text-rose-100';
-  return 'text-slate-300';
+  if (type === 'added') return 'diff-added';
+  if (type === 'removed') return 'diff-removed';
+  return 'text-[var(--color-git-text2)]';
 }
 
 function marker(type: DiffLine['type']) {

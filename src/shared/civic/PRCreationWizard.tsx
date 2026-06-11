@@ -49,7 +49,7 @@ function buildDiffLines(beforeText: string, afterText: string): NormativeDiff['l
 }
 
 function fieldClass(extra = '') {
-  return `w-full rounded-xl border border-[var(--color-git-border2)] bg-[rgba(255,255,255,0.02)] px-3 py-2 text-sm text-[var(--color-git-text)] outline-none focus:border-[var(--color-git-blue)] focus:shadow-[0_0_10px_rgba(56,189,248,0.2)] ${extra}`;
+  return `field ${extra}`;
 }
 
 export function PRCreationWizard({
@@ -319,11 +319,7 @@ export function PRCreationWizard({
 
       <div className="mt-4 flex gap-2">
         {step > 1 && (
-          <button
-            type="button"
-            onClick={previousStep}
-            className="rounded-xl border border-[var(--color-git-border2)] bg-[rgba(255,255,255,0.03)] px-4 py-3 text-sm font-semibold text-[var(--color-git-text2)] hover:bg-[rgba(255,255,255,0.08)] hover:border-[var(--color-git-border)] hover:text-white transition"
-          >
+          <button type="button" onClick={previousStep} className="btn-secondary">
             Voltar
           </button>
         )}
@@ -332,18 +328,13 @@ export function PRCreationWizard({
             type="button"
             onClick={nextStep}
             disabled={(step === 1 && !canMoveFromTarget) || (step === 2 && !canMoveFromText)}
-            className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-[var(--color-git-blue)] px-4 py-3 text-sm font-bold text-[#04060d] hover:bg-white transition shadow-[0_0_15px_rgba(56,189,248,0.3)] disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-[var(--color-git-blue)] disabled:shadow-none"
+            className="btn-primary flex-1"
           >
             Próximo
             <ArrowRight className="h-4 w-4" />
           </button>
         ) : (
-          <button
-            type="button"
-            onClick={submit}
-            disabled={!canSubmit}
-            className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-[var(--color-git-blue)] px-4 py-3 text-sm font-bold text-[#04060d] hover:bg-white transition shadow-[0_0_15px_rgba(56,189,248,0.3)] disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-[var(--color-git-blue)] disabled:shadow-none"
-          >
+          <button type="button" onClick={submit} disabled={!canSubmit} className="btn-primary flex-1">
             Protocolar PR
             <GitPullRequest className="h-4 w-4" />
           </button>

@@ -67,38 +67,42 @@ export default function AuthModal({ territories }: AuthModalProps) {
     }
   };
 
-  const inputClass =
-    'w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs text-slate-700 outline-none focus:border-indigo-500 transition-colors';
-  const labelClass = 'block font-mono text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5';
+  const labelClass = 'block font-mono text-[10px] font-bold uppercase tracking-wider text-[var(--color-git-muted)] mb-1.5';
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
       onClick={closeAuthModal}
       id="auth-modal-overlay"
     >
       <div
-        className="w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-2xl animate-in fade-in slide-in-from-top-4 duration-200"
+        className="w-full max-w-md rounded-[20px] border border-[var(--color-git-border2)] bg-[var(--color-git-bg2)] shadow-[0_24px_80px_rgba(0,0,0,0.7)] animate-in fade-in slide-in-from-top-4 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-start justify-between border-b border-slate-100 p-5">
+        <div className="flex items-start justify-between border-b border-[var(--color-git-border)] p-5">
           <div className="flex items-center space-x-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-600 text-white shadow-md">
+            <div
+              className="flex h-10 w-10 items-center justify-center rounded-xl text-white"
+              style={{
+                background: 'linear-gradient(135deg, #38bdf8, #818cf8)',
+                boxShadow: '0 0 16px rgba(56,189,248,0.5), 0 4px 8px rgba(0,0,0,0.4)'
+              }}
+            >
               <Fingerprint className="h-5 w-5" />
             </div>
             <div>
-              <h3 className="font-display text-base font-extrabold text-slate-900 leading-tight">
+              <h3 className="font-display text-base font-bold text-white leading-tight">
                 Identificação Cívica
               </h3>
-              <p className="font-mono text-[10px] text-slate-400">
+              <p className="font-mono text-[10px] text-[var(--color-git-muted)]">
                 Sessão segura • CPF protegido por hash criptográfico
               </p>
             </div>
           </div>
           <button
             onClick={closeAuthModal}
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-50 hover:text-slate-700 transition-colors"
+            className="rounded-lg p-1.5 text-[var(--color-git-muted)] hover:bg-white/5 hover:text-white transition-colors"
             aria-label="Fechar"
           >
             <X className="h-4 w-4" />
@@ -106,7 +110,7 @@ export default function AuthModal({ territories }: AuthModalProps) {
         </div>
 
         {/* Mode tabs */}
-        <div className="flex border-b border-slate-100 px-5 pt-3 space-x-1">
+        <div className="flex border-b border-[var(--color-git-border)] px-5 pt-3 space-x-1">
           {([
             { key: 'login', label: 'Entrar', icon: LogIn },
             { key: 'register', label: 'Criar cadastro', icon: UserPlus }
@@ -116,8 +120,8 @@ export default function AuthModal({ territories }: AuthModalProps) {
               onClick={() => switchMode(key)}
               className={`flex items-center space-x-1.5 rounded-t-lg px-4 py-2.5 text-xs font-semibold transition-colors border-b-2 ${
                 mode === key
-                  ? 'border-indigo-600 text-indigo-700 bg-indigo-50/50'
-                  : 'border-transparent text-slate-500 hover:text-slate-800'
+                  ? 'border-[var(--color-git-blue)] text-[var(--color-git-blue)] bg-[rgba(56,189,248,0.06)]'
+                  : 'border-transparent text-[var(--color-git-muted)] hover:text-white'
               }`}
             >
               <Icon className="h-3.5 w-3.5" />
@@ -137,7 +141,7 @@ export default function AuthModal({ territories }: AuthModalProps) {
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 placeholder="Maria da Silva"
-                className={inputClass}
+                className="field"
               />
             </div>
           )}
@@ -153,7 +157,7 @@ export default function AuthModal({ territories }: AuthModalProps) {
                 value={cpf}
                 onChange={(e) => setCpf(e.target.value)}
                 placeholder="000.000.000-00"
-                className={`${inputClass} font-mono`}
+                className="field font-mono"
               />
             </div>
             <div>
@@ -164,7 +168,7 @@ export default function AuthModal({ territories }: AuthModalProps) {
                 required
                 value={birthDate}
                 onChange={(e) => setBirthDate(e.target.value)}
-                className={`${inputClass} font-mono`}
+                className="field font-mono"
               />
             </div>
           </div>
@@ -180,7 +184,7 @@ export default function AuthModal({ territories }: AuthModalProps) {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="voce@exemplo.com"
-                    className={inputClass}
+                    className="field"
                   />
                 </div>
                 <div>
@@ -191,7 +195,7 @@ export default function AuthModal({ territories }: AuthModalProps) {
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     placeholder="+55 11 99999-0000"
-                    className={inputClass}
+                    className="field"
                   />
                 </div>
               </div>
@@ -201,7 +205,7 @@ export default function AuthModal({ territories }: AuthModalProps) {
                   id="auth-territory"
                   value={territoryId}
                   onChange={(e) => setTerritoryId(e.target.value)}
-                  className={inputClass}
+                  className="field"
                 >
                   <option value="">Selecione seu bairro ou distrito</option>
                   {territories.map(territory => (
@@ -215,16 +219,12 @@ export default function AuthModal({ territories }: AuthModalProps) {
           )}
 
           {errorMessage && (
-            <div className="rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-xs text-rose-700">
+            <div className="rounded-xl border border-[rgba(248,113,113,0.3)] bg-[rgba(248,113,113,0.08)] px-3.5 py-2.5 text-xs text-[var(--color-git-red)]">
               {errorMessage}
             </div>
           )}
 
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="w-full inline-flex items-center justify-center space-x-2 rounded-xl bg-indigo-600 px-4 py-3 text-xs font-bold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-60 transition-colors"
-          >
+          <button type="submit" disabled={isSubmitting} className="btn-primary w-full">
             {isSubmitting ? (
               <LoaderCircle className="h-4 w-4 animate-spin" />
             ) : mode === 'login' ? (
@@ -235,7 +235,7 @@ export default function AuthModal({ territories }: AuthModalProps) {
             <span>{mode === 'login' ? 'Entrar na plataforma' : 'Cadastrar e entrar'}</span>
           </button>
 
-          <p className="text-center font-mono text-[10px] leading-relaxed text-slate-400">
+          <p className="text-center font-mono text-[10px] leading-relaxed text-[var(--color-git-muted)]">
             Seu CPF nunca é armazenado em texto puro. A plataforma registra apenas um
             hash HMAC-SHA256 para verificação de identidade.
           </p>

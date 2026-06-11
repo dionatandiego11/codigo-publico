@@ -70,7 +70,7 @@ export function VoteBar({
 
 function VoteMetric({ label, value, className }: { label: string; value: number; className: string }) {
   return (
-    <div className="rounded-[12px] border border-[var(--color-git-border2)] bg-[rgba(255,255,255,0.02)] p-2">
+    <div className="rounded-xl border border-[var(--color-git-border2)] bg-[rgba(255,255,255,0.02)] p-2">
       <p className={`text-lg font-bold leading-none ${className}`}>{formatNumber(value)}</p>
       <p className="mt-1 font-mono text-[9px] font-bold uppercase text-[var(--color-git-muted)]">{label}</p>
     </div>

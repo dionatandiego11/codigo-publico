@@ -4,6 +4,7 @@
  */
 
 import { useEffect, useState } from 'react';
+import { isBusinessError } from '../api/client';
 import { fallbackIssues } from '../app/fallback-data';
 import {
   createIssue as apiCreateIssue,
@@ -77,6 +78,7 @@ export function useIssues() {
       setIssues(prev => [created, ...prev]);
       return { issue: created, source: 'api' };
     } catch (error) {
+      if (isBusinessError(error)) throw error;
       console.warn('Falha ao registrar issue na API; aplicando registro local.', error);
       const localIssue = buildLocalIssue(formData);
       setIssues(prev => [localIssue, ...prev]);
@@ -91,6 +93,7 @@ export function useIssues() {
     try {
       comment = await apiCreateIssueComment(issueId, content);
     } catch (error) {
+      if (isBusinessError(error)) throw error;
       console.warn('Falha ao registrar comentário na API; aplicando comentário local.', error);
       source = 'local';
       comment = {
@@ -116,6 +119,7 @@ export function useIssues() {
       setIssues(prev => prev.map(issue => (issue.id === updated.id ? updated : issue)));
       return 'api';
     } catch (error) {
+      if (isBusinessError(error)) throw error;
       console.warn('Falha ao registrar apoio na API; aplicando apoio local.', error);
       setIssues(prev =>
         prev.map(issue =>
@@ -138,6 +142,7 @@ export function useIssues() {
       setIssues(prev => prev.map(issue => (issue.id === updated.id ? updated : issue)));
       return 'api';
     } catch (error) {
+      if (isBusinessError(error)) throw error;
       console.warn('Falha ao triar issue na API; aplicando triagem local.', error);
       applyLocalTriage(issueId, newStatus);
       return 'local';

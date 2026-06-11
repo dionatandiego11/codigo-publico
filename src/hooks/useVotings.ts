@@ -4,6 +4,7 @@
  */
 
 import { useEffect, useState } from 'react';
+import { isBusinessError } from '../api/client';
 import { fallbackVotings } from '../app/fallback-data';
 import { castVote as apiCastVote, getVotings } from '../lib/api';
 import { Voting } from '../types';
@@ -70,6 +71,7 @@ export function useVotings() {
         source: 'api'
       };
     } catch (error) {
+      if (isBusinessError(error)) throw error;
       console.warn('Falha ao registrar voto na API; aplicando voto local.', error);
 
       const receipt = `CP-2026-${Math.random().toString(36).substring(3, 7).toUpperCase()}-${Math.random().toString(36).substring(3, 7).toUpperCase()}`;

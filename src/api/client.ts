@@ -43,6 +43,16 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Erro de regra de negócio (4xx): a API está no ar e recusou a ação de forma
+ * deliberada — transição inválida na máquina de estados, papel sem permissão,
+ * payload inválido. Nunca deve sofrer fallback local, sob pena de a UI
+ * desfazer a integridade institucional garantida pelo backend.
+ */
+export function isBusinessError(error: unknown): error is ApiError {
+  return error instanceof ApiError && error.status >= 400 && error.status < 500;
+}
+
 export function routeId(id: string) {
   return encodeURIComponent(id);
 }

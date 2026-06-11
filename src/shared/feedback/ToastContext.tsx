@@ -31,10 +31,22 @@ const ToastContext = createContext<ToastContextValue | null>(null);
 const TOAST_TTL_MS = 5000;
 
 const toastStyles: Record<ToastKind, { container: string; icon: typeof CheckCircle2 }> = {
-  success: { container: 'border-emerald-200 bg-emerald-50 text-emerald-900', icon: CheckCircle2 },
-  error: { container: 'border-rose-200 bg-rose-50 text-rose-900', icon: XCircle },
-  warning: { container: 'border-amber-200 bg-amber-50 text-amber-900', icon: AlertTriangle },
-  info: { container: 'border-indigo-200 bg-indigo-50 text-indigo-900', icon: Info }
+  success: {
+    container: 'border-[rgba(52,211,153,0.35)] text-[var(--color-git-green)] shadow-[0_0_20px_rgba(52,211,153,0.12)]',
+    icon: CheckCircle2
+  },
+  error: {
+    container: 'border-[rgba(248,113,113,0.35)] text-[var(--color-git-red)] shadow-[0_0_20px_rgba(248,113,113,0.12)]',
+    icon: XCircle
+  },
+  warning: {
+    container: 'border-[rgba(251,191,36,0.35)] text-[var(--color-git-amber)] shadow-[0_0_20px_rgba(251,191,36,0.12)]',
+    icon: AlertTriangle
+  },
+  info: {
+    container: 'border-[rgba(56,189,248,0.35)] text-[var(--color-git-blue)] shadow-[0_0_20px_rgba(56,189,248,0.12)]',
+    icon: Info
+  }
 };
 
 export function ToastProvider({ children }: { children: ReactNode }) {
@@ -67,7 +79,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           return (
             <div
               key={toast.id}
-              className={`flex items-start gap-2.5 rounded-xl border px-4 py-3 text-xs font-medium shadow-lg animate-in fade-in slide-in-from-bottom-2 duration-200 ${container}`}
+              className={`flex items-start gap-2.5 rounded-xl border bg-[rgba(8,13,26,0.92)] px-4 py-3 text-xs font-medium backdrop-blur-xl animate-in fade-in slide-in-from-bottom-2 duration-200 ${container}`}
             >
               <Icon className="h-4 w-4 shrink-0 mt-0.5" />
               <span className="flex-1 leading-relaxed">{toast.message}</span>
