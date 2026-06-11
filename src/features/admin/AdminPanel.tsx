@@ -5,13 +5,13 @@
 
 import React from 'react';
 import { Shield, CheckSquare, RefreshCw, AlertTriangle, GitMerge, FileText, Sparkles, Trash2, ArrowUpRight } from 'lucide-react';
-import { Issue, CivicPR } from '@/src/types';
+import { Issue, CivicPR, IssueStatus, PRStatus } from '@/src/types';
 
 interface AdminPanelProps {
   issues: Issue[];
   prs: CivicPR[];
-  onTriageIssue: (id: string, status: any) => void;
-  onTriagePR: (id: string, status: any) => void;
+  onTriageIssue: (id: string, status: IssueStatus) => void;
+  onTriagePR: (id: string, status: PRStatus) => void;
   onForceRunChecks: () => void;
 }
 

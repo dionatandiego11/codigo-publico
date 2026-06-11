@@ -23,6 +23,7 @@ import {
   Send,
   HelpCircle
 } from 'lucide-react';
+import { ISSUE_STATUSES, ISSUE_TYPES } from '@/src/contracts/civic';
 import { Issue, IssueType, IssueStatus, LawArticle, Territory } from '@/src/types';
 
 interface IssueTrackerProps {
@@ -87,24 +88,8 @@ export default function IssueTracker({
   const [formDepartment, setFormDepartment] = useState('');
   const [formFiles, setFormFiles] = useState<string>('');
 
-  const issueTypes: IssueType[] = [
-    'Problema público',
-    'Lacuna normativa',
-    'Falha de execução',
-    'Inconsistência orçamentária',
-    'Sugestão de melhoria',
-    'Pedido de transparência'
-  ];
-
-  const issueStatuses: IssueStatus[] = [
-    'Aberta',
-    'Em triagem',
-    'Em debate',
-    'Vinculada a PR',
-    'Em análise técnica',
-    'Resolvida',
-    'Arquivada'
-  ];
+  const issueTypes: readonly IssueType[] = ISSUE_TYPES;
+  const issueStatuses: readonly IssueStatus[] = ISSUE_STATUSES;
 
   // Filtering implementation
   const filteredIssues = issues.filter(issue => {

@@ -27,6 +27,8 @@ backend/
   migrations/002_seed.sql
   migrations/003_citizens.sql
   migrations/004_civic_writes.sql
+  migrations/005_voting_module.sql
+  migrations/006_contract_constraints.sql
   docker-compose.yml
   .env.example
   go.mod
@@ -351,6 +353,64 @@ GET /api/v1/me/dashboard
 ```
 
 Retorna o painel pessoal do cidadão logado: issues e PRs criados, recibos de votação (com a seleção do próprio cidadão), PRs apoiados, território e data de registro. O CPF nunca aparece na resposta.
+
+## Contratos de API
+
+O contrato público entre front-end, API e PostgreSQL usa:
+
+- JSON em `camelCase`;
+- data civil em ISO date: `YYYY-MM-DD`;
+- timestamp em RFC3339: `2026-06-11T12:00:00Z`;
+- IDs públicos de issues e PRs com `#`, por exemplo `#044`;
+- IDs públicos de votações com prefixo `vote-`, por exemplo `vote-046`;
+- artigos expostos como `art-{numero}`, por exemplo `art-12`;
+- territórios expostos por `slug`, por exemplo `campo-grande`;
+- UUIDs internos aceitos em rotas de detalhe quando aplicável, mas não usados como identificador principal na UI.
+
+Vocabulários controlados ficam espelhados em:
+
+- front-end: `src/contracts/civic.ts`;
+- backend: `backend/internal/public/contracts.go`;
+- PostgreSQL: `backend/migrations/006_contract_constraints.sql`.
+
+Status oficiais de issue:
+
+```text
+Aberta
+Em triagem
+Em debate
+Vinculada a PR
+Em análise técnica
+Resolvida
+Arquivada
+```
+
+Status oficiais de PR cívico:
+
+```text
+Rascunho
+Aberto para debate
+Em revisão pública
+Em revisão técnica
+Em revisão jurídica
+Aguardando ajustes
+Pronto para votação
+Em votação
+Aprovado pela consulta pública
+Encaminhado à Câmara
+Aprovado formalmente
+Incorporado ao texto oficial
+Rejeitado
+Arquivado
+```
+
+Opções oficiais de voto:
+
+```text
+Aprovo
+Rejeito
+Abstenção
+```
 
 ## Triagem Institucional
 

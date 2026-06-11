@@ -40,7 +40,7 @@ func (r *Repository) CreatePR(ctx context.Context, actor citizenActor, input cre
 			linked_issue_public_ids,
 			upvotes
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7::uuid, $8, 'Aberto para debate', $9, $10, $11, 1)
+		VALUES ($1, $2, $3, $4, $5, $6, $7::uuid, $8, $9, $10, $11, $12, 1)
 		RETURNING id::text
 	`,
 		publicID,
@@ -51,6 +51,7 @@ func (r *Repository) CreatePR(ctx context.Context, actor citizenActor, input cre
 		actor.Name,
 		actor.ID,
 		input.AuthorType,
+		prStatusDraft, // Opção B: PR nasce em Rascunho
 		input.CitizenSummary,
 		input.Justification,
 		input.LinkedIssueIDs,
@@ -73,7 +74,13 @@ func (r *Repository) CreatePR(ctx context.Context, actor citizenActor, input cre
 	if err := insertAuditEvent(ctx, tx, actor, "pr.created", "civic_pr", internalID, publicID, map[string]any{
 		"title":      input.Title,
 		"repository": input.Repository,
+		"initialStatus": prStatusDraft,
 	}); err != nil {
+		return CivicPR{}, err
+	}
+
+	// Registrar evento inicial de criação na máquina de estados
+	if err := recordPRTransitionEvent(ctx, tx, actor, internalID, publicID, "", prStatusDraft, "criacao", "PR criado em rascunho pelo autor"); err != nil {
 		return CivicPR{}, err
 	}
 
@@ -164,6 +171,178 @@ func (r *Repository) UpvotePR(ctx context.Context, actor citizenActor, identifie
 	return r.GetPR(ctx, publicID)
 }
 
+// UpdatePRStatusWithMachine valida a transição fromStatus→toStatus usando a
+// PRStateMachine e persiste o resultado, incluindo o evento de auditoria em
+// pr_transition_events.
+func (r *Repository) UpdatePRStatusWithMachine(ctx context.Context, actor citizenActor, identifier string, toStatus string, sm *PRStateMachine) (CivicPR, error) {
+	prID, publicID, err := r.findPRIdentity(ctx, identifier)
+	if err != nil {
+		return CivicPR{}, err
+	}
+
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return CivicPR{}, err
+	}
+	defer rollbackTx(ctx, tx)
+
+	// Carregar estado atual e autor do PR — usa FOR UPDATE para serializar
+	// escritas concorrentes no mesmo PR.
+	var fromStatus string
+	var authorCitizenID string
+	if err := tx.QueryRow(ctx, `
+		SELECT status, COALESCE(author_citizen_id::text, '')
+		FROM civic_prs
+		WHERE id = $1::uuid
+		FOR UPDATE
+	`, prID).Scan(&fromStatus, &authorCitizenID); err != nil {
+		return CivicPR{}, err
+	}
+
+	// Verificar se o ator é o autor original do PR
+	isAuthor := authorCitizenID != "" && authorCitizenID == actor.ID
+
+	// Validar a transição pela máquina de estados
+	transition, err := sm.Transition(fromStatus, toStatus, actor.Role, isAuthor)
+	if err != nil {
+		// Distinguir erro de autorização de erro de fluxo
+		if strings.Contains(err.Error(), "não está autorizado") {
+			return CivicPR{}, newServiceError(http.StatusForbidden, err.Error())
+		}
+		return CivicPR{}, newServiceError(http.StatusConflict, err.Error())
+	}
+
+	// Persistir novo status
+	if _, err := tx.Exec(ctx, `
+		UPDATE civic_prs SET status = $1 WHERE id = $2::uuid
+	`, toStatus, prID); err != nil {
+		return CivicPR{}, err
+	}
+
+	// Registrar evento de transição
+	if err := recordPRTransitionEvent(ctx, tx, actor, prID, publicID, fromStatus, toStatus, transition.Trigger, ""); err != nil {
+		return CivicPR{}, err
+	}
+
+	// Audit event genérico (mantém compatibilidade com audit_events existentes)
+	if err := insertAuditEvent(ctx, tx, actor, "pr.status_changed", "civic_pr", prID, publicID, map[string]any{
+		"fromStatus":    fromStatus,
+		"toStatus":      toStatus,
+		"transitionKey": transition.Key,
+		"trigger":       transition.Trigger,
+	}); err != nil {
+		return CivicPR{}, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return CivicPR{}, err
+	}
+
+	return r.GetPR(ctx, publicID)
+}
+
+// recordPRTransitionEvent insere uma linha de auditoria em pr_transition_events
+// dentro de uma transação já aberta.
+func recordPRTransitionEvent(
+	ctx context.Context,
+	tx pgx.Tx,
+	actor citizenActor,
+	prInternalID, prPublicID string,
+	fromStatus, toStatus, triggerKey, reason string,
+) error {
+	actorType := "citizen"
+	if isInstitutionalRole(actor.Role) {
+		actorType = "institutional"
+	}
+	if actor.ID == "" {
+		actorType = "system"
+	}
+
+	var actorID *string
+	var actorName *string
+	var actorRole *string
+	if actor.ID != "" {
+		actorID = &actor.ID
+		actorName = &actor.Name
+		actorRole = &actor.Role
+	}
+
+	var fromStatusArg interface{} = fromStatus
+	if fromStatus == "" {
+		fromStatusArg = nil
+	}
+
+	var reasonArg interface{} = reason
+	if reason == "" {
+		reasonArg = nil
+	}
+
+	_, err := tx.Exec(ctx, `
+		INSERT INTO pr_transition_events (
+			civic_pr_id,
+			pr_public_id,
+			from_status,
+			to_status,
+			trigger_key,
+			actor_id,
+			actor_name,
+			actor_role,
+			actor_type,
+			reason
+		)
+		VALUES ($1::uuid, $2, $3, $4, $5, $6::uuid, $7, $8, $9, $10)
+	`,
+		prInternalID,
+		prPublicID,
+		fromStatusArg,
+		toStatus,
+		triggerKey,
+		actorID,
+		actorName,
+		actorRole,
+		actorType,
+		reasonArg,
+	)
+	return err
+}
+
+// GetPRAllowedTransitions retorna as transições que o ator pode disparar a
+// partir do estado atual do PR.
+func (r *Repository) GetPRAllowedTransitions(ctx context.Context, actor citizenActor, identifier string, sm *PRStateMachine) (PRAllowedTransitionsResponse, error) {
+	var currentStatus string
+	var authorCitizenID string
+	if err := r.db.QueryRow(ctx, `
+		SELECT status, COALESCE(author_citizen_id::text, '')
+		FROM civic_prs
+		WHERE id::text = $1 OR public_id = $1
+	`, identifier).Scan(&currentStatus, &authorCitizenID); err != nil {
+		return PRAllowedTransitionsResponse{}, err
+	}
+
+	isAuthor := authorCitizenID != "" && authorCitizenID == actor.ID
+
+	allowed := sm.AllowedTransitions(currentStatus, actor.Role, isAuthor)
+
+	transitions := make([]PRTransitionInfo, 0, len(allowed))
+	for _, t := range allowed {
+		transitions = append(transitions, PRTransitionInfo{
+			Key:         t.Key,
+			ToStatus:    t.ToStatus,
+			Trigger:     t.Trigger,
+			Description: t.Description,
+		})
+	}
+
+	meta, _ := sm.StatusMeta(currentStatus)
+
+	return PRAllowedTransitionsResponse{
+		CurrentStatus: currentStatus,
+		WorkflowStage: meta.WorkflowStage,
+		Terminal:      meta.Terminal,
+		Transitions:   transitions,
+	}, nil
+}
+
 func (r *Repository) MergePR(ctx context.Context, actor citizenActor, identifier string, input mergePRRequest, releaseDate time.Time) (mergePRResponse, error) {
 	tx, err := r.db.Begin(ctx)
 	if err != nil {
@@ -175,7 +354,7 @@ func (r *Repository) MergePR(ctx context.Context, actor citizenActor, identifier
 	if err != nil {
 		return mergePRResponse{}, err
 	}
-	if prIdentity.Status == "Incorporado ao texto oficial" {
+	if prIdentity.Status == prStatusIncorporatedOfficialText {
 		return mergePRResponse{}, newServiceError(http.StatusConflict, "PR already incorporated into official text")
 	}
 	if !canMergePRStatus(prIdentity.Status) {
@@ -243,9 +422,9 @@ func (r *Repository) MergePR(ctx context.Context, actor citizenActor, identifier
 
 	if _, err := tx.Exec(ctx, `
 		UPDATE civic_prs
-		SET status = 'Incorporado ao texto oficial'
-		WHERE id = $1::uuid
-	`, prIdentity.InternalID); err != nil {
+		SET status = $1
+		WHERE id = $2::uuid
+	`, prStatusIncorporatedOfficialText, prIdentity.InternalID); err != nil {
 		return mergePRResponse{}, err
 	}
 

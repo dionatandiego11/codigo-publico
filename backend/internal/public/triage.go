@@ -13,33 +13,6 @@ type updateStatusRequest struct {
 	Status string `json:"status"`
 }
 
-var allowedIssueStatuses = map[string]bool{
-	"Aberta":             true,
-	"Em triagem":         true,
-	"Em debate":          true,
-	"Vinculada a PR":     true,
-	"Em análise técnica": true,
-	"Resolvida":          true,
-	"Arquivada":          true,
-}
-
-var allowedPRStatuses = map[string]bool{
-	"Rascunho":                      true,
-	"Aberto para debate":            true,
-	"Em revisão pública":            true,
-	"Em revisão técnica":            true,
-	"Em revisão jurídica":           true,
-	"Aguardando ajustes":            true,
-	"Pronto para votação":           true,
-	"Em votação":                    true,
-	"Aprovado pela consulta pública": true,
-	"Encaminhado à Câmara":          true,
-	"Aprovado formalmente":          true,
-	"Incorporado ao texto oficial":  true,
-	"Rejeitado":                     true,
-	"Arquivado":                     true,
-}
-
 func (h *Handler) UpdateIssueStatus(w http.ResponseWriter, r *http.Request) {
 	var input updateStatusRequest
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
@@ -83,33 +56,30 @@ func (s *Service) UpdateIssueStatus(ctx context.Context, identifier string, stat
 	}
 
 	status = strings.TrimSpace(status)
-	if !allowedIssueStatuses[status] {
+	if !isAllowedIssueStatus(status) {
 		return Issue{}, newServiceError(http.StatusBadRequest, "status is not a valid issue status")
 	}
 
 	return s.repo.UpdateIssueStatus(ctx, actor, identifier, status)
 }
 
-func (s *Service) UpdatePRStatus(ctx context.Context, identifier string, status string) (CivicPR, error) {
+func (s *Service) UpdatePRStatus(ctx context.Context, identifier string, toStatus string) (CivicPR, error) {
 	actor, err := s.authenticatedCitizen(ctx)
 	if err != nil {
 		return CivicPR{}, err
 	}
 
-	if !isInstitutionalRole(actor.Role) {
-		return CivicPR{}, newServiceError(http.StatusForbidden, "PR triage requires an institutional role")
+	toStatus = strings.TrimSpace(toStatus)
+	if toStatus == "" {
+		return CivicPR{}, newServiceError(http.StatusBadRequest, "status is required")
 	}
 
-	status = strings.TrimSpace(status)
-	if !allowedPRStatuses[status] {
-		return CivicPR{}, newServiceError(http.StatusBadRequest, "status is not a valid PR status")
+	// Bloquear tentativa de merge via este endpoint
+	if toStatus == prStatusIncorporatedOfficialText {
+		return CivicPR{}, newServiceError(http.StatusConflict, "use o endpoint de merge institucional para incorporar um PR")
 	}
 
-	if status == "Incorporado ao texto oficial" {
-		return CivicPR{}, newServiceError(http.StatusConflict, "use the institutional merge endpoint to incorporate a PR")
-	}
-
-	return s.repo.UpdatePRStatus(ctx, actor, identifier, status)
+	return s.repo.UpdatePRStatusWithMachine(ctx, actor, identifier, toStatus, s.stateMachine)
 }
 
 func (r *Repository) UpdateIssueStatus(ctx context.Context, actor citizenActor, identifier string, status string) (Issue, error) {

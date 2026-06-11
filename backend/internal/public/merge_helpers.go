@@ -136,7 +136,7 @@ func updateArticleFromDiff(ctx context.Context, tx pgx.Tx, articleIDValue sql.Nu
 	}
 
 	article.ID = articleID(article.Number)
-	article.LastUpdated = formatBrazilianDate(lastUpdated)
+	article.LastUpdated = formatDate(lastUpdated)
 	article.AmendmentNote = amendmentNote
 	_ = id
 	return article, nil
@@ -198,7 +198,7 @@ func (r *Repository) insertNormativeDiffs(ctx context.Context, tx pgx.Tx, civicP
 		for lineIndex, line := range diff.Lines {
 			line.Type = strings.TrimSpace(line.Type)
 			line.Content = strings.TrimSpace(line.Content)
-			if line.Type != "added" && line.Type != "removed" && line.Type != "neutral" {
+			if line.Type != diffLineTypeAdded && line.Type != diffLineTypeRemoved && line.Type != diffLineTypeNeutral {
 				return fmt.Errorf("diffs[%d].lines[%d].type must be added, removed or neutral", diffIndex, lineIndex)
 			}
 			if line.Content == "" {

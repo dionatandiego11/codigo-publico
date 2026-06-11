@@ -19,6 +19,9 @@ func (s *Service) CreateIssue(ctx context.Context, input createIssueRequest) (Is
 	if input.Title == "" || input.Type == "" || input.Theme == "" || input.Description == "" {
 		return Issue{}, newServiceError(http.StatusBadRequest, "title, type, theme and description are required")
 	}
+	if !isAllowedIssueType(input.Type) {
+		return Issue{}, newServiceError(http.StatusBadRequest, "type is not a valid issue type")
+	}
 
 	territoryID, territoryName, err := s.repo.resolveIssueTerritory(ctx, input.TerritoryID, input.Territory)
 	if err != nil {

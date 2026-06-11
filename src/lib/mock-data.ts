@@ -67,7 +67,7 @@ export const MOCK_ARTIGOS: LawArticle[] = [
     content: 'Art. 1º. O Município de Novo Horizonte, parte integrante da República Federativa do Brasil e do Estado de São Paulo, organiza-se de forma autônoma em tudo o que respeite ao seu peculiar interesse, regendo-se por esta Lei Orgânica.',
     citizenExplanation: 'O município de Novo Horizonte tem autonomia para criar suas próprias regras de interesse local, sempre respeitando as constituições paulista e brasileira, sob o amparo da sua própria Lei Orgânica do município (o núcleo de todas as leis da cidade).',
     version: 'v2020.0',
-    lastUpdated: '15/11/2020',
+    lastUpdated: '2020-11-15',
     comments: [
       {
         id: 'c-1',
@@ -96,7 +96,7 @@ export const MOCK_ARTIGOS: LawArticle[] = [
     content: 'Art. 12. O Município assegurará a participação da comunidade na formulação e controle das políticas públicas municipais, assegurados os recursos de audiência pública, iniciativa popular de projetos de lei e conselhos paritários.',
     citizenExplanation: 'Este artigo garante que a prefeitura crie meios físicos ou representativos para que as pessoas possam discutir o planejamento da cidade, ir a reuniões públicas (audiências) e criar propostos de leis com assinaturas de eleitores.',
     version: 'v2024.0',
-    lastUpdated: '10/06/2024',
+    lastUpdated: '2024-06-10',
     amendmentNumber: 'Emenda nº 03/2024',
     comments: [
       {
@@ -125,7 +125,7 @@ export const MOCK_ARTIGOS: LawArticle[] = [
     content: 'Art. 35. Os atos da administração direta e indireta serão publicados em Diário Oficial do Município, garantindo a ampla transparência ativa de receitas e despesas em tempo real de forma acessível à população.',
     citizenExplanation: 'Todas as ações da Prefeitura, contratações, editais e gastos de dinheiro público devem sair no Diário Oficial e constar em portais públicos para que qualquer pessoa possa ver onde o imposto está sendo investido.',
     version: 'v2020.0',
-    lastUpdated: '15/11/2020',
+    lastUpdated: '2020-11-15',
     comments: [
       {
         id: 'c-5',
@@ -145,7 +145,7 @@ export const MOCK_ARTIGOS: LawArticle[] = [
     content: 'Art. 88. O Plano Plurianual (PPA), as Diretrizes Orçamentárias (LDO) e o Orçamento Anual (LOA) serão elaborados anualmente e submetidos à apreciação legislativa com mecanismos obrigatórios de consulta participativa nos bairros.',
     citizenExplanation: 'As três principais ferramentas de orçamento da nossa cidade (o PPA para planos de 4 anos, a LDO para desenhar regras de prioridades, e a LOA que distribui o dinheiro de verdade) exigem escuta popular direta nos bairros antes de irem para votação na Câmara.',
     version: 'v2024.0',
-    lastUpdated: '12/12/2024',
+    lastUpdated: '2024-12-12',
     comments: []
   },
   {
@@ -156,7 +156,7 @@ export const MOCK_ARTIGOS: LawArticle[] = [
     content: 'Art. 110. O Plano Diretor do Município é o instrumento básico da política de desenvolvimento e expansão urbana, e deve ser revisto a cada dez anos com auditoria de zoneamento e impacto ambiental.',
     citizenExplanation: 'O Plano Diretor organiza o crescimento da nossa cidade. Ele decide onde podem subir prédios, onde ficam as áreas verdes, os bairros residenciais e as vias principais. Ele precisa obrigatoriamente de uma revisão detalhada a cada dez anos.',
     version: 'v2020.0',
-    lastUpdated: '15/11/2020',
+    lastUpdated: '2020-11-15',
     comments: [
       {
         id: 'c-6',
@@ -554,6 +554,7 @@ export const MOCK_VOTACOES: Voting[] = [
     votesYes: 3410,
     votesNo: 320,
     votesAbstain: 110,
+    status: 'Aberta',
     hasVoted: false
   },
   {
@@ -578,6 +579,7 @@ export const MOCK_VOTACOES: Voting[] = [
     votesYes: 4520,
     votesNo: 480,
     votesAbstain: 120,
+    status: 'Aberta',
     hasVoted: true,
     userVoteSelection: 'Aprovo',
     voteReceipt: 'CP-2026-8K29-ZP41'
@@ -588,7 +590,7 @@ export const MOCK_RELEASES: Release[] = [
   {
     id: 'v2026.0',
     title: 'Release Legislativa v2026.0',
-    date: '10/01/2026',
+    date: '2026-01-10',
     repositoryName: 'Lei Orgânica Municipal',
     changelog: [
       'Incorporada Emenda Orgânica nº 24/2025 para modernização de governança climática local.',
@@ -603,7 +605,7 @@ export const MOCK_RELEASES: Release[] = [
   {
     id: 'v2024.1',
     title: 'Release Legislativa v2024.1',
-    date: '12/12/2024',
+    date: '2024-12-12',
     repositoryName: 'Lei Orgânica Municipal',
     changelog: [
       'Incorporada Emenda nº 03/2024 (Artigo 12 / Diretriz de Participação Popular em Audiências Públicas Coletivas).',
@@ -685,7 +687,7 @@ export const MOCK_MEB = {
   name: 'Dionatan Santos',
   email: 'dionatan.pmb@gmail.com',
   territoryId: 'campo-grande',
-  registeredAt: '12/01/2025',
+  registeredAt: '2025-01-12',
   citizenId: 'CP-CITIZEN-938217',
   createdIssues: [
     { id: '#118', title: 'Estrada rural sem manutenção na comunidade Campo Grande', status: 'Em triagem' }

@@ -255,6 +255,22 @@ type apiError struct {
 	Error string `json:"error"`
 }
 
+// PRTransitionInfo representa uma transição possível exposta ao frontend.
+type PRTransitionInfo struct {
+	Key         string `json:"key"`
+	ToStatus    string `json:"toStatus"`
+	Trigger     string `json:"trigger"`
+	Description string `json:"description"`
+}
+
+// PRAllowedTransitionsResponse é retornado pelo endpoint GET /prs/{id}/transitions.
+type PRAllowedTransitionsResponse struct {
+	CurrentStatus string            `json:"currentStatus"`
+	WorkflowStage string            `json:"workflowStage"`
+	Terminal      bool              `json:"terminal"`
+	Transitions   []PRTransitionInfo `json:"transitions"`
+}
+
 type citizenActor struct {
 	ID   string
 	Name string

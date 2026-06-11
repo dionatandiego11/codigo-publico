@@ -82,7 +82,7 @@ func (r *Repository) GetCitizenDashboard(ctx context.Context, actor citizenActor
 	dashboard.Email = email.String
 	dashboard.TerritoryID = territorySlug.String
 	dashboard.TerritoryName = territoryName.String
-	dashboard.RegisteredAt = formatBrazilianDate(createdAt)
+	dashboard.RegisteredAt = formatDate(createdAt)
 	dashboard.CitizenID = displayCitizenID(actor.ID)
 
 	issueRows, err := r.db.Query(ctx, `

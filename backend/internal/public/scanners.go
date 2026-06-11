@@ -28,7 +28,7 @@ func scanRelease(row scanner) (Release, error) {
 		return Release{}, err
 	}
 
-	release.Date = formatBrazilianDate(releaseDate)
+	release.Date = formatDate(releaseDate)
 	release.OfficialDocumentURL = nullStringPtr(officialDocumentURL)
 	return release, nil
 }
@@ -89,7 +89,7 @@ func scanLawArticle(row scanner) (LawArticle, error) {
 	article.Section = nullStringPtr(section)
 	article.AmendmentNumber = nullStringPtr(amendmentNumber)
 	if lastUpdated.Valid {
-		article.LastUpdated = formatBrazilianDate(lastUpdated.Time)
+		article.LastUpdated = formatDate(lastUpdated.Time)
 	}
 	article.Comments = []ArticleComment{}
 

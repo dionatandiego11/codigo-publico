@@ -3,6 +3,40 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import type {
+  ArticleCommentAuthorRole,
+  CivicPRAuthorType,
+  DiffLineType,
+  ExecutionStatus,
+  ExecutionUpdateCategory,
+  InstitutionalCheckStatus,
+  IssueStatus,
+  IssueType,
+  PRReviewRole,
+  PRReviewStatus,
+  PRStatus,
+  TerritoryZone,
+  VoteSelectionValue,
+  VotingStatus
+} from './contracts/civic';
+
+export type {
+  ArticleCommentAuthorRole,
+  CivicPRAuthorType,
+  DiffLineType,
+  ExecutionStatus,
+  ExecutionUpdateCategory,
+  InstitutionalCheckStatus,
+  IssueStatus,
+  IssueType,
+  PRReviewRole,
+  PRReviewStatus,
+  PRStatus,
+  TerritoryZone,
+  VoteSelectionValue,
+  VotingStatus
+} from './contracts/civic';
+
 export interface Citizen {
   id: string;
   fullName: string;
@@ -32,7 +66,7 @@ export interface CitizenDashboardData {
 export interface ArticleComment {
   id: string;
   authorName: string;
-  authorRole: 'Cidadão' | 'Procurador' | 'Vereador' | 'Técnico' | 'Controladoria';
+  authorRole: ArticleCommentAuthorRole;
   content: string;
   createdAt: string;
   likes: number;
@@ -52,23 +86,6 @@ export interface LawArticle {
   comments: ArticleComment[];
 }
 
-export type IssueType =
-  | 'Problema público'
-  | 'Lacuna normativa'
-  | 'Falha de execução'
-  | 'Inconsistência orçamentária'
-  | 'Sugestão de melhoria'
-  | 'Pedido de transparência';
-
-export type IssueStatus =
-  | 'Aberta'
-  | 'Em triagem'
-  | 'Em debate'
-  | 'Vinculada a PR'
-  | 'Em análise técnica'
-  | 'Resolvida'
-  | 'Arquivada';
-
 export interface Issue {
   id: string; // e.g., '#044' or '#118'
   title: string;
@@ -87,29 +104,13 @@ export interface Issue {
     createdAt: string;
   }[];
   linkedPRId?: string;
-  assignedDepartment: string;
+  assignedDepartment?: string;
   relatedArticleId?: string; // Links to law article, if any
   relatedRepository?: string; // e.g., 'Lei Orgânica', 'Plano Diretor'
 }
 
-export type PRStatus =
-  | 'Rascunho'
-  | 'Aberto para debate'
-  | 'Em revisão pública'
-  | 'Em revisão técnica'
-  | 'Em revisão jurídica'
-  | 'Aguardando ajustes'
-  | 'Pronto para votação'
-  | 'Em votação'
-  | 'Aprovado pela consulta pública'
-  | 'Encaminhado à Câmara'
-  | 'Aprovado formalmente'
-  | 'Incorporado ao texto oficial'
-  | 'Rejeitado'
-  | 'Arquivado';
-
 export interface DiffLine {
-  type: 'added' | 'removed' | 'neutral';
+  type: DiffLineType;
   content: string;
 }
 
@@ -125,8 +126,8 @@ export interface NormativeDiff {
 export interface PRReview {
   id: string;
   reviewerName: string;
-  reviewerRole: 'Revisão Popular' | 'Revisão Jurídica' | 'Revisão Técnica' | 'Revisão Orçamentária' | 'Controladoria' | 'Comissão Legislativa';
-  status: 'Pendente' | 'Aprovado' | 'Aprovado com ressalvas' | 'Solicita alterações' | 'Rejeitado';
+  reviewerRole: PRReviewRole;
+  status: PRReviewStatus;
   conclusion: string;
   feedback: string;
   createdAt: string;
@@ -136,7 +137,7 @@ export interface InstitutionalCheck {
   id: string;
   name: string;
   description: string;
-  status: 'Aprovado' | 'Atenção' | 'Reprovado' | 'Pendente';
+  status: InstitutionalCheckStatus;
   feedback: string;
 }
 
@@ -147,7 +148,7 @@ export interface CivicPR {
   targetTitle: string; // e.g., 'Título X - Participação Popular'
   affectedArticles: string; // e.g., 'Artigo 12, Parágrafos 1º e 2º'
   authorName: string;
-  authorType: 'Iniciativa Popular' | 'Técnico' | 'Mandato Coletivo' | 'Vereador';
+  authorType: CivicPRAuthorType;
   status: PRStatus;
   citizenSummary: string; // Modo Cidadão explanation of proposed changes
   justification: string; // Why this change is requested
@@ -187,8 +188,9 @@ export interface Voting {
   votesYes: number;
   votesNo: number;
   votesAbstain: number;
+  status: VotingStatus;
   hasVoted?: boolean;
-  userVoteSelection?: 'Aprovo' | 'Rejeito' | 'Abstenção';
+  userVoteSelection?: VoteSelectionValue;
   voteReceipt?: string;
 }
 
@@ -200,26 +202,17 @@ export interface Release {
   changelog: string[];
   incorporatedPRIds: string[];
   affectedArticlesCount: number;
-  officialDocumentUrl: string;
+  officialDocumentUrl?: string;
   promulgatedBy: string;
 }
-
-export type ExecutionStatus =
-  | 'Aguardando regulamentação'
-  | 'Em regulamentação'
-  | 'Em execução'
-  | 'Parcialmente cumprida'
-  | 'Cumprida'
-  | 'Descumprida'
-  | 'Suspensa judicialmente';
 
 export interface ExecutionTracker {
   id: string;
   title: string;
-  originalPRId: string;
+  originalPRId?: string;
   normReference: string; // e.g., 'Artigo 12, §1º da Lei Orgânica'
   responsibleDepartment: string;
-  deadline: string;
+  deadline?: string;
   status: ExecutionStatus;
   progressPercentage: number;
   budgetAllocated: string;
@@ -234,14 +227,14 @@ export interface ExecutionTracker {
     date: string;
     title: string;
     description: string;
-    category: 'Ofício' | 'Licitação' | 'Diário Oficial' | 'Fiscalização Social';
+    category: ExecutionUpdateCategory;
   }[];
 }
 
 export interface Territory {
   id: string; // e.g., 'campo-grande'
   name: string;
-  zone: 'Zona Rural' | 'Zona Urbana' | 'Zona Especial';
+  zone: TerritoryZone;
   activeIssuesCount: number;
   linkedPRsCount: number;
   activeVotingsCount: number;

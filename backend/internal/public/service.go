@@ -6,11 +6,15 @@ import (
 )
 
 type Service struct {
-	repo *Repository
+	repo         *Repository
+	stateMachine *PRStateMachine
 }
 
 func NewService(repo *Repository) *Service {
-	return &Service{repo: repo}
+	return &Service{
+		repo:         repo,
+		stateMachine: NewPRStateMachine(),
+	}
 }
 
 type serviceError struct {

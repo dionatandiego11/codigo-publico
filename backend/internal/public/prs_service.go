@@ -29,11 +29,23 @@ func (s *Service) CreatePR(ctx context.Context, input createPRRequest) (CivicPR,
 		input.AffectedArticles = "Artigos diversos"
 	}
 	if input.AuthorType == "" {
-		input.AuthorType = "Iniciativa Popular"
+		input.AuthorType = prAuthorTypePopularInitiative
+	}
+	if !isAllowedPRAuthorType(input.AuthorType) {
+		return CivicPR{}, newServiceError(http.StatusBadRequest, "authorType is not a valid civic PR author type")
 	}
 	input.LinkedIssueIDs = cleanStringList(input.LinkedIssueIDs)
 
 	return s.repo.CreatePR(ctx, actor, input)
+}
+
+func (s *Service) GetPRAllowedTransitions(ctx context.Context, identifier string) (PRAllowedTransitionsResponse, error) {
+	actor, err := s.authenticatedCitizen(ctx)
+	if err != nil {
+		return PRAllowedTransitionsResponse{}, err
+	}
+
+	return s.repo.GetPRAllowedTransitions(ctx, actor, identifier, s.stateMachine)
 }
 
 func (s *Service) CreatePRComment(ctx context.Context, identifier string, input createCommentRequest) (PRComment, error) {

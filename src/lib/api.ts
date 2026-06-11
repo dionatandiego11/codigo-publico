@@ -12,11 +12,14 @@ import {
   ExecutionTracker,
   InstitutionalCheck,
   Issue,
+  IssueStatus,
   LawArticle,
   NormativeDiff,
+  PRStatus,
   PRReview,
   Release,
   Territory,
+  VoteSelectionValue,
   Voting
 } from '../types';
 import { postJSON, requestJSON, requestOptionalJSON, routeId } from '../api/client';
@@ -185,7 +188,7 @@ export async function upvoteIssue(issueId: string): Promise<Issue> {
   return postJSON<Issue>(`/issues/${routeId(issueId)}/upvote`);
 }
 
-export async function updateIssueStatus(issueId: string, status: string): Promise<Issue> {
+export async function updateIssueStatus(issueId: string, status: IssueStatus): Promise<Issue> {
   return postJSON<Issue>(`/issues/${routeId(issueId)}/status`, { status });
 }
 
@@ -213,7 +216,7 @@ export async function upvotePR(prId: string): Promise<CivicPR> {
   return postJSON<CivicPR>(`/prs/${routeId(prId)}/upvote`);
 }
 
-export async function updatePRStatus(prId: string, status: string): Promise<CivicPR> {
+export async function updatePRStatus(prId: string, status: PRStatus): Promise<CivicPR> {
   return postJSON<CivicPR>(`/prs/${routeId(prId)}/status`, { status });
 }
 
@@ -243,7 +246,7 @@ export interface CastVoteResponse {
   results: VotingResults;
 }
 
-export async function castVote(votingId: string, selection: 'Aprovo' | 'Rejeito' | 'Abstenção'): Promise<CastVoteResponse> {
+export async function castVote(votingId: string, selection: VoteSelectionValue): Promise<CastVoteResponse> {
   return postJSON<CastVoteResponse>(`/votings/${routeId(votingId)}/vote`, { selection });
 }
 

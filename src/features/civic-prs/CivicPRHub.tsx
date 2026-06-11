@@ -29,7 +29,9 @@ import {
   ShieldAlert,
   FileText
 } from 'lucide-react';
+import { PR_STATUSES } from '@/src/contracts/civic';
 import { CivicPR, PRStatus, LawArticle, Voting, PRReview, InstitutionalCheck, Issue } from '@/src/types';
+import type { VoteSelectionValue } from '@/src/types';
 
 interface CivicPRHubProps {
   prs: CivicPR[];
@@ -40,7 +42,7 @@ interface CivicPRHubProps {
   onSelectedChange?: (prId: string | null) => void;
   onBackToHome: () => void;
   onSubmitNewPR: (data: any) => void;
-  onCastVote: (votingId: string, selection: 'Aprovo' | 'Rejeito' | 'Abstenção') => void;
+  onCastVote: (votingId: string, selection: VoteSelectionValue) => void;
   onUpvotePR: (prId: string) => void;
   onCommentPR: (prId: string, content: string) => void;
   currentUserName?: string;
@@ -94,25 +96,10 @@ export default function CivicPRHub({
   const [formRationale, setFormRationale] = useState('');
 
   // Cast vote states
-  const [votedChoice, setVotedChoice] = useState<'Aprovo' | 'Rejeito' | 'Abstenção' | null>(null);
+  const [votedChoice, setVotedChoice] = useState<VoteSelectionValue | null>(null);
   const [showVoteSlip, setShowVoteSlip] = useState(false);
 
-  const prStatuses: PRStatus[] = [
-    'Rascunho',
-    'Aberto para debate',
-    'Em revisão pública',
-    'Em revisão técnica',
-    'Em revisão jurídica',
-    'Aguardando ajustes',
-    'Pronto para votação',
-    'Em votação',
-    'Aprovado pela consulta pública',
-    'Encaminhado à Câmara',
-    'Aprovado formalmente',
-    'Incorporado ao texto oficial',
-    'Rejeitado',
-    'Arquivado'
-  ];
+  const prStatuses: readonly PRStatus[] = PR_STATUSES;
 
   // Filtering
   const filteredPRs = prs.filter(pr => {

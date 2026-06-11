@@ -55,3 +55,15 @@ func (h *Handler) GetPRChecks(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, http.StatusOK, checks)
 }
+
+// GetPRAllowedTransitions lista as transições de estado que o cidadão autenticado
+// pode disparar para o PR informado, com base em seu papel e autoria.
+func (h *Handler) GetPRAllowedTransitions(w http.ResponseWriter, r *http.Request) {
+	resp, err := h.service.GetPRAllowedTransitions(r.Context(), chi.URLParam(r, "id"))
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, resp)
+}

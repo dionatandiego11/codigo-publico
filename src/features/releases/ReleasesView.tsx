@@ -73,7 +73,7 @@ export default function ReleasesView({ releases, onSelectPR }: ReleasesViewProps
                 </span>
                 <span className="flex items-center space-x-1 sm:justify-end text-[10px]">
                   <FileText className="h-3.5 w-3.5 text-slate-400" />
-                  <span>Doc: {release.officialDocumentUrl.split(' - ')[0]}</span>
+                  <span>Doc: {(release.officialDocumentUrl ?? 'Documento oficial pendente').split(' - ')[0]}</span>
                 </span>
               </div>
             </div>

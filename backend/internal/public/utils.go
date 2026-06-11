@@ -135,7 +135,7 @@ func isInstitutionalRole(role string) bool {
 }
 
 func canMergePRStatus(status string) bool {
-	return status == "Aprovado formalmente"
+	return status == prStatusFormallyApproved
 }
 
 func isUniqueViolation(err error) bool {
@@ -154,12 +154,12 @@ func normalizeVoteSelection(input voteRequest) (string, error) {
 	}
 
 	switch {
-	case strings.EqualFold(selection, "Aprovo"):
-		return "Aprovo", nil
-	case strings.EqualFold(selection, "Rejeito"):
-		return "Rejeito", nil
-	case strings.EqualFold(selection, "Abstenção"), strings.EqualFold(selection, "Abstencao"):
-		return "Abstenção", nil
+	case strings.EqualFold(selection, voteSelectionApprove):
+		return voteSelectionApprove, nil
+	case strings.EqualFold(selection, voteSelectionReject):
+		return voteSelectionReject, nil
+	case strings.EqualFold(selection, voteSelectionAbstain), strings.EqualFold(selection, "Abstencao"):
+		return voteSelectionAbstain, nil
 	default:
 		return "", errors.New("selection must be Aprovo, Rejeito or Abstenção")
 	}
@@ -167,21 +167,21 @@ func normalizeVoteSelection(input voteRequest) (string, error) {
 
 func voteCounterUpdateSQL(selection string) (string, error) {
 	switch selection {
-	case "Aprovo":
+	case voteSelectionApprove:
 		return `
 			UPDATE votings
 			SET quorum_reached = quorum_reached + 1,
 				votes_yes = votes_yes + 1
 			WHERE id = $1::uuid
 		`, nil
-	case "Rejeito":
+	case voteSelectionReject:
 		return `
 			UPDATE votings
 			SET quorum_reached = quorum_reached + 1,
 				votes_no = votes_no + 1
 			WHERE id = $1::uuid
 		`, nil
-	case "Abstenção":
+	case voteSelectionAbstain:
 		return `
 			UPDATE votings
 			SET quorum_reached = quorum_reached + 1,
@@ -302,10 +302,6 @@ func nullStringPtr(value sql.NullString) *string {
 
 func formatDate(value time.Time) string {
 	return value.UTC().Format("2006-01-02")
-}
-
-func formatBrazilianDate(value time.Time) string {
-	return value.Format("02/01/2006")
 }
 
 func formatDateTime(value time.Time) string {

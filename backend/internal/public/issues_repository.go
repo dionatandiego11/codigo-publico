@@ -36,7 +36,7 @@ func (r *Repository) CreateIssue(ctx context.Context, actor citizenActor, input 
 			related_repository,
 			linked_pr_public_id
 		)
-		VALUES ($1, $2, $3, $4::uuid, $5, $6, $7, $8, $9::uuid, 'Aberta', 1, $10, $11::uuid, $12, $13)
+		VALUES ($1, $2, $3, $4::uuid, $5, $6, $7, $8, $9::uuid, $10, 1, $11, $12::uuid, $13, $14)
 		RETURNING id::text
 	`,
 		publicID,
@@ -48,6 +48,7 @@ func (r *Repository) CreateIssue(ctx context.Context, actor citizenActor, input 
 		input.Description,
 		actor.Name,
 		actor.ID,
+		issueStatusOpen,
 		nullableString(input.AssignedDepartment),
 		nullableString(relatedArticleID),
 		nullableString(input.RelatedRepository),

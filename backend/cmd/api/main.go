@@ -72,6 +72,7 @@ func main() {
 			r.Post("/prs/{id}/upvote", publicHandler.UpvotePR)
 			r.Post("/prs/{id}/status", publicHandler.UpdatePRStatus)
 			r.Post("/prs/{id}/merge", publicHandler.MergePR)
+			r.Get("/prs/{id}/transitions", publicHandler.GetPRAllowedTransitions)
 			r.Post("/votings/{id}/vote", publicHandler.CastVote)
 		})
 
