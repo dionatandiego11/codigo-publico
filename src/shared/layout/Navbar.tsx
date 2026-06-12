@@ -53,12 +53,21 @@ export default function Navbar({ currentPath, setPath }: NavbarProps) {
         {/* Account pill */}
         {isAuthenticated && citizen ? (
           <div className="flex items-center gap-2">
+            {citizen.role && citizen.role !== 'Cidadão' && (
+              <button
+                onClick={() => setPath('/admin')}
+                className="group flex items-center gap-1.5 rounded-full border border-[rgba(192,132,252,0.3)] bg-[rgba(192,132,252,0.05)] px-2.5 py-1.5 text-[11px] font-medium text-[#c084fc] transition-all duration-300 hover:bg-[rgba(192,132,252,0.1)] hover:shadow-[0_0_16px_rgba(192,132,252,0.2)]"
+                title="Acessar Console Institucional"
+              >
+                <ShieldCheck className="h-3.5 w-3.5 icon-glow-purple" />
+                <span className="hidden sm:inline">Admin</span>
+              </button>
+            )}
             <button
               onClick={() => setPath('/minha-area')}
               className="group flex items-center gap-2 rounded-full border border-[var(--color-git-border2)] bg-white/[0.03] px-3 py-1.5 text-[11px] font-medium text-[var(--color-git-text2)] transition-all duration-300 hover:border-[rgba(56,189,248,0.4)] hover:bg-[rgba(56,189,248,0.06)] hover:shadow-[0_0_16px_rgba(56,189,248,0.15)]"
             >
               <span className="status-dot status-dot-green" />
-              <ShieldCheck className="h-3.5 w-3.5 text-[var(--color-git-green)] icon-glow-green" />
               <span className="max-w-[5rem] truncate">{citizen.fullName.split(' ')[0]}</span>
             </button>
             <button

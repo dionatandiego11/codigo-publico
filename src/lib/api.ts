@@ -144,6 +144,7 @@ export interface RegisterCitizenData {
   fullName: string;
   cpf: string;
   birthDate: string;
+  password?: string;
   phone?: string;
   email?: string;
   territoryId?: string;
@@ -153,8 +154,9 @@ export async function registerCitizen(data: RegisterCitizenData): Promise<AuthRe
   return postJSON<AuthResponse>('/citizens/register', data);
 }
 
-export async function loginCitizen(cpf: string, birthDate: string): Promise<AuthResponse> {
-  return postJSON<AuthResponse>('/auth/login', { cpf, birthDate });
+export async function loginCitizen(cpf: string, password?: string, birthDate?: string): Promise<AuthResponse> {
+  // O backend deve ser alterado para priorizar password, ou validar ambos no momento de transição
+  return postJSON<AuthResponse>('/auth/login', { cpf, password, birthDate });
 }
 
 export async function getMe(): Promise<Citizen> {

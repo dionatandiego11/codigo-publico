@@ -527,8 +527,72 @@ export const MOCK_PRS: CivicPR[] = [
     reviews: [],
     checks: [],
     mergeTimeline: []
+  },
+  {
+    id: '#045-A',
+    title: 'Democracia digital com postos presenciais obrigatórios (fork de #045)',
+    repository: 'Lei Orgânica Municipal',
+    targetTitle: 'Título II - Dos Direitos e Garantias Fundamentais',
+    affectedArticles: 'Artigo 12, inclusão de §1º, §2º e §3º',
+    authorName: 'Coletivo Inclusão Digital Sem Fronteiras',
+    authorType: 'Iniciativa Popular',
+    status: 'Em revisão pública',
+    forkedFromId: '#045',
+    citizenSummary: 'Variação do PR #045 que mantém o portal cívico digital, mas torna obrigatória a instalação de postos presenciais de apoio em todos os CRAS e UBS do município, garantindo acesso igualitário à população sem smartphone.',
+    justification: 'A proposta original menciona isonomia mas não obriga infraestrutura física de apoio. Esta variação torna isso vinculante em lei, não apenas recomendável, protegendo os 23% de munícipes sem acesso a internet banda larga.',
+    linkedIssueIds: ['#044'],
+    upvotes: 187,
+    createdAt: '2026-05-18T14:00:00Z',
+    comments: [],
+    diffs: [],
+    reviews: [
+      {
+        id: 'r-fork-a-1',
+        reviewerName: 'Secretaria de Assistência Social',
+        reviewerRole: 'Revisão Técnica',
+        status: 'Aprovado com ressalvas',
+        conclusion: 'A instalação nos CRAS é viável operacionalmente. A exigência nas UBS demanda negociação com a Secretaria de Saúde que possui autonomia de gestão dos espaços.',
+        feedback: 'Negociação setorial requerida.',
+        createdAt: '2026-05-28T09:00:00Z'
+      }
+    ],
+    checks: [
+      { id: 'chk-fa1', name: 'Compatibilidade com Constituição Federal', description: 'Validação constitucional', status: 'Aprovado', feedback: 'Reforça o princípio da isonomia do art. 5º, CF/88.' },
+      { id: 'chk-fa2', name: 'Impacto orçamentário', description: 'Análise de custo dos postos', status: 'Atenção', feedback: 'Custo estimado de R$ 85.000/ano em 12 postos. Necessita dotação no próximo ciclo orçamentário.' }
+    ],
+    mergeTimeline: [
+      { title: 'Fork protocolado', date: '18/05/2026', completed: true, description: 'Derivado do PR #045 com adição do §3º sobre postos presenciais.' },
+      { title: 'Revisão técnica da Assistência Social', date: '28/05/2026', completed: true, description: 'Aprovado com ressalvas sobre espaços nas UBS.' },
+      { title: 'Votação comparativa', date: 'Pendente', completed: false, description: 'Votação paralela ao PR #045 para que a Câmara avalie qual variação incorporar.' }
+    ]
+  },
+  {
+    id: '#045-B',
+    title: 'Portal digital mínimo com assinatura GOV.BR apenas (fork de #045)',
+    repository: 'Lei Orgânica Municipal',
+    targetTitle: 'Título II - Dos Direitos e Garantias Fundamentais',
+    affectedArticles: 'Artigo 12, inclusão de §1º',
+    authorName: 'Vereadora Cristina Parreira',
+    authorType: 'Vereador',
+    status: 'Aberto para debate',
+    forkedFromId: '#045',
+    citizenSummary: 'Versão simplificada do PR #045: autoriza apenas a coleta de assinaturas digitais via GOV.BR para iniciativas populares, sem criar obrigação de portal completo de plebiscitos, reduzindo o custo e o prazo de implementação.',
+    justification: 'A proposta original é ambiciosa demais para o orçamento atual. Esta versão garante o avanço mínimo necessário — assinaturas digitais válidas — sem criar obrigações de infraestrutura que podem travar a aprovação na Câmara.',
+    linkedIssueIds: ['#044'],
+    upvotes: 98,
+    createdAt: '2026-05-22T10:00:00Z',
+    comments: [],
+    diffs: [],
+    reviews: [],
+    checks: [
+      { id: 'chk-fb1', name: 'Compatibilidade com Constituição Federal', description: 'Validação constitucional', status: 'Aprovado', feedback: 'Escopo reduzido não gera riscos constitucionais.' }
+    ],
+    mergeTimeline: [
+      { title: 'Fork protocolado', date: '22/05/2026', completed: true, description: 'Variação minimalista focada em assinaturas digitais apenas.' }
+    ]
   }
 ];
+
 
 export const MOCK_VOTACOES: Voting[] = [
   {

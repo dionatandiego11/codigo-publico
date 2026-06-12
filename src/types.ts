@@ -164,6 +164,7 @@ export interface CivicPR {
   reviews: PRReview[];
   checks: InstitutionalCheck[];
   votingId?: string; // Reference to Votação
+  forkedFromId?: string; // ID do PR original, se este for um fork
   createdAt: string;
   mergeTimeline: {
     title: string;

@@ -3,163 +3,208 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Activity, ArrowRight, BookOpen, MessageSquare, Scale, Vote } from 'lucide-react';
-import { entityPath } from '../app/useBrowserRouter';
-import { Badge, formatDate } from '../shared/ui';
-import { repoPath } from './repository-model';
-import type { CivicPR, Issue, Voting } from '../types';
+import { ArrowRight, BookOpen, GitPullRequest, Scale, UserPlus, Vote } from 'lucide-react';
+import { useAuth } from '../auth';
 
-export function FlowHome({
-  stats,
-  issues,
-  prs,
-  votings,
-  setPath
-}: {
-  stats: {
-    totalCitizens: number;
-    organicLawArticles: number;
-    openIssuesCount: number;
-    prsInReviewCount: number;
-    activeVotingsCount: number;
-    releasesCount: number;
-    civicParticipationRate: string;
-  };
-  issues: Issue[];
-  prs: CivicPR[];
-  votings: Voting[];
+interface FlowHomeProps {
   setPath: (path: string) => void;
-}) {
-  const featuredVoting = votings.find(voting => voting.status === 'Aberta') ?? votings[0];
-  const featuredPR = prs.find(pr => pr.status === 'Em votação') ?? prs[0];
+}
+
+export function FlowHome({ setPath }: FlowHomeProps) {
+  const { citizen, isAuthenticated, openAuthModal } = useAuth();
 
   return (
-    <div className="space-y-6 fade-in">
-      <section className="flex flex-col gap-4">
-        <div className="glass-panel p-6 rounded-[20px]">
-          <p className="text-[10px] uppercase tracking-[0.2em] text-[var(--color-git-blue)] font-bold mb-2 icon-glow-blue">Código Público</p>
-          <h1 className="text-3xl font-bold tracking-tight text-[var(--color-git-text)] leading-tight">
-            Acompanhe leis, propostas e votações.
-          </h1>
-          <p className="mt-3 text-sm text-[var(--color-git-muted)]">
-            Comece pela Lei Orgânica, acompanhe propostas em tramitação ou vá direto para as consultas abertas.
-          </p>
+    <div className="flex min-h-[calc(100vh-10rem)] items-center justify-center px-2 py-8 fade-in">
+      <div className="w-full max-w-sm">
 
-          <div className="mt-6 flex flex-col gap-3">
-            <button
-              onClick={() => setPath(repoPath('lei-organica', 'texto'))}
-              className="btn-secondary w-full py-3.5 font-bold text-white"
-            >
-              <BookOpen className="h-4 w-4 text-[var(--color-git-blue)]" />
-              Abrir Lei Orgânica
-            </button>
-            <button
-              onClick={() => setPath('/votacoes')}
-              className="btn-secondary w-full py-3.5"
-            >
-              <Vote className="h-4 w-4" />
-              Ver votações abertas
-            </button>
-          </div>
-        </div>
+        {isAuthenticated && citizen ? (
+          /* ── Estado: Logado ── */
+          <div className="glass-panel rounded-[24px] overflow-hidden">
+            {/* Faixa de status */}
+            <div className="h-1 w-full bg-gradient-to-r from-[var(--color-git-blue)] via-[var(--color-git-purple)] to-[var(--color-git-green)]" />
 
-        <div className="glass-panel card-hero-blue p-5 rounded-[20px] relative overflow-hidden">
-          <p className="text-[10px] uppercase tracking-[0.2em] text-[var(--color-git-muted2)] font-bold">Próxima decisão</p>
-          {featuredVoting ? (
-            <>
-              <h2 className="mt-3 text-lg font-bold leading-tight text-white">{featuredVoting.title}</h2>
-              <p className="mt-2 text-[12px] text-[var(--color-git-muted)]">Prazo: <span className="text-[var(--color-git-text2)]">{formatDate(featuredVoting.deadline)}</span></p>
-              <div className="mt-4 flex items-center justify-between gap-3 rounded-xl bg-white/[0.03] border border-[var(--color-git-border)] p-3">
-                <span>
-                  <span className="block text-[10px] uppercase font-bold text-[var(--color-git-muted)]">Status</span>
-                  <span className="mt-1 block text-sm font-bold text-[var(--color-git-blue)] icon-glow-blue">{featuredVoting.status}</span>
-                </span>
-                <Badge className="chip-blue">consulta pública</Badge>
+            <div className="px-6 pt-6 pb-5">
+              {/* Avatar e saudação */}
+              <div className="flex items-center gap-4 mb-5">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[var(--color-git-blue)] to-[var(--color-git-purple)] text-[#04060d] font-bold text-lg shadow-[0_0_20px_rgba(56,189,248,0.35)]">
+                  {citizen.fullName.charAt(0).toUpperCase()}
+                </div>
+                <div className="min-w-0">
+                  <p className="font-mono text-[9px] font-bold uppercase tracking-widest text-[var(--color-git-muted)]">
+                    Cidadão autenticado
+                  </p>
+                  <p className="mt-0.5 truncate text-base font-bold text-white leading-snug">
+                    {citizen.fullName}
+                  </p>
+                  {citizen.territoryName && (
+                    <p className="mt-0.5 text-xs text-[var(--color-git-muted)]">
+                      {citizen.territoryName}
+                    </p>
+                  )}
+                </div>
               </div>
-              <button onClick={() => setPath('/votacoes')} className="btn-primary mt-4 w-full">
-                Votar agora
-                <ArrowRight className="h-4 w-4" />
+
+              {/* Divisor */}
+              <div className="border-t border-[var(--color-git-border)] mb-5" />
+
+              {/* Ações rápidas */}
+              <p className="font-mono text-[9px] font-bold uppercase tracking-widest text-[var(--color-git-muted)] mb-3">
+                Por onde começar
+              </p>
+              <div className="space-y-2">
+                <QuickAction
+                  icon={Scale}
+                  label="Lei Orgânica"
+                  description="Leia e acompanhe o texto vigente"
+                  onClick={() => setPath('/repositorios/lei-organica/texto')}
+                  color="blue"
+                />
+                <QuickAction
+                  icon={Vote}
+                  label="Votações abertas"
+                  description="Sua voz nas consultas populares"
+                  onClick={() => setPath('/votacoes')}
+                  color="purple"
+                />
+                <QuickAction
+                  icon={GitPullRequest}
+                  label="Propostas (PRs)"
+                  description="Acompanhe e vote em propostas"
+                  onClick={() => setPath('/repositorios/lei-organica/prs')}
+                  color="green"
+                />
+              </div>
+
+              {/* Minha área */}
+              <button
+                onClick={() => setPath('/minha-area')}
+                className="mt-4 w-full inline-flex items-center justify-center gap-2 rounded-xl border border-[var(--color-git-border2)] bg-white/[0.03] px-4 py-2.5 text-xs font-semibold text-[var(--color-git-text2)] transition hover:border-[var(--color-git-blue)] hover:text-white"
+              >
+                Ver minha área
+                <ArrowRight className="h-3.5 w-3.5" />
               </button>
-            </>
-          ) : (
-            <p className="mt-3 text-sm text-[var(--color-git-muted)]">Nenhuma votação aberta no momento.</p>
-          )}
-        </div>
-      </section>
-
-      <section className="grid grid-cols-2 gap-3">
-        <HomeShortcut
-          icon={Scale}
-          title="Leis"
-          description="Acesse as normas"
-          onClick={() => setPath('/repositorios')}
-        />
-        <HomeShortcut
-          icon={Vote}
-          title="Votações"
-          description="Participe"
-          onClick={() => setPath('/votacoes')}
-        />
-        <HomeShortcut
-          icon={MessageSquare}
-          title="Debate"
-          description="Issues e PRs"
-          onClick={() => setPath(repoPath('lei-organica', 'prs'))}
-        />
-        <HomeShortcut
-          icon={Activity}
-          title="Execução"
-          description="Fiscalize"
-          onClick={() => setPath('/fiscalizacao')}
-        />
-      </section>
-
-      {featuredPR && (
-        <section className="glass-panel p-5 rounded-[20px] flex flex-col gap-4">
-          <div>
-            <p className="text-[10px] uppercase tracking-[0.2em] text-[var(--color-git-muted2)] font-bold">PR em destaque</p>
-            <h2 className="mt-2 text-md font-bold text-white leading-snug">{featuredPR.id} — {featuredPR.title}</h2>
-            <p className="mt-2 text-[12px] text-[var(--color-git-muted)] leading-relaxed">Acompanhe o diff, os pareceres e o estado da tramitação.</p>
+            </div>
           </div>
-          <button
-            onClick={() => setPath(entityPath('/prs', featuredPR.id))}
-            className="btn-secondary w-full font-bold text-white"
-          >
-            Analisar PR
-            <ArrowRight className="h-4 w-4" />
-          </button>
-        </section>
-      )}
+        ) : (
+          /* ── Estado: Não logado ── */
+          <div className="glass-panel rounded-[24px] overflow-hidden">
+            {/* Faixa de status */}
+            <div className="h-1 w-full bg-gradient-to-r from-[var(--color-git-blue)] via-[var(--color-git-purple)] to-[var(--color-git-green)]" />
+
+            <div className="px-6 pt-8 pb-6">
+              {/* Marca */}
+              <div className="mb-6 text-center">
+                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-[rgba(56,189,248,0.25)] bg-[rgba(56,189,248,0.08)] shadow-[0_0_30px_rgba(56,189,248,0.15)]">
+                  <BookOpen className="h-7 w-7 text-[var(--color-git-blue)]" />
+                </div>
+                <p className="font-mono text-[9px] font-bold uppercase tracking-[0.2em] text-[var(--color-git-blue)]">
+                  Código Público
+                </p>
+                <h1 className="mt-2 font-display text-2xl font-bold leading-tight text-white">
+                  Democracia no<br />código aberto
+                </h1>
+              </div>
+
+              {/* Descrição */}
+              <p className="text-sm leading-6 text-[var(--color-git-muted)] text-center mb-6">
+                Acompanhe a Lei Orgânica, participe de votações populares e proponha alterações normativas — tudo com transparência e rastreabilidade.
+              </p>
+
+              {/* Features resumidas */}
+              <div className="space-y-2.5 mb-7">
+                <Feature label="Leia e acompanhe o texto oficial das leis municipais" />
+                <Feature label="Vote em consultas populares com recibo verificável" />
+                <Feature label="Crie ou apoie propostas de alteração normativa" />
+                <Feature label="Fiscalize a execução das leis aprovadas" />
+              </div>
+
+              {/* CTAs */}
+              <div className="space-y-3">
+                <button
+                  onClick={openAuthModal}
+                  className="btn-primary w-full py-3 text-sm font-bold"
+                >
+                  <UserPlus className="h-4 w-4" />
+                  Cadastrar
+                </button>
+                <button
+                  onClick={openAuthModal}
+                  className="btn-secondary w-full py-3 text-sm font-semibold"
+                >
+                  Já tenho conta — Entrar
+                </button>
+              </div>
+
+              {/* Explorar sem login */}
+              <button
+                onClick={() => setPath('/repositorios')}
+                className="mt-4 w-full text-center text-xs text-[var(--color-git-muted)] hover:text-[var(--color-git-text2)] transition underline-offset-2 hover:underline"
+              >
+                Explorar sem criar conta
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
-function HomeShortcut({
+/* ── Sub-componentes ── */
+
+function QuickAction({
   icon: Icon,
-  title,
+  label,
   description,
-  onClick
+  onClick,
+  color
 }: {
-  icon: typeof BookOpen;
-  title: string;
+  icon: typeof Scale;
+  label: string;
   description: string;
   onClick: () => void;
+  color: 'blue' | 'purple' | 'green';
 }) {
+  const palette = {
+    blue: {
+      bg: 'bg-[rgba(56,189,248,0.08)] border-[rgba(56,189,248,0.18)]',
+      icon: 'text-[var(--color-git-blue)]',
+      hover: 'hover:border-[rgba(56,189,248,0.4)] hover:bg-[rgba(56,189,248,0.12)]'
+    },
+    purple: {
+      bg: 'bg-[rgba(192,132,252,0.08)] border-[rgba(192,132,252,0.18)]',
+      icon: 'text-[var(--color-git-purple)]',
+      hover: 'hover:border-[rgba(192,132,252,0.4)] hover:bg-[rgba(192,132,252,0.12)]'
+    },
+    green: {
+      bg: 'bg-[rgba(52,211,153,0.08)] border-[rgba(52,211,153,0.18)]',
+      icon: 'text-[var(--color-git-green)]',
+      hover: 'hover:border-[rgba(52,211,153,0.4)] hover:bg-[rgba(52,211,153,0.12)]'
+    }
+  }[color];
+
   return (
     <button
       onClick={onClick}
-      className="group glass-panel hover-glow rounded-[20px] p-4 text-left flex flex-col justify-between"
+      className={`group w-full flex items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition ${palette.bg} ${palette.hover}`}
     >
-      <div className="flex items-center justify-between">
-        <span className="flex h-10 w-10 items-center justify-center rounded-[12px] bg-white/[0.04] text-[var(--color-git-text)] border border-[var(--color-git-border)] group-hover:border-[var(--color-git-blue-glow)] group-hover:text-[var(--color-git-blue)] transition-all">
-          <Icon className="h-4 w-4" />
-        </span>
-        <ArrowRight className="h-4 w-4 text-[var(--color-git-muted)] group-hover:text-[var(--color-git-text)]" />
-      </div>
-      <div className="mt-4">
-        <span className="block text-sm font-bold text-white">{title}</span>
-        <span className="block mt-1 text-[11px] leading-snug text-[var(--color-git-muted)]">{description}</span>
-      </div>
+      <span className={`shrink-0 ${palette.icon}`}>
+        <Icon className="h-4 w-4" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-bold text-white leading-snug">{label}</span>
+        <span className="block text-[11px] text-[var(--color-git-muted)] leading-tight mt-0.5">{description}</span>
+      </span>
+      <ArrowRight className="h-3.5 w-3.5 shrink-0 text-[var(--color-git-muted)] transition group-hover:text-white group-hover:translate-x-0.5" />
     </button>
+  );
+}
+
+function Feature({ label }: { label: string }) {
+  return (
+    <div className="flex items-start gap-2.5">
+      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-git-blue)] shadow-[0_0_6px_rgba(56,189,248,0.6)]" />
+      <p className="text-xs leading-5 text-[var(--color-git-text2)]">{label}</p>
+    </div>
   );
 }

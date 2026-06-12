@@ -4,6 +4,7 @@
  */
 
 import { useEffect, useRef } from 'react';
+import { ShieldAlert } from 'lucide-react';
 import { AuthModal, useAuth } from './auth';
 import { entityPath, routeEntityId, useBrowserRouter } from './app/useBrowserRouter';
 import {
@@ -228,10 +229,12 @@ export default function App() {
       return (
         <PRDetailPage
           pr={prs.find(pr => pr.id === selectedPRRouteId)}
+          prs={prs}
           issues={issues}
           voting={votacoes.find(voting => voting.id === prs.find(pr => pr.id === selectedPRRouteId)?.votingId)}
           onBack={() => setPath('/repositorios/lei-organica/prs')}
           onSelectIssue={issueId => setPath(entityPath('/issues', issueId))}
+          onSelectPR={prId => setPath(entityPath('/prs', prId))}
           onVote={handleCastVote}
           onUpvote={handleUpvotePR}
           onComment={handleCommentPR}
@@ -242,14 +245,11 @@ export default function App() {
     if (currentPath === '/' || currentPath === '') {
       return (
         <FlowHome
-          stats={stats}
-          issues={issues}
-          prs={prs}
-          votings={votacoes}
           setPath={setPath}
         />
       );
     }
+
 
     if (currentPath === '/repositorios') {
       return (
@@ -341,6 +341,36 @@ export default function App() {
     }
 
     if (currentPath === '/admin') {
+      if (!isAuthenticated) {
+        return (
+          <div className="flex h-full items-center justify-center fade-in">
+            <div className="glass-panel p-8 text-center rounded-[20px] max-w-sm w-full">
+              <ShieldAlert className="mx-auto h-12 w-12 text-[var(--color-git-muted)] mb-4" />
+              <h1 className="font-display text-xl font-bold text-white">Acesso Institucional</h1>
+              <p className="mt-2 text-sm leading-relaxed text-[var(--color-git-muted)] mb-6">
+                Esta área é restrita a servidores e procuradores para gestão do processo legislativo.
+              </p>
+              <button onClick={openAuthModal} className="btn-primary w-full">Fazer login</button>
+            </div>
+          </div>
+        );
+      }
+      
+      if (citizen?.role === 'Cidadão' || !citizen?.role) {
+        return (
+          <div className="flex h-full items-center justify-center fade-in">
+            <div className="glass-panel p-8 text-center rounded-[20px] max-w-sm w-full border border-[rgba(248,113,113,0.15)] shadow-[0_0_40px_rgba(248,113,113,0.05)]">
+              <ShieldAlert className="mx-auto h-12 w-12 text-[var(--color-git-red)] mb-4" />
+              <h1 className="font-display text-xl font-bold text-white">Acesso Negado</h1>
+              <p className="mt-2 text-sm leading-relaxed text-[var(--color-git-muted)] mb-6">
+                Sua conta não possui permissão administrativa. Apenas perfis institucionais têm acesso ao painel de triagem.
+              </p>
+              <button onClick={() => setPath('/')} className="btn-secondary w-full">Voltar ao início</button>
+            </div>
+          </div>
+        );
+      }
+
       return (
         <InstitutionalPanel
           issues={issues}
@@ -348,6 +378,7 @@ export default function App() {
           isAuthenticated={isAuthenticated}
           onTriageIssue={handleTriageIssue}
           onTriagePR={handleTriagePR}
+          stats={stats}
         />
       );
     }

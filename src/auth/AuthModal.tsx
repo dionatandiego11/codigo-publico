@@ -23,6 +23,7 @@ export default function AuthModal({ territories }: AuthModalProps) {
 
   const [cpf, setCpf] = useState('');
   const [birthDate, setBirthDate] = useState('');
+  const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -44,11 +45,12 @@ export default function AuthModal({ territories }: AuthModalProps) {
 
     try {
       if (mode === 'login') {
-        await login(cpf, birthDate);
+        await login(cpf, password);
       } else {
         await register({
           fullName,
           cpf,
+          password,
           birthDate,
           email: email.trim() || undefined,
           phone: phone.trim() || undefined,
@@ -160,21 +162,49 @@ export default function AuthModal({ territories }: AuthModalProps) {
                 className="field font-mono"
               />
             </div>
-            <div>
-              <label className={labelClass} htmlFor="auth-birthdate">Data de nascimento</label>
-              <input
-                id="auth-birthdate"
-                type="date"
-                required
-                value={birthDate}
-                onChange={(e) => setBirthDate(e.target.value)}
-                className="field font-mono"
-              />
-            </div>
+            {mode === 'login' ? (
+              <div>
+                <label className={labelClass} htmlFor="auth-password">Senha</label>
+                <input
+                  id="auth-password"
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="field font-mono"
+                />
+              </div>
+            ) : (
+              <div>
+                <label className={labelClass} htmlFor="auth-birthdate">Data de nascimento</label>
+                <input
+                  id="auth-birthdate"
+                  type="date"
+                  required
+                  value={birthDate}
+                  onChange={(e) => setBirthDate(e.target.value)}
+                  className="field font-mono"
+                />
+              </div>
+            )}
           </div>
 
           {mode === 'register' && (
             <>
+              <div>
+                <label className={labelClass} htmlFor="auth-password-reg">Senha</label>
+                <input
+                  id="auth-password-reg"
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Crie uma senha segura"
+                  className="field"
+                />
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className={labelClass} htmlFor="auth-email">E-mail (opcional)</label>

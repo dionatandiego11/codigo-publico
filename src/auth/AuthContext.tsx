@@ -38,7 +38,7 @@ interface AuthContextValue {
   isAuthModalOpen: boolean;
   openAuthModal: () => void;
   closeAuthModal: () => void;
-  login: (cpf: string, birthDate: string) => Promise<Citizen>;
+  login: (cpf: string, password?: string, birthDate?: string) => Promise<Citizen>;
   register: (data: RegisterCitizenData) => Promise<Citizen>;
   logout: () => void;
   requireAuth: (action: PendingAction) => void;
@@ -92,8 +92,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const login = useCallback(async (cpf: string, birthDate: string) => {
-    const response = await loginCitizen(cpf, birthDate);
+  const login = useCallback(async (cpf: string, password?: string, birthDate?: string) => {
+    const response = await loginCitizen(cpf, password, birthDate);
     completeAuthentication(response.token, response.citizen);
     return response.citizen;
   }, [completeAuthentication]);

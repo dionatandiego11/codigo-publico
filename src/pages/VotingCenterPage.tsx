@@ -53,16 +53,6 @@ export function VotingCenter({
                 quorumNeeded={voting.quorumNeeded}
               />
               <div className="mt-4 flex flex-wrap gap-2">
-                {VOTE_SELECTIONS.map(selection => (
-                  <button
-                    key={selection}
-                    onClick={() => onVote(voting.id, selection)}
-                    disabled={voting.hasVoted}
-                    className="btn-secondary btn-sm"
-                  >
-                    {selection}
-                  </button>
-                ))}
                 {linkedPR && (
                   <button onClick={() => onSelectPR(linkedPR.id)} className="btn-primary btn-sm ml-auto">
                     Ver PR

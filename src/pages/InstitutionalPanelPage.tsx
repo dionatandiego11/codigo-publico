@@ -1,73 +1,130 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
 import { useEffect, useState } from 'react';
-import { GitMerge, LoaderCircle } from 'lucide-react';
-import { getPRTransitions, type PRTransitionInfo } from '../lib/api';
-import { Badge, PageTitle, statusClass } from '../shared/ui';
+import { Activity, CircleCheckBig, GitMerge, LayoutDashboard, LoaderCircle, ShieldAlert } from 'lucide-react';
+import { getPRTransitions, type PRTransitionInfo, type PublicStats } from '../lib/api';
+import { Badge, Metric, PageTitle, statusClass } from '../shared/ui';
 import type { CivicPR, Issue, IssueStatus, PRStatus } from '../types';
 
-const triageButtonClass = 'btn-secondary btn-sm';
-const approveButtonClass = 'btn-success btn-sm';
-const mergeButtonClass = 'btn-primary btn-sm';
+const triageButtonClass = 'btn-secondary btn-sm flex-1';
+const approveButtonClass = 'btn-success btn-sm flex-1';
+const mergeButtonClass = 'btn-primary btn-sm flex-1';
 
 export function InstitutionalPanel({
   issues,
   prs,
   isAuthenticated,
   onTriageIssue,
-  onTriagePR
+  onTriagePR,
+  stats
 }: {
   issues: Issue[];
   prs: CivicPR[];
   isAuthenticated: boolean;
   onTriageIssue: (issueId: string, status: IssueStatus) => void;
   onTriagePR: (prId: string, status: PRStatus) => void;
+  stats?: PublicStats;
 }) {
   const pendingIssues = issues.filter(issue => !['Resolvida', 'Arquivada'].includes(issue.status));
   const activePRs = prs.filter(pr => !['Incorporado ao texto oficial', 'Rejeitado', 'Arquivado'].includes(pr.status));
 
   return (
     <div className="space-y-6 fade-in">
-      <PageTitle
-        eyebrow="Rito formal"
-        title="Console institucional"
-        subtitle="Triagem, status formal e merge ficam separados do clique popular. As ações de PR refletem a máquina de estados do backend."
-      />
-      <div className="grid gap-6 lg:grid-cols-2">
-        <section className="glass-panel p-5 rounded-[20px]">
-          <h2 className="font-display text-lg font-bold text-white">Issues para triagem</h2>
-          <div className="mt-4 space-y-3">
-            {pendingIssues.map(issue => (
-              <div key={issue.id} className="rounded-xl border border-[var(--color-git-border2)] bg-[rgba(255,255,255,0.02)] p-4">
-                <Badge className={statusClass(issue.status)}>{issue.status}</Badge>
-                <h3 className="mt-2 text-sm font-bold text-white">{issue.id} — {issue.title}</h3>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <button onClick={() => onTriageIssue(issue.id, 'Em análise técnica')} className={triageButtonClass}>Análise técnica</button>
-                  <button onClick={() => onTriageIssue(issue.id, 'Resolvida')} className={approveButtonClass}>Resolver</button>
-                  <button onClick={() => onTriageIssue(issue.id, 'Arquivada')} className={triageButtonClass}>Arquivar</button>
-                </div>
-              </div>
-            ))}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <p className="text-[10px] uppercase tracking-[0.2em] text-[var(--color-git-purple)] font-bold mb-1 icon-glow-purple">Rito formal</p>
+          <h1 className="font-display text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+            <ShieldAlert className="h-6 w-6 text-[var(--color-git-purple)]" />
+            Console Administrativo
+          </h1>
+          <p className="mt-1 text-sm text-[var(--color-git-muted)] max-w-2xl">
+            Ambiente restrito. Controle a tramitação legislativa, delibere sobre propostas e execute o merge institucional.
+          </p>
+        </div>
+      </div>
+
+      {/* Metrics Row */}
+      {stats && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <MetricCard icon={Activity} label="Issues Abertas" value={pendingIssues.length} color="amber" />
+          <MetricCard icon={GitMerge} label="PRs em Revisão" value={activePRs.length} color="blue" />
+          <MetricCard icon={CircleCheckBig} label="PRs Aprovados" value={prs.filter(pr => pr.status === 'Aprovado formalmente').length} color="green" />
+          <MetricCard icon={LayoutDashboard} label="Acesso" value="Admin" color="purple" />
+        </div>
+      )}
+
+      <div className="grid gap-6 lg:grid-cols-[1fr_400px]">
+        {/* Main Triage Area: PRs */}
+        <section className="glass-panel p-5 rounded-[20px] flex flex-col h-full border border-[rgba(192,132,252,0.15)] shadow-[0_0_30px_rgba(192,132,252,0.03)]">
+          <div className="flex items-center justify-between mb-4 pb-4 border-b border-[var(--color-git-border)]">
+            <h2 className="font-display text-lg font-bold text-white">Esteira de PRs</h2>
+            <Badge className="bg-[rgba(192,132,252,0.1)] text-[#a78bfa] border-[rgba(192,132,252,0.2)]">{activePRs.length} na fila</Badge>
           </div>
+          
+          {activePRs.length === 0 ? (
+            <div className="flex flex-col items-center justify-center flex-1 py-10 opacity-60">
+              <CircleCheckBig className="h-10 w-10 text-[var(--color-git-muted)] mb-3" />
+              <p className="text-sm font-semibold text-white">Nenhum PR pendente</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {activePRs.map(pr => (
+                <PRTriageCard
+                  key={pr.id}
+                  pr={pr}
+                  isAuthenticated={isAuthenticated}
+                  onTriagePR={onTriagePR}
+                />
+              ))}
+            </div>
+          )}
         </section>
 
-        <section className="glass-panel p-5 rounded-[20px]">
-          <h2 className="font-display text-lg font-bold text-white">PRs em rito</h2>
-          <div className="mt-4 space-y-3">
-            {activePRs.map(pr => (
-              <PRTriageCard
-                key={pr.id}
-                pr={pr}
-                isAuthenticated={isAuthenticated}
-                onTriagePR={onTriagePR}
-              />
-            ))}
+        {/* Secondary Triage Area: Issues */}
+        <section className="glass-panel p-5 rounded-[20px] h-fit">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-display text-base font-bold text-white">Caixa de Entrada (Issues)</h2>
+            <Badge className="chip-amber">{pendingIssues.length} alertas</Badge>
           </div>
+          
+          {pendingIssues.length === 0 ? (
+            <p className="text-sm text-[var(--color-git-muted)] text-center py-6">Nenhuma issue aguardando triagem.</p>
+          ) : (
+            <div className="space-y-3">
+              {pendingIssues.map(issue => (
+                <div key={issue.id} className="rounded-xl border border-[var(--color-git-border2)] bg-[rgba(255,255,255,0.02)] p-4 transition-colors hover:border-[var(--color-git-border-glow)]">
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <span className="font-mono text-[10px] font-bold text-[var(--color-git-muted2)]">{issue.id}</span>
+                    <Badge className={statusClass(issue.status)}>{issue.status}</Badge>
+                  </div>
+                  <h3 className="text-sm font-bold text-white leading-snug">{issue.title}</h3>
+                  <div className="mt-4 grid grid-cols-2 gap-2">
+                    <button onClick={() => onTriageIssue(issue.id, 'Em análise técnica')} className={triageButtonClass}>Analisar</button>
+                    <button onClick={() => onTriageIssue(issue.id, 'Resolvida')} className={approveButtonClass}>Resolver</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </section>
       </div>
+    </div>
+  );
+}
+
+function MetricCard({ icon: Icon, label, value, color }: { icon: any, label: string, value: string | number, color: string }) {
+  const styles = {
+    blue: 'border-[rgba(56,189,248,0.2)] text-[#38bdf8] bg-[rgba(56,189,248,0.05)]',
+    green: 'border-[rgba(52,211,153,0.2)] text-[#34d399] bg-[rgba(52,211,153,0.05)]',
+    amber: 'border-[rgba(251,191,36,0.2)] text-[#fbbf24] bg-[rgba(251,191,36,0.05)]',
+    purple: 'border-[rgba(192,132,252,0.2)] text-[#c084fc] bg-[rgba(192,132,252,0.05)]'
+  }[color];
+
+  return (
+    <div className={`rounded-2xl border p-4 ${styles}`}>
+      <div className="flex items-center justify-between mb-3">
+        <Icon className="h-5 w-5 opacity-80" />
+      </div>
+      <p className="text-2xl font-bold font-mono tracking-tight">{value}</p>
+      <p className="mt-1 text-[10px] font-bold uppercase tracking-wider opacity-70">{label}</p>
     </div>
   );
 }

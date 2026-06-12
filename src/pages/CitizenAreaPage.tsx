@@ -38,11 +38,23 @@ export function CitizenArea({
         </button>
       )}
 
-      <div className="grid gap-4 md:grid-cols-4">
-        <Metric label="território" value={profile.territoryName ?? territory?.name ?? 'não informado'} />
-        <Metric label="issues" value={profile.createdIssues.length} />
-        <Metric label="prs" value={profile.createdPRs?.length ?? 0} />
-        <Metric label="votos" value={profile.votedList.length} />
+      <div className="glass-panel p-5 rounded-[20px]">
+        <h3 className="font-mono text-xs font-bold text-[var(--color-git-muted)] uppercase tracking-wider mb-2">Território</h3>
+        <p className="font-display text-2xl font-bold text-white mb-6">{profile.territoryName ?? territory?.name ?? 'não informado'}</p>
+        <div className="grid grid-cols-3 gap-4 border-t border-[var(--color-git-border2)] pt-4">
+          <div>
+            <p className="text-xs font-mono text-[var(--color-git-muted)] mb-1">issues</p>
+            <p className="font-display text-xl font-bold text-white">{profile.createdIssues.length}</p>
+          </div>
+          <div>
+            <p className="text-xs font-mono text-[var(--color-git-muted)] mb-1">prs</p>
+            <p className="font-display text-xl font-bold text-white">{profile.createdPRs?.length ?? 0}</p>
+          </div>
+          <div>
+            <p className="text-xs font-mono text-[var(--color-git-muted)] mb-1">votos</p>
+            <p className="font-display text-xl font-bold text-white">{profile.votedList.length}</p>
+          </div>
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
