@@ -12,7 +12,10 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"golang.org/x/crypto/bcrypt"
 )
+
+const minPasswordLength = 8
 
 type Handler struct {
 	db            *pgxpool.Pool
@@ -34,6 +37,7 @@ type RegisterRequest struct {
 	FullName    string  `json:"fullName"`
 	CPF         string  `json:"cpf"`
 	BirthDate   string  `json:"birthDate"`
+	Password    string  `json:"password"`
 	Phone       *string `json:"phone"`
 	Email       *string `json:"email"`
 	TerritoryID *string `json:"territoryId"`
@@ -42,6 +46,7 @@ type RegisterRequest struct {
 type LoginRequest struct {
 	CPF       string `json:"cpf"`
 	BirthDate string `json:"birthDate"`
+	Password  string `json:"password"`
 }
 
 type CitizenResponse struct {
@@ -97,6 +102,24 @@ func (h *Handler) RegisterCitizen(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Senha é opcional para compatibilidade com contas legadas; quando
+	// enviada, vira o fator de login obrigatório.
+	var passwordHash any
+	if input.Password != "" {
+		if len(input.Password) < minPasswordLength {
+			writeAuthError(w, http.StatusBadRequest, "password must have at least 8 characters")
+			return
+		}
+
+		hashed, err := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
+		if err != nil {
+			writeAuthError(w, http.StatusInternalServerError, "failed to secure password")
+			return
+		}
+
+		passwordHash = string(hashed)
+	}
+
 	cpfHash := HashCPF(normalizedCPF, h.cpfHashSecret)
 
 	row := h.db.QueryRow(r.Context(), `
@@ -105,12 +128,13 @@ func (h *Handler) RegisterCitizen(w http.ResponseWriter, r *http.Request) {
 				full_name,
 				cpf_hash,
 				birth_date,
+				password_hash,
 				phone,
 				email,
 				territory_id,
 				role
 			)
-			VALUES ($1, $2, $3, $4, $5, $6::uuid, 'citizen')
+			VALUES ($1, $2, $3, $4, $5, $6, $7::uuid, 'citizen')
 			RETURNING
 				id,
 				full_name,
@@ -135,7 +159,7 @@ func (h *Handler) RegisterCitizen(w http.ResponseWriter, r *http.Request) {
 			c.updated_at
 		FROM inserted c
 		LEFT JOIN territories t ON t.id = c.territory_id
-	`, input.FullName, cpfHash, birthDate, nullableValue(input.Phone), nullableValue(input.Email), nullableValue(territoryUUID))
+	`, input.FullName, cpfHash, birthDate, passwordHash, nullableValue(input.Phone), nullableValue(input.Email), nullableValue(territoryUUID))
 
 	citizen, err := scanCitizen(row)
 	if err != nil {
@@ -166,20 +190,20 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	normalizedCPF := NormalizeCPF(input.CPF)
-	birthDate, err := parseBirthDate(input.BirthDate)
-	if err != nil {
-		writeAuthError(w, http.StatusBadRequest, "birthDate must use YYYY-MM-DD")
-		return
-	}
-
 	if len(normalizedCPF) != 11 {
 		writeAuthError(w, http.StatusBadRequest, "cpf must contain 11 digits")
 		return
 	}
 
+	birthDateRaw := strings.TrimSpace(input.BirthDate)
+	if input.Password == "" && birthDateRaw == "" {
+		writeAuthError(w, http.StatusBadRequest, "password or birthDate is required")
+		return
+	}
+
 	cpfHash := HashCPF(normalizedCPF, h.cpfHashSecret)
 
-	citizen, err := h.findCitizenByCPFAndBirthDate(r, cpfHash, birthDate)
+	record, err := h.findCitizenAuthByCPF(r, cpfHash)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			writeAuthError(w, http.StatusUnauthorized, "invalid credentials")
@@ -191,13 +215,43 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := GenerateToken(h.jwtSecret, citizen.ID, citizen.Role, h.jwtTTL)
+	if input.Password != "" {
+		// Login por senha (caminho preferencial).
+		if !record.passwordHash.Valid {
+			writeAuthError(w, http.StatusUnauthorized, "this account has no password yet; login with cpf and birthDate")
+			return
+		}
+
+		if bcrypt.CompareHashAndPassword([]byte(record.passwordHash.String), []byte(input.Password)) != nil {
+			writeAuthError(w, http.StatusUnauthorized, "invalid credentials")
+			return
+		}
+	} else {
+		// Fallback legado por data de nascimento — apenas para contas sem senha.
+		if record.passwordHash.Valid {
+			writeAuthError(w, http.StatusUnauthorized, "this account requires password login")
+			return
+		}
+
+		birthDate, err := parseBirthDate(birthDateRaw)
+		if err != nil {
+			writeAuthError(w, http.StatusBadRequest, "birthDate must use YYYY-MM-DD")
+			return
+		}
+
+		if !record.birthDate.Equal(birthDate) {
+			writeAuthError(w, http.StatusUnauthorized, "invalid credentials")
+			return
+		}
+	}
+
+	token, err := GenerateToken(h.jwtSecret, record.citizen.ID, record.citizen.Role, h.jwtTTL)
 	if err != nil {
 		writeAuthError(w, http.StatusInternalServerError, "failed to generate token")
 		return
 	}
 
-	writeAuthJSON(w, http.StatusOK, AuthResponse{Token: token, Citizen: citizen})
+	writeAuthJSON(w, http.StatusOK, AuthResponse{Token: token, Citizen: record.citizen})
 }
 
 func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
@@ -240,13 +294,67 @@ func (h *Handler) resolveTerritoryID(r *http.Request, territoryID *string) (*str
 	return &id, nil
 }
 
-func (h *Handler) findCitizenByCPFAndBirthDate(r *http.Request, cpfHash string, birthDate time.Time) (CitizenResponse, error) {
-	row := h.db.QueryRow(r.Context(), citizenSelectSQL()+`
-		WHERE c.cpf_hash = $1
-			AND c.birth_date = $2
-	`, cpfHash, birthDate)
+// citizenAuthRecord carrega o cidadão junto com os fatores de autenticação,
+// que nunca saem deste pacote.
+type citizenAuthRecord struct {
+	citizen      CitizenResponse
+	passwordHash sql.NullString
+	birthDate    time.Time
+}
 
-	return scanCitizen(row)
+func (h *Handler) findCitizenAuthByCPF(r *http.Request, cpfHash string) (citizenAuthRecord, error) {
+	row := h.db.QueryRow(r.Context(), `
+		SELECT
+			c.id::text,
+			c.full_name,
+			c.birth_date,
+			c.phone,
+			c.email,
+			t.slug,
+			t.name,
+			c.role,
+			c.created_at,
+			c.updated_at,
+			c.password_hash
+		FROM citizens c
+		LEFT JOIN territories t ON t.id = c.territory_id
+		WHERE c.cpf_hash = $1
+	`, cpfHash)
+
+	var record citizenAuthRecord
+	var phone sql.NullString
+	var email sql.NullString
+	var territoryID sql.NullString
+	var territoryName sql.NullString
+	var createdAt time.Time
+	var updatedAt time.Time
+
+	err := row.Scan(
+		&record.citizen.ID,
+		&record.citizen.FullName,
+		&record.birthDate,
+		&phone,
+		&email,
+		&territoryID,
+		&territoryName,
+		&record.citizen.Role,
+		&createdAt,
+		&updatedAt,
+		&record.passwordHash,
+	)
+	if err != nil {
+		return citizenAuthRecord{}, err
+	}
+
+	record.citizen.BirthDate = record.birthDate.Format("2006-01-02")
+	record.citizen.Phone = nullableStringPtr(phone)
+	record.citizen.Email = nullableStringPtr(email)
+	record.citizen.TerritoryID = nullableStringPtr(territoryID)
+	record.citizen.TerritoryName = nullableStringPtr(territoryName)
+	record.citizen.CreatedAt = createdAt.UTC().Format(time.RFC3339)
+	record.citizen.UpdatedAt = updatedAt.UTC().Format(time.RFC3339)
+
+	return record, nil
 }
 
 func (h *Handler) findCitizenByID(r *http.Request, citizenID string) (CitizenResponse, error) {

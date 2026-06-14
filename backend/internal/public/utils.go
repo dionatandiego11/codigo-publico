@@ -5,13 +5,14 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"encoding/base32"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
 	"strconv"
 	"strings"
 	"time"
+
+	"codigo-publico/backend/internal/audit"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -80,36 +81,32 @@ func insertPRUpvote(ctx context.Context, tx pgx.Tx, civicPRID string, citizenID 
 	return commandTag.RowsAffected() > 0, nil
 }
 
+// insertAuditEvent delega ao pacote audit, que mantém a cadeia de hashes.
 func insertAuditEvent(ctx context.Context, tx pgx.Tx, actor citizenActor, action string, entityType string, entityID string, entityPublicID string, metadata map[string]any) error {
 	if metadata == nil {
 		metadata = map[string]any{}
 	}
 	metadata["actorRole"] = actor.Role
 
-	metadataJSON, err := json.Marshal(metadata)
-	if err != nil {
-		return err
-	}
 	actorType := "citizen"
-	if isInstitutionalRole(actor.Role) {
+	if actor.Role == "system" {
+		actorType = "system"
+	} else if isInstitutionalRole(actor.Role) {
 		actorType = "institutional"
 	}
 
-	_, err = tx.Exec(ctx, `
-		INSERT INTO audit_events (
-			actor_type,
-			actor_id,
-			actor_name,
-			action,
-			entity_type,
-			entity_id,
-			entity_public_id,
-			metadata
-		)
-		VALUES ($1, $2::uuid, $3, $4, $5, $6::uuid, $7, $8::jsonb)
-	`, actorType, actor.ID, actor.Name, action, entityType, entityID, entityPublicID, string(metadataJSON))
-
-	return err
+	return audit.Insert(ctx, tx, audit.Actor{
+		ID:   actor.ID,
+		Name: actor.Name,
+		Role: actor.Role,
+		Type: actorType,
+	}, audit.Event{
+		Action:         action,
+		EntityType:     entityType,
+		EntityID:       entityID,
+		EntityPublicID: entityPublicID,
+		Metadata:       metadata,
+	})
 }
 
 func parseOptionalDate(value *string) (time.Time, error) {

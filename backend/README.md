@@ -35,37 +35,29 @@ backend/
   README.md
 ```
 
-## Rodando no WSL 2 com Ubuntu
+## Rodando localmente
 
-Entre na pasta do backend:
-
-```bash
-cd backend
-```
-
-Crie o arquivo de ambiente local:
-
-```bash
-cp .env.example .env
-```
-
-Suba PostgreSQL e Redis:
+Suba PostgreSQL e Redis a partir da **raiz do repositório** (o compose vive lá):
 
 ```bash
 docker compose up -d
 ```
 
-Instale as dependências Go:
+Crie o arquivo de ambiente local do backend:
+
+```bash
+cd backend
+cp .env.example .env
+```
+
+Instale as dependências e execute a API:
 
 ```bash
 go mod tidy
-```
-
-Execute a API:
-
-```bash
 go run ./cmd/api
 ```
+
+Para subir a API em container: `docker compose --profile api up -d` (raiz).
 
 ## Health Check
 
@@ -142,7 +134,7 @@ GET /api/v1/me
 GET /api/v1/me/dashboard
 ```
 
-Cadastro:
+Cadastro (com senha):
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/citizens/register \
@@ -151,13 +143,25 @@ curl -X POST http://localhost:8080/api/v1/citizens/register \
     "fullName": "Dionatan Santos",
     "cpf": "123.456.789-09",
     "birthDate": "1990-01-01",
+    "password": "senha-segura-123",
     "phone": "+55 11 99999-0000",
     "email": "dionatan@example.com",
     "territoryId": "campo-grande"
   }'
 ```
 
-Login MVP:
+Login por senha (caminho preferencial):
+
+```bash
+curl -X POST http://localhost:8080/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "cpf": "12345678909",
+    "password": "senha-segura-123"
+  }'
+```
+
+Login legado por data de nascimento (apenas contas sem senha cadastrada):
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/auth/login \
@@ -180,7 +184,8 @@ Regras implementadas:
 - CPF é normalizado removendo caracteres não numéricos.
 - CPF nunca é armazenado puro.
 - O banco salva apenas `cpf_hash`, calculado com HMAC-SHA256 e `CPF_HASH_SECRET`.
-- Login MVP usa CPF + data de nascimento.
+- A senha é armazenada apenas como hash bcrypt (`password_hash`, migration 008) e exige no mínimo 8 caracteres.
+- Login: se a conta tem senha, somente CPF + senha são aceitos; o fallback por CPF + data de nascimento vale apenas para contas legadas sem senha.
 - As respostas nunca expõem CPF.
 - `/me` usa middleware JWT.
 

@@ -123,6 +123,82 @@ func (r *Repository) CastVote(ctx context.Context, actor citizenActor, identifie
 	}, nil
 }
 
+// expiredOpenVotingIDs lista votações abertas cujo prazo já venceu — base do
+// encerramento automático por tempo (independente de novos votos).
+func (r *Repository) expiredOpenVotingIDs(ctx context.Context) ([]string, error) {
+	rows, err := r.db.Query(ctx, `
+		SELECT id::text FROM votings
+		WHERE status = $1 AND deadline < NOW()
+	`, votingStatusOpen)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	ids := make([]string, 0)
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+
+	return ids, rows.Err()
+}
+
+// closeExpiredVoting encerra uma votação vencida e resolve o PR vinculado pela
+// máquina de estados, com o ator "system". Idempotente: se a votação já não
+// está aberta, não faz nada.
+func (r *Repository) closeExpiredVoting(ctx context.Context, votingID string, sm *PRStateMachine) error {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer rollbackTx(ctx, tx)
+
+	var publicID, status string
+	var quorumNeeded, quorumReached, votesYes, votesNo int
+	var civicPRIDNull *string
+	if err := tx.QueryRow(ctx, `
+		SELECT public_id, status, quorum_needed, quorum_reached, votes_yes, votes_no, civic_pr_id::text
+		FROM votings
+		WHERE id = $1::uuid
+		FOR UPDATE
+	`, votingID).Scan(&publicID, &status, &quorumNeeded, &quorumReached, &votesYes, &votesNo, &civicPRIDNull); err != nil {
+		return err
+	}
+
+	// Outro caminho (ex.: voto de última hora) já pode tê-la encerrado.
+	if status != votingStatusOpen {
+		return tx.Commit(ctx)
+	}
+
+	if _, err := tx.Exec(ctx, `
+		UPDATE votings SET status = $1 WHERE id = $2::uuid
+	`, votingStatusClosed, votingID); err != nil {
+		return err
+	}
+
+	trigger := sm.VotingResolutionTrigger(quorumNeeded, quorumReached, votesYes, votesNo)
+	systemActor := citizenActor{ID: "", Name: "sistema", Role: "system"}
+
+	if err := insertAuditEvent(ctx, tx, systemActor, "voting.closed", "voting", votingID, publicID, map[string]any{
+		"reason":  "deadline reached",
+		"trigger": trigger,
+	}); err != nil {
+		return err
+	}
+
+	if civicPRIDNull != nil && *civicPRIDNull != "" {
+		if err := r.advancePRFromVotingResult(ctx, tx, *civicPRIDNull, trigger, sm); err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit(ctx)
+}
+
 // advancePRFromVotingResult tenta avançar o status de um PR com base no resultado
 // de uma votação encerrada. O ator é o sistema (sem ciudadão real).
 // Erros são silenciados pelo chamador — o PR pode já estar em estado diferente.

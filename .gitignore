@@ -6,3 +6,20 @@ coverage/
 *.log
 .env*
 !.env.example
+!.env.production
+
+# OpenTofu / Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+*.tfvars
+!*.example.tfvars
+
+# Credenciais e chaves (NUNCA versionar)
+chave_oracle/
+*.key
+*.pem
+senha.txt
+
+# Artefatos e segredos de deploy
+deploy/

@@ -1,6 +1,7 @@
 package publicapi
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 
@@ -51,4 +52,20 @@ func (h *Handler) GetVotingResults(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, results)
+}
+
+// CloseExpiredVotings é o gatilho manual (admin) do encerramento por prazo.
+func (h *Handler) CloseExpiredVotings(w http.ResponseWriter, r *http.Request) {
+	closed, err := h.service.CloseExpiredVotingsByAdmin(r.Context())
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]int{"closed": closed})
+}
+
+// CloseExpiredVotingsSystem é usado pelo job em background (sem HTTP).
+func (h *Handler) CloseExpiredVotingsSystem(ctx context.Context) (int, error) {
+	return h.service.CloseExpiredVotings(ctx)
 }

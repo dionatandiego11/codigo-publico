@@ -20,8 +20,10 @@ type Config struct {
 	JWTSecret          string
 	JWTExpiration      time.Duration
 	CPFHashSecret      string
-	HealthTimeout      time.Duration
-	ShutdownTimeout    time.Duration
+	HealthTimeout       time.Duration
+	ShutdownTimeout     time.Duration
+	AnchorMode          string
+	VotingCloseInterval time.Duration
 }
 
 func Load() Config {
@@ -42,6 +44,8 @@ func Load() Config {
 		CPFHashSecret:      getEnv("CPF_HASH_SECRET", "dev-cpf-hash-secret-change-me"),
 		HealthTimeout:      getEnvAsDuration("HEALTH_TIMEOUT", 2*time.Second),
 		ShutdownTimeout:    getEnvAsDuration("SHUTDOWN_TIMEOUT", 10*time.Second),
+		AnchorMode:          getEnv("ANCHOR_MODE", "log"),
+		VotingCloseInterval: getEnvAsDuration("VOTING_CLOSE_INTERVAL", time.Minute),
 	}
 }
 
