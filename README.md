@@ -1,80 +1,110 @@
 # Código Público
 
-Plataforma municipal de democracia direta versionada, inspirada na lógica do
-GitHub: a cidade é um **repositório cívico**, os bairros são **territórios
-mantidos** e os problemas públicos viram **issues territoriais** — rastreáveis,
-auditáveis e conversíveis em propostas, votações, releases legislativas e
-fiscalização de execução.
+Infraestrutura pública, auditável e open source de **Orçamento Participativo municipal**.
 
-> Uma cidade, um território-base, um cidadão validado, uma participação
-> rastreável.
+O Código Público transforma problemas territoriais em decisões orçamentárias rastreáveis. A metáfora de GitHub continua existindo, mas por baixo: histórico, versões, diffs, auditoria, merge institucional e release do ciclo. Para o cidadão, o fluxo principal é simples:
+
+```txt
+território
+→ demanda simples
+→ apoio comunitário
+→ maturação
+→ filtros públicos
+→ votação territorial
+→ matriz do OP
+→ institucionalização no PPA/LDO/LOA
+→ execução fiscalizada
+→ aprendizado do próximo ciclo
+```
+
+> Uma cidade, um território, uma demanda pública, uma decisão orçamentária rastreável.
 
 No ar: **https://codigopublico.stellaris.net.br**
 
-**Caso de uso fundador:** infraestrutura de **Orçamento Participativo**
-institucionalizável por lei — ver [docs/ORCAMENTO-PARTICIPATIVO.md](docs/ORCAMENTO-PARTICIPATIVO.md).
+## Tese
 
-📄 **Comece pelo [WHITEPAPER.md](WHITEPAPER.md)** — a apresentação do projeto para a sociedade.
-
-## Estrutura do monorepo
+O município é tratado como uma infraestrutura cívica versionada.
 
 ```txt
-frontend/   SPA React + TypeScript + Vite (mobile-first)
-backend/    API Go (chi) + PostgreSQL + Redis — módulos por domínio
-infra/      Docker, Nginx e OpenTofu (infra como código replicável)
-docs/       documentação conceitual, institucional e operacional
+Território              = unidade política base
+Demanda                 = problema público simples
+Proposta                = demanda amadurecida
+Fork                    = alternativa para o mesmo problema
+Filtro                  = regra pública de maturidade/admissibilidade
+Votação territorial     = priorização cidadã
+Matriz do OP            = consolidação municipal das prioridades
+Merge institucional     = incorporação no rito formal
+Release do ciclo        = versão pública consolidada do OP
+Execução                = acompanhamento do que foi aprovado
+Aprendizado             = efeito da execução no próximo ciclo
+```
+
+## Princípios
+
+- **Orçamento Participativo como eixo**: o sistema existe para transformar problemas locais em prioridade orçamentária, execução e fiscalização.
+- **Território como unidade política**: cada bairro, comunidade ou distrito reconhecido tem 1 representante territorial.
+- **Code is law**: regras do rito são públicas, testáveis, auditáveis e parametrizáveis por município dentro de limites comuns.
+- **Sorteio cívico**: o Maintainer Territorial nasce de inscrição e sorteio auditável entre cidadãos vinculados ao território.
+- **Sem especialista como porteiro**: técnicos podem revisar e complementar, mas o filtro principal deve ser protocolo público, contestável e auditável.
+- **Privacidade por construção**: CPF, voto individual, denúncia sigilosa e dado sensível nunca são expostos nem gravados em blockchain.
+- **Auditabilidade**: toda ação relevante deixa rastro; hashes podem ser ancorados externamente.
+- **Execução importa**: o ciclo só fecha quando a decisão aprovada é acompanhada e gera aprendizado para o ciclo seguinte.
+
+## Estrutura
+
+```txt
+src/        Front-end React + TypeScript + Vite
+backend/    API Go + Chi + PostgreSQL + Redis
+docs/       documentação conceitual, institucional, técnica e operacional
 ```
 
 ## Documentação
 
-**Conceitual** — o que é e por quê
-- [docs/CONCEITO.md](docs/CONCEITO.md) — a ideia e o ciclo cívico completo
-- [docs/ORCAMENTO-PARTICIPATIVO.md](docs/ORCAMENTO-PARTICIPATIVO.md) — o caso de uso fundador (OP, sorteio, gov.br, valor jurídico)
-- [docs/ARQUITETURA.md](docs/ARQUITETURA.md) — stack, módulos e padrões
-- [docs/ESTRUTURA-DO-APP.md](docs/ESTRUTURA-DO-APP.md) — estrutura-alvo e caminho de migração
-- [docs/FUNDAMENTACAO-TEORICA.md](docs/FUNDAMENTACAO-TEORICA.md) — teoria política, obstáculos e perguntas em aberto
+**Conceito e teoria**
 
-**Institucional** — as regras de governança
-- [docs/GOVERNANCA-TERRITORIAL.md](docs/GOVERNANCA-TERRITORIAL.md) — sysadmin, maintainers e instâncias recursais
-- [docs/PROTOCOLO-DE-VINCULO-TERRITORIAL.md](docs/PROTOCOLO-DE-VINCULO-TERRITORIAL.md) — vínculos, níveis T0–T4, contestação
-- [docs/PROTOCOLO-DE-MAINTAINERS-TERRITORIAIS.md](docs/PROTOCOLO-DE-MAINTAINERS-TERRITORIAIS.md) — nomeação, mandato e destituição (recall)
-- [docs/BLOCKCHAIN-E-AUDITORIA.md](docs/BLOCKCHAIN-E-AUDITORIA.md) — trilha encadeada e ancoragem de provas
-- [sugestao_de_governanca.md](sugestao_de_governanca.md) — decisões de governança em aberto
+- [docs/CONCEITO.md](docs/CONCEITO.md) — visão geral do Código Público como infraestrutura de OP.
+- [docs/ORCAMENTO-PARTICIPATIVO.md](docs/ORCAMENTO-PARTICIPATIVO.md) — protocolo operacional do OP.
+- [docs/FUNDAMENTACAO-TEORICA.md](docs/FUNDAMENTACAO-TEORICA.md) — fundamentos políticos da arquitetura.
+- [docs/resumo.md](docs/resumo.md) — síntese rápida da teoria operacional.
 
-**Prática** — construir e operar
-- [CONTRIBUTING.md](CONTRIBUTING.md) — subir o ambiente, testar e contribuir
-- [docs/OPERACAO.md](docs/OPERACAO.md) — runbook de produção (deploy, backup, troubleshooting)
-- [backend/README.md](backend/README.md) — referência completa da API
-- [proximos-passos.md](proximos-passos.md) — roteiro de evolução
+**Governança**
+
+- [docs/fluxo.md](docs/fluxo.md) — esteira de funcionamento do OP.
+- [docs/sugestao_de_governanca.md](docs/sugestao_de_governanca.md) — governança consolidada após a virada para OP.
+- [docs/GOVERNANCA-TERRITORIAL.md](docs/GOVERNANCA-TERRITORIAL.md) — papéis, territórios e instâncias.
+- [docs/PROTOCOLO-DE-VINCULO-TERRITORIAL.md](docs/PROTOCOLO-DE-VINCULO-TERRITORIAL.md) — vínculo do cidadão ao território.
+- [docs/PROTOCOLO-DE-MAINTAINERS-TERRITORIAIS.md](docs/PROTOCOLO-DE-MAINTAINERS-TERRITORIAIS.md) — representantes territoriais, sorteio, mandato e recall.
+- [docs/BLOCKCHAIN-E-AUDITORIA.md](docs/BLOCKCHAIN-E-AUDITORIA.md) — auditoria, hash chain e ancoragem externa.
+
+**Produto e operação**
+
+- [docs/ARQUITETURA.md](docs/ARQUITETURA.md) — arquitetura técnica-alvo.
+- [docs/ESTRUTURA-DO-APP.md](docs/ESTRUTURA-DO-APP.md) — organização do front e backend por domínio.
+- [docs/proximos-passos.md](docs/proximos-passos.md) — roteiro para transformar a teoria em modelo operacional.
+- [docs/lacunas.md](docs/lacunas.md) — lacunas conhecidas.
+- [docs/OPERACAO.md](docs/OPERACAO.md) — runbook de produção.
+- [backend/README.md](backend/README.md) — referência do backend atual.
 
 ## Executando localmente
 
-Pré-requisitos: Docker, Go 1.25+, Node 22+.
+Pré-requisitos: Docker, Go e Node.
 
 ```bash
-# 1. Banco e cache
+# Banco e Redis
+cd backend
 docker compose up -d
 
-# 2. API (em backend/)
-cd backend && cp .env.example .env && go run ./cmd/api
+# API
+cp .env.example .env
+go run ./cmd/api
 
-# 3. Front-end (em frontend/)
-cd frontend && npm install && npm run dev
+# Front-end, na raiz do projeto
+npm install
+npm run dev
 ```
 
 A API sobe em `http://localhost:8080` e o front em `http://localhost:3000`.
-O front funciona em modo demonstração (dados locais) quando a API está fora.
-
-## Princípios
-
-- **Integridade institucional**: votos e apoios populares não executam merge;
-  o rito formal é preservado e auditado.
-- **Privacidade por construção**: CPF apenas como hash HMAC, senha apenas como
-  bcrypt, voto individual nunca exposto, dado pessoal nunca em blockchain.
-- **Auditabilidade**: toda decisão relevante gera evento com hash encadeado;
-  a cabeça da cadeia pode ser ancorada externamente.
-- **Governança recorrível**: nenhuma decisão territorial é irrecorrível.
 
 ## Licença
 
-Apache 2.0 (declarada nos arquivos-fonte).
+Apache 2.0.

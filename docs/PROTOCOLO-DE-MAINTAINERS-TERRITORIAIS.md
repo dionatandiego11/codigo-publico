@@ -1,120 +1,182 @@
 # Protocolo de Maintainers Territoriais
 
-> **Implementado** em `backend/internal/territorial` (política pura + testes,
-> migration 011). Defaults marcados como **[provisório]** são decisões em
-> aberto (ver `sugestao_de_governanca.md`) encodadas em constantes fáceis de
-> mudar.
+Este documento define o papel do Maintainer Territorial no modo Orçamento Participativo.
 
-Regra-síntese:
+> Status: protocolo-alvo. O backend atual ainda contém partes do modelo anterior de nomeação/ativação; a direção conceitual passa a ser inscrição + sorteio auditável.
 
-> Um maintainer territorial não pode ser vitalício, invisível nem removido
-> informalmente.
+## Regra-síntese
 
-## Quem controla a porta do bairro
+> Um Maintainer Territorial não pode ser vitalício, invisível, proprietário do território nem removido informalmente.
 
-O maintainer territorial decide vínculos e contestações em primeira instância
-— logo, escolher e destituir esse papel precisa ser tão auditável quanto o
-vínculo do cidadão. Toda transição gera evento na trilha de auditoria com hash
-encadeado.
+## Quem é
 
-## Status do maintainer (máquina de estados)
+O Maintainer Territorial é o representante temporário de um território no ciclo do OP.
 
 ```txt
-Provisório   → mandato curto, em caráter temporário
-Ativo        → mandato pleno e vigente
-Em revisão   → moção popular aberta (mantém poderes até a decisão)
-Suspenso     → sem poderes, aguardando decisão
-Destituído   → removido por processo concluído
-Expirado     → mandato encerrado sem renovação
+1 território = 1 Maintainer Territorial
 ```
 
-São **efetivos** (têm poderes e contam como "território com maintainer"):
-`Provisório`, `Ativo`, `Em revisão` — e somente enquanto `term_end` não vence.
-Um maintainer com mandato vencido perde os poderes automaticamente, sem job
-(as queries filtram por `term_end > NOW()`).
+Ele organiza a esteira territorial, mas não decide sozinho o mérito político da comunidade.
 
-No máximo **um maintainer territorial efetivo por território** (índice único
-parcial no banco).
+## Escolha
 
-## Nomeação
+Fluxo-alvo:
 
-Origem da indicação (`appointmentSource`) determina o status inicial:
+```txt
+1. Maintainer Geral abre período de inscrição
+2. cidadãos com vínculo territorial validado se inscrevem
+3. sistema publica hash da lista elegível
+4. sistema usa seed pública auditável
+5. sorteia titular e suplentes
+6. abre janela de contestação
+7. confirma o Maintainer Territorial
+8. registra tudo em audit log
+```
 
-| Origem | Status inicial | Quem pode |
-| --- | --- | --- |
-| `eleicao_territorial` | Ativo | instância geral |
-| `indicacao_legislativa` | Ativo | instância geral |
-| `nomeacao_executiva` | **Provisório** | instância geral |
-| `designacao_emergencial` | **Provisório** | instância geral |
+## Universo elegível
 
-> Nomeação pelo executivo/emergencial **nunca** nasce com mandato pleno —
-> evita captura por nomeação direta. Para virar `Ativo`, precisa de ratificação
-> (eleição ou instância legislativa) via `activate`.
+Pode se inscrever quem:
 
-Nomear maintainer **geral** (instância recursal) exige `sysadmin`. Nomear
-**territorial** exige a instância geral (sysadmin ou maintainer geral). No
-bootstrap, o `sysadmin` (admin) nomeia os primeiros.
+- é cidadão cadastrado;
+- tem vínculo territorial validado;
+- pertence ao território;
+- não tem impedimento registrado;
+- aceita as responsabilidades do ciclo.
+
+## Se houver apenas uma pessoa inscrita
+
+Não há posse plena automática sem rito.
+
+Regra sugerida:
+
+- aclamação condicionada;
+- publicação do nome;
+- janela de contestação;
+- checagem de impedimentos;
+- mandato provisório ou reduzido, se o município assim parametrizar;
+- novo convite ativo no ciclo seguinte.
+
+## Se não houver inscritos
+
+O território não fica mudo.
+
+Regra sugerida:
+
+- cidadãos continuam podendo abrir demandas, apoiar e acompanhar;
+- Maintainer Geral faz zeladoria limitada;
+- novo convite ativo é aberto;
+- a ausência de representante aparece como risco público de governança.
+
+## Status
+
+```txt
+Inscrição aberta
+Elegível
+Sorteado
+Em contestação
+Ativo
+Em revisão
+Suspenso
+Destituído
+Expirado
+```
 
 ## Mandato
 
-```txt
-Provisório: 90 dias    [provisório]
-Pleno:      365 dias   [provisório]
-```
+O mandato deve ser sempre temporário.
 
-Renovação exige justificativa pública (auditada) e estende o `term_end`.
+Parâmetros locais:
 
-## Destituição — duas vias
+- duração do mandato;
+- possibilidade de mandato provisório;
+- limite de mandatos consecutivos;
+- prazo de quarentena antes de novo sorteio;
+- regra de substituição por suplente.
 
-### 1. Por justa causa (instância recursal)
+Limites comuns:
 
-O Maintainer Geral (ou sysadmin no bootstrap) destitui com justificativa
-obrigatória. O executivo isolado **não** destitui por mérito político.
+- mandato vitalício proibido;
+- renovação invisível proibida;
+- ausência de audit log proibida.
 
-### 2. Moção popular (recall)
+## Responsabilidades
 
-```txt
-Cidadão T3+ do território abre a moção (com justificativa)
-  ↓ maintainer entra em "Em revisão" (mantém poderes)
-Outros cidadãos T3+ do território assinam
-  ↓ ao atingir o quórum → maintainer "Destituído" automaticamente
-```
+- organizar demandas do território;
+- agrupar demandas parecidas;
+- orientar forks;
+- pedir complementação;
+- validar pertinência territorial;
+- conduzir maturação;
+- aplicar primeiro filtro;
+- encaminhar propostas aptas para votação;
+- justificar bloqueios e devoluções.
 
-- **Quórum:** 50% + 1 dos vínculos **T3+** ativos do território, capturado na
-  abertura da moção. [provisório]
-- Só **cidadão T3+ com vínculo aprovado no território** abre e assina.
-- Uma moção aberta por maintainer de cada vez; uma assinatura por cidadão.
+## Limites
 
-## Endpoints (autenticados)
+- não apaga demanda;
+- não recusa sem fundamento;
+- não impede recurso;
+- não altera histórico;
+- não decide mérito sozinho;
+- não pode usar o papel para favorecer demanda própria.
 
-```txt
-POST /api/v1/territories/{id}/maintainers   nomear {citizenId, scope?, appointmentSource, mandateNote?}
-GET  /api/v1/territories/{id}/maintainers    listar
-POST /api/v1/maintainers/{id}/activate       ratificar Provisório → Ativo (instância geral)
-POST /api/v1/maintainers/{id}/renew          renovar mandato {reason} (instância geral)
-POST /api/v1/maintainers/{id}/remove         destituir por justa causa {reason} (instância geral)
-POST /api/v1/maintainers/{id}/recall         abrir moção popular {reason} (cidadão T3+)
-POST /api/v1/recalls/{id}/sign               assinar moção (cidadão T3+; destitui ao quórum)
-```
+## Recall e destituição
+
+O território deve poder destituir o Maintainer Territorial por moção popular.
+
+Parâmetros locais:
+
+- quórum;
+- prazo de votação;
+- requisitos de justificativa;
+- rito de defesa;
+- substituição por suplente ou novo sorteio.
+
+Limites comuns:
+
+- recall impossível é proibido;
+- destituição secreta é proibida;
+- destituição sem processo é proibida;
+- toda decisão gera audit log.
 
 ## Eventos de auditoria
 
 ```txt
-maintainer.appointed · maintainer.activated · maintainer.mandate_renewed
-maintainer.removed · maintainer.recall_opened · maintainer.recall_signed
+maintainer.application_opened
+maintainer.application_submitted
+maintainer.eligibility_list_committed
+maintainer.draw_seed_published
+maintainer.drawn
+maintainer.contestation_opened
+maintainer.confirmed
+maintainer.review_opened
+maintainer.suspended
+maintainer.removed
+maintainer.expired
+maintainer.recall_opened
+maintainer.recall_signed
 maintainer.recalled
 ```
 
-## Camada pura e testes
+## Endpoints-alvo
 
-As regras vivem em `maintainer_policy.go` (funções puras: status efetivo,
-origem→status, mandato, autoridade de nomeação/ativação/remoção, quórum de
-recall). O `Service` resolve os fatos no banco e delega a decisão. Os testes
-constitucionais (`maintainer_policy_test.go`) cobrem esses cenários com
-`go test ./...`, sem PostgreSQL.
+```txt
+POST /api/v1/territories/{id}/maintainer-applications/open
+POST /api/v1/territories/{id}/maintainer-applications
+GET  /api/v1/territories/{id}/maintainer-applications
+POST /api/v1/territories/{id}/maintainer-draws
+GET  /api/v1/territories/{id}/maintainer-draws/current
+POST /api/v1/maintainer-draws/{id}/contestations
+POST /api/v1/maintainers/{id}/recall
+POST /api/v1/recalls/{id}/sign
+```
 
-## Decisões ainda em aberto
+## Decisões pendentes
 
-Mandato (90/365), quórum (50%+1), e os casos especiais de intervenção do
-executivo continuam `[DECIDIR]` no `sugestao_de_governanca.md` — aqui estão
-como defaults provisórios em constantes.
+- duração do mandato;
+- limite de mandatos consecutivos;
+- quórum de recall;
+- regra de suplência;
+- prazo de contestação do sorteio;
+- ajuda de custo obrigatória ou recomendada;
+- rito para território sem inscritos.

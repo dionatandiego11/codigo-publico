@@ -1,306 +1,748 @@
-# Sugestão de Governança — documento de trabalho
+# Sugestão de Governança — Orçamento Participativo
 
-> Status: **rascunho para refinamento**. Este documento consolida a próxima
-> etapa de governança territorial do Código Público. Ele ainda **não** está
-> implementado no backend — serve para você decidir as regras antes de virarem
-> código e teste. Pontos marcados com **[DECIDIR]** são escolhas em aberto.
+> Status: **rascunho para refinamento**. Este documento consolida a governança
+> do Código Público após a mudança de eixo conceitual: o sistema passa a ser
+> tratado como infraestrutura pública de Orçamento Participativo municipal.
+> Pontos marcados com **[DECIDIR]** ainda precisam virar regra final antes de
+> implementação.
 
 ## Síntese
 
-> O Código Público não deve apenas permitir participação; ele deve definir
-> quem tem legitimidade territorial para participar, como essa legitimidade é
-> validada, como pode ser contestada, como se recorre e como tudo permanece
-> auditável.
+O Código Público deve funcionar como uma infraestrutura de Orçamento
+Participativo baseada em regras públicas, auditáveis e executáveis.
 
-O projeto deixou de ser produto cívico e virou **constituição operacional
-para participação territorial**. Isso muda o padrão de rigor: cada regra aqui
-é uma regra institucional, não uma feature.
+A metáfora de GitHub continua existindo, mas como arquitetura interna:
+histórico, versões, auditoria, merge institucional e release do ciclo. Para o
+cidadão, o fluxo principal é:
+
+```txt
+território
+→ demanda simples
+→ apoio comunitário
+→ maturação
+→ filtros públicos
+→ votação territorial
+→ consolidação municipal
+→ institucionalização no PPA/LDO/LOA
+→ execução fiscalizada
+→ aprendizado do próximo ciclo
+```
+
+O projeto deixou de ser apenas um produto cívico e passa a ser uma
+**constituição operacional do Orçamento Participativo**. Cada regra abaixo não
+é apenas uma feature: é parte do rito institucional.
 
 ---
 
-## Parte 1 — Cidadania municipal vs. cidadania territorial
+## Parte 1 — Princípios de governança
 
-Distinção central que precisa ficar explícita no modelo:
+### 1.1 O território é a unidade política base
+
+Todo bairro, comunidade ou distrito reconhecido deve existir politicamente no
+OP.
+
+Regra central:
+
+> Cada território tem direito a **1 representante territorial**.
+
+Não há representação proporcional por tamanho populacional nesta primeira
+versão. A opção política é equilibrar os territórios de forma direta:
 
 ```txt
-Cidadão Municipal (não associado a um território-base validado)
-  - participa de temas AMPLOS da cidade
-  - com peso menor / nível reduzido
-  - pode acompanhar, abrir issues informativas, votar em consultas gerais
+1 território = 1 representação
+```
 
-Cidadão Territorial (vínculo T3+ validado)
-  - cidadão pleno
-  - participa de temas do seu território com peso integral
-  - pode contestar, recorrer, pedir saída do maintainer
+Isso evita que territórios grandes engulam territórios pequenos e faz com que
+zona rural, periferias, bairros e comunidades sejam tratados como unidades
+políticas próprias.
+
+### 1.2 A justiça social começa pela justiça territorial
+
+O sistema não começa por cotas de gênero, idade, renda ou raça. O primeiro
+mecanismo de inclusão é territorial.
+
+Esses marcadores podem ser acompanhados por estatísticas agregadas e relatórios
+de monitoramento, mas a regra de representação inicial é:
+
+```txt
+todo território reconhecido tem 1 representante
+```
+
+### 1.3 A demanda nasce simples
+
+O cidadão não precisa falar a linguagem do orçamento público para participar.
+
+Exemplo de demanda inicial:
+
+> Falta médico no PSF do meu bairro.
+
+O sistema deve permitir que a demanda nasça simples e ganhe maturidade por
+camadas: apoio, contexto, agrupamento, fork, filtro, votação e execução.
+
+### 1.4 Filtro não é portão único
+
+O sistema não deve depender de especialistas como porteiros do processo.
+
+Especialistas podem produzir reviews, pareceres ou complementações, mas não
+devem ser o ponto único que decide se a demanda popular existe ou não.
+
+O filtro deve ser uma linha de maturidade com retornos controlados:
+
+```txt
+faltou informação       → volta para maturação
+demanda duplicada       → agrupa
+solução divergente      → cria fork
+custo alto demais       → faseia ou envia para ciclo plurianual
+fora da competência     → vira reivindicação externa
+ilegal/inconstitucional → bloqueia com fundamento e permite reformulação
+```
+
+### 1.5 Toda negativa precisa deixar caminho
+
+Nenhum bloqueio deve ser invisível.
+
+Regra:
+
+> Toda negativa gera justificativa pública, audit log e caminho de correção,
+> fork, recurso, ciclo futuro ou memória pública.
+
+---
+
+## Parte 2 — Arquitetura institucional
+
+### 2.1 Maintainer Geral
+
+O Maintainer Geral corresponde ao **Legislativo municipal** enquanto instância
+institucional do OP.
+
+Não deve ser entendido como uma pessoa isolada, mas como a Câmara, comissão,
+mesa, gabinete ou estrutura formal definida pelo município.
+
+Responsabilidades:
+
+```txt
+- abrir o ciclo do OP
+- definir calendário, territórios e orçamento disponível
+- indicar ou validar o Maintainer Técnico
+- abrir o período de inscrição para representantes territoriais
+- receber a matriz consolidada do OP
+- filtrar impedimentos institucionais com justificativa pública
+- conduzir a institucionalização na Câmara
+- incorporar o resultado ao rito de PPA, LDO e LOA
+- decidir recursos e contestações escaladas
+- abrir revisão ou destituição de maintainer territorial por processo
+```
+
+Limites:
+
+```txt
+- não pode apagar histórico
+- não pode recusar proposta sem fundamento
+- não pode alterar matriz do OP sem justificativa pública
+- não pode transformar filtro institucional em veto invisível
+- não pode expor voto individual, CPF ou denúncia sigilosa
+```
+
+### 2.2 Maintainer Técnico
+
+O Maintainer Técnico é o operador de infraestrutura.
+
+Pode ser indicado pelo Legislativo e pode vir da TI municipal, inclusive de
+estrutura do Executivo, desde que sua função seja estritamente técnica.
+
+Responsabilidades:
+
+```txt
+- manter o sistema disponível
+- configurar parâmetros aprovados institucionalmente
+- operar banco, deploy, segurança, logs e auditoria
+- apoiar integração com blockchain, backup e observabilidade
+- executar ajustes técnicos autorizados
+```
+
+Limites:
+
+```txt
+- não decide mérito político
+- não filtra demanda por conveniência
+- não altera regra local sem autorização institucional
+- não acessa dado sensível sem rito formal
+```
+
+### 2.3 Maintainer Territorial
+
+O Maintainer Territorial é o representante temporário do território no ciclo do
+OP.
+
+Regra central:
+
+> Cada território tem 1 Maintainer Territorial escolhido por inscrição e
+> sorteio auditável entre cidadãos vinculados ao território.
+
+Responsabilidades:
+
+```txt
+- organizar demandas do território
+- agrupar demandas parecidas
+- orientar forks de soluções diferentes
+- pedir complementação quando faltar informação
+- validar se a demanda pertence ao território
+- conduzir a maturação territorial
+- encaminhar propostas aptas para votação
+- justificar publicamente filtros aplicados
+```
+
+Limites:
+
+```txt
+- não é dono do território
+- não decide sozinho o mérito político da comunidade
+- não pode rejeitar demanda por opinião pessoal
+- não pode apagar histórico
+- não pode impedir contestação ou recurso
+- não pode favorecer demanda própria sem registro de conflito
+```
+
+O Maintainer Territorial é zelador do rito territorial, não autoridade política
+permanente.
+
+### 2.4 Cidadão Territorial
+
+Pessoa cadastrada com vínculo territorial validado.
+
+Pode:
+
+```txt
+- abrir demandas simples
+- apoiar ou não apoiar demandas
+- comentar e complementar informações
+- participar da votação territorial
+- contestar vínculo territorial suspeito
+- recorrer de decisões
+- denunciar abuso
+- fiscalizar execução
+- inscrever-se para sorteio de Maintainer Territorial
+```
+
+### 2.5 Cidadão Municipal
+
+Pessoa cadastrada no município, mas sem vínculo territorial validado.
+
+Pode:
+
+```txt
+- acompanhar dados públicos
+- abrir manifestações informativas em fluxos permitidos
+- solicitar vínculo territorial
+- acompanhar ciclos do OP
+```
+
+No OP territorial, o voto pleno deve depender de vínculo territorial validado.
+
+---
+
+## Parte 3 — Regra comum e regra local
+
+O Código Público deve operar como `code is law`: regras do rito precisam estar
+descritas em protocolo, implementadas no sistema, auditáveis e parametrizáveis.
+
+### 3.1 Kernel comum obrigatório
+
+Todo município que usar o sistema deve respeitar:
+
+```txt
+- nenhum território reconhecido fica sem voz
+- cada território tem 1 representante territorial
+- o representante territorial é temporário
+- a escolha ocorre por inscrição e sorteio auditável
+- todo filtro exige justificativa
+- toda negativa gera retorno, recurso, fork ou memória pública
+- voto individual nunca é exposto
+- CPF e dados sensíveis nunca são públicos
+- blockchain guarda prova de integridade, não dado pessoal
+- release do ciclo não substitui automaticamente ato oficial publicado
+```
+
+### 3.2 Parâmetros locais configuráveis
+
+Cada município pode parametrizar:
+
+```txt
+- duração do mandato do Maintainer Territorial
+- limite de mandatos consecutivos
+- prazo de inscrição para sorteio
+- prazo de maturação de demandas
+- calendário do ciclo do OP
+- tamanho do envelope orçamentário
+- critérios do índice de carência
+- prazos de execução por tipo de demanda
+- quórum de recall
+- prazo de recurso
+```
+
+### 3.3 Limites que o município não pode violar
+
+```txt
+- maintainer vitalício é proibido
+- exclusão de território reconhecido é proibida
+- recusa sem justificativa é proibida
+- alteração invisível de histórico é proibida
+- publicação de CPF, voto individual ou denúncia sensível é proibida
+- filtro institucional sem fundamento é proibido
+- dado pessoal sensível em blockchain é proibido
+```
+
+---
+
+## Parte 4 — Sorteio do Maintainer Territorial
+
+### 4.1 Universo habilitável
+
+Entram no universo habilitável:
+
+```txt
+- cidadãos cadastrados
+- com vínculo territorial validado
+- pertencentes ao território
+- sem impedimento registrado
+- aptos conforme regra local do ciclo
+```
+
+### 4.2 Universo sorteável
+
+Entram no universo sorteável:
+
+```txt
+- cidadãos habilitados
+- que se inscreveram no período aberto pelo Maintainer Geral
+- que aceitaram participar do rito
+```
+
+O sorteio não deve ser um opt-in invisível. O Maintainer Geral deve abrir o
+período de inscrição com convite ativo: comunicação pública e notificações para
+todos os cidadãos habilitáveis do território.
+
+### 4.3 Fluxo do sorteio
+
+```txt
+1. Maintainer Geral abre período de inscrição
+2. cidadãos vinculados ao território se inscrevem
+3. sistema publica hash da lista de elegíveis
+4. sistema usa seed pública auditável
+5. sorteia titular e suplentes
+6. abre janela de contestação
+7. confirma representante territorial
+8. registra tudo em audit log
+```
+
+### 4.4 Se houver apenas uma pessoa inscrita
+
+Não deve haver posse plena automática sem rito.
+
+Regra sugerida:
+
+```txt
+- aclamação condicionada
+- publicação do nome
+- janela de contestação
+- checagem de impedimentos
+- mandato provisório ou reduzido, se o município assim parametrizar
+- novo convite ativo no ciclo seguinte
+```
+
+### 4.5 Se não houver pessoas inscritas
+
+O território não deve ser excluído.
+
+Regra sugerida:
+
+```txt
+- território segue sem maintainer territorial ativo
+- cidadãos continuam podendo abrir demandas, apoiar e acompanhar
+- Maintainer Geral faz zeladoria limitada do rito
+- filtro local fica marcado como provisório
+- novo convite ativo deve ser aberto
+- situação aparece publicamente como risco de representação
+```
+
+### 4.6 Ajuda de custo
+
+Ajuda de custo não deve ser tratada como prêmio político.
+
+Ela é instrumento de inclusão. Sem apoio material, só participa quem tem tempo,
+renda e estabilidade.
+
+Regra sugerida:
+
+```txt
+- município pode prever transporte, alimentação, internet ou diária cívica
+- valor deve ser público
+- pagamento deve ser auditável
+- ajuda de custo não cria vínculo empregatício nem cargo permanente
+```
+
+**[DECIDIR]** Se ajuda de custo será obrigatória no kernel comum ou parâmetro
+local fortemente recomendado.
+
+### 4.7 Auditoria do sorteio
+
+Blockchain pode ser usada como âncora de integridade, não como banco de dados
+pessoal.
+
+Pode ir para blockchain:
+
+```txt
+- hash da lista elegível
+- seed pública
+- hash do resultado
+- data e identificador do ciclo
+- hash da ata do sorteio
+```
+
+Nunca deve ir para blockchain:
+
+```txt
+- CPF
+- nome completo
+- endereço
+- documento
+- dado sensível
+- voto individual
+```
+
+---
+
+## Parte 5 — Esteira de demandas do OP
+
+O fluxo não é uma linha reta. É uma linha de produção cívica com retornos
+controlados.
+
+### 5.1 Estados principais
+
+```txt
+0. ciclo aberto
+1. cadastro e vínculo territorial
+2. inscrição para Maintainer Territorial
+3. sorteio
+4. demanda recebida
+5. engajamento inicial
+6. agrupamento ou fork
+7. maturação territorial
+8. primeiro filtro
+9. circuit breaker jurídico-orçamentário
+10. demanda apta
+11. votação territorial
+12. consolidação municipal
+13. matriz do OP
+14. institucionalização na Câmara
+15. merge institucional no PPA/LDO/LOA
+16. release do ciclo
+17. execução
+18. aprendizado
+```
+
+### 5.2 Demanda, proposta, projeto e item institucionalizado
+
+```txt
+Demanda
+  problema bruto apresentado pelo cidadão
+
+Proposta
+  demanda amadurecida em solução possível
+
+Projeto priorizado
+  proposta que avançou na votação territorial ou consolidação municipal
+
+Item institucionalizado
+  projeto incorporado ao rito formal: PPA, LDO, LOA, emenda, anexo,
+  plano de execução ou compromisso oficial
+```
+
+### 5.3 Retornos da esteira
+
+```txt
+falta informação          → volta para maturação
+demanda duplicada         → agrupa
+soluções diferentes       → cria fork
+fora do território        → reterritorializa ou permite contestação
+custo alto demais         → faseia ou envia para ciclo plurianual
+fora da competência       → reivindicação externa
+ilegal/inconstitucional   → bloqueia com fundamento e permite reformulação
+sem apoio suficiente      → fica dormente para ciclo futuro
+recusa institucional      → devolve com justificativa formal auditável
 ```
 
 Regra:
 
-> O morador da cidade pode votar em temas amplos da cidade, mas em nível menor.
-> Para ser cidadão pleno (nível mais alto), precisa do vínculo territorial
-> validado ("associação").
-
-**[DECIDIR]** Como se calcula o peso do voto municipal vs. territorial?
-Opções: (a) peso binário (conta/não conta por escopo), (b) peso fracionário
-fixo (ex.: municipal = 0,5), (c) quórum separado por categoria. Recomendação:
-começar com (a) — binário por escopo — por ser auditável e explicável.
+> A proposta só deve ser arquivada sem retorno quando houver fundamento claro,
+> público, auditado e não reformulável.
 
 ---
 
-## Parte 2 — Período de descanso contra contestação abusiva
+## Parte 6 — Filtros e circuit breaker
 
-Regra nova a adicionar ao protocolo de vínculo:
+### 6.1 Primeiro filtro territorial
 
-> Vínculo confirmado após contestação (resultado "Mantido") não pode ser
-> recontestado por **180 dias**, salvo apresentação de **fato novo**.
+Responsável principal: Maintainer Territorial.
 
-Objetivo: impedir perseguição local por recontestação repetida.
-
-Implementação prevista:
+Verifica:
 
 ```txt
-- bond_contestations registra decided_at quando "Mantido"
-- nova contestação no mesmo bond exige:
-    (created_at - última decisão "Mantido") > 180 dias
-    OU flag fato_novo = true com justificativa adicional
-- violação → 409 com mensagem clara ("vínculo em período de descanso até DD/MM")
+- se a demanda pertence ao território
+- se é um problema público
+- se há informação mínima
+- se é duplicada
+- se precisa ser agrupada
+- se precisa virar fork
 ```
 
-**[DECIDIR]** O que qualifica como "fato novo"? Sugestão: exigir um campo
-`new_fact_description` obrigatório e registrar que houve invocação de fato novo
-na auditoria — o mérito é avaliado pelo maintainer, mas o uso fica rastreável
-(para coibir abuso do próprio "fato novo").
+Esse filtro não decide mérito político. Ele organiza a esteira.
 
-**[DECIDIR]** 180 dias é o número certo? Alternativas discutíveis: 90 dias
-(mais permissivo), 365 dias (mais protetivo).
+### 6.2 Circuit breaker jurídico-orçamentário
 
-> **Estado:** implementado provisoriamente em **180 dias** como regra pura e
-> testada (`policy.CanReopenContestation`, constante `RecontestationCooldown`).
-> Trocar o número é editar uma constante; a decisão final permanece aberta.
+Responsável principal: sistema, com regras públicas do protocolo.
+
+O circuit breaker verifica:
+
+```txt
+- competência municipal
+- custo incompatível com o envelope
+- necessidade de faseamento
+- dependência de outro ente federativo
+- vedação constitucional ou legal
+- benefício privado indevido
+- violação de direitos fundamentais
+```
+
+Possíveis respostas:
+
+```txt
+passa
+precisa de informação
+precisa ser adaptada
+precisa virar fork
+excede o orçamento do ciclo
+depende de outro ente
+deve ir para ciclo plurianual
+deve ser reivindicação externa
+bloqueada com fundamento
+```
+
+### 6.3 Filtro institucional do Legislativo
+
+Responsável: Maintainer Geral.
+
+Na etapa da matriz do OP, o Legislativo pode apontar impedimento formal para
+prosseguimento.
+
+Esse filtro não pode ser veto político invisível.
+
+Toda negativa deve informar:
+
+```txt
+- qual regra impede
+- qual custo inviabiliza
+- qual incompatibilidade existe
+- qual ajuste permitiria prosseguir
+- se a proposta volta para maturação, fork ou ciclo seguinte
+```
 
 ---
 
-## Parte 3 — Protocolo de maintainers territoriais
+## Parte 7 — Bairro sem maintainer
 
-**Este é o maior risco político do sistema.** Quem controla a porta de entrada
-do bairro controla geografia política. O processo de escolha e remoção precisa
-ser tão auditável quanto o vínculo do cidadão.
+A ausência de Maintainer Territorial não pode excluir o território do OP.
 
-> Um maintainer territorial não pode ser vitalício, invisível nem removido
-> informalmente.
-
-### 3.1 Formas de escolha
+Território sem maintainer ativo:
 
 ```txt
-1. eleição territorial          (futuro — entre vínculos T3+ do território)
-2. indicação pelo legislativo
-3. nomeação provisória pelo executivo
-4. designação emergencial (legislativo ou executivo)
+leitura pública                      : SIM
+cadastro e vínculo territorial        : SIM
+demanda simples                       : SIM
+apoio ou não apoio                    : SIM
+comentários e complementação          : SIM
+acompanhamento de execução            : SIM
+inscrição para novo sorteio           : SIM
+votação territorial                   : [DECIDIR regra local]
+primeiro filtro territorial           : Maintainer Geral em zeladoria limitada
+situação marcada como provisória      : SIM
 ```
 
-**[DECIDIR]** A nomeação pelo executivo é o vetor de captura mais provável.
-Salvaguarda sugerida: nomeação do executivo é **sempre provisória** (status
-`provisional`, mandato curto) e **nunca** pode converter-se em `active`
-permanente sem passar por eleição territorial ou ratificação do legislativo.
+Princípio:
 
-### 3.2 Status do maintainer (máquina de estados)
+> Território sem maintainer não fica mudo. O sistema marca a fragilidade, mas
+> não pune a população pela falta de representante.
+
+**[DECIDIR]** Se votação territorial pode ocorrer sem Maintainer Territorial
+ativo ou se depende de zeladoria provisória formal do Maintainer Geral.
+
+---
+
+## Parte 8 — Privacidade, denúncia sigilosa e dominação local
+
+O sistema deve prever denúncia sigilosa como opção.
+
+Casos possíveis:
 
 ```txt
-provisional   → nomeado em caráter temporário, mandato curto
-active         → mandato pleno e vigente
-under_review   → em processo de revisão (recursos reformados / moção popular)
-suspended      → temporariamente sem poderes, aguardando decisão
-removed        → destituído por processo concluído
-expired        → mandato terminou sem renovação
+- abuso de Maintainer Territorial
+- pressão política local
+- compra de apoio
+- ameaça ou constrangimento
+- fraude no vínculo territorial
+- manipulação de demanda
 ```
 
-**[DECIDIR]** Quem pode mover cada transição? Proposta inicial:
+Modelo recomendado:
 
 ```txt
-provisional → active      : eleição territorial OU ratificação legislativa
-active → under_review     : Maintainer Geral (de ofício) OU moção popular atingiu limiar
-under_review → suspended  : Maintainer Geral
-under_review → active      : Maintainer Geral (revisão arquivada)
-suspended → removed        : Maintainer Geral (processo concluído) OU resultado de moção
-qualquer → expired         : sistema (fim de mandato sem renovação)
-```
-
-### 3.3 Mandato
-
-```txt
-- todo maintainer tem início e fim de mandato
-- maintainer provisório: prazo curto (ex.: 90 ou 180 dias)  [DECIDIR número]
-- renovação exige justificativa pública (registrada em auditoria)
-- fim de mandato sem renovação → status expired automático
-```
-
-**[DECIDIR]** Duração do mandato pleno (`active`): 1 ano? 2 anos? Alinhado a
-algum ciclo institucional do município?
-
-### 3.4 Destituição
-
-```txt
-1. decisões recorrentes reformadas pelo Maintainer Geral
-   (limiar de reformas em janela de tempo → under_review automático)  [DECIDIR limiar]
-2. moção popular do próprio bairro
-   - quórum: X% dos vínculos T3+ ativos do território  [DECIDIR — proposta: 50% + 1]
-   - exige justificativa e período de votação
-3. NUNCA destituível pelo executivo
-   - exceção: caso especial estritamente definido  [DECIDIR quais casos, se algum]
+- conteúdo sigiloso fica criptografado fora da blockchain
+- blockchain guarda apenas hash de existência e integridade
+- acesso ao conteúdo depende de rito formal
+- toda abertura de dado sensível gera audit log
+- relatórios públicos usam agregados, não identificação pessoal
 ```
 
 Regra forte:
 
-> O maintainer responde ao território (moção popular) e à instância recursal
-> (Maintainer Geral), **não** ao executivo que eventualmente o nomeou.
-
-### 3.5 Auditoria
-
-Toda transição de status de maintainer gera evento encadeado:
-
-```txt
-maintainer.appointed · maintainer.activated · maintainer.review_opened
-maintainer.suspended · maintainer.removed · maintainer.expired
-maintainer.mandate_renewed · maintainer.recall_motion_opened
-maintainer.recall_motion_decided
-```
-
-### 3.6 Regras do Sorteio e Aprendizado Iterativo (Modo OP)
-
-No Orçamento Participativo, os conselheiros do território são **sorteados**. A engenharia deste sorteio deve contemplar:
-
-*   **Filtro contra Auto-seleção (Convite Ativo):** O sorteio não deve ocorrer em uma lista de voluntários (*opt-in* puro), pois isso sobre-representa pessoas de maior letramento e tempo livre. O sistema realiza o sorteio na base geral de cidadãos com vínculo territorial validado (T3+), emitindo **convites ativos** individuais. Caso o sorteado decline por motivos de força maior, novas rodadas de sorteio de reposição são realizadas até preencher a cota do território.
-*   **Compensação de Participação (Ajuda de Custo):** Para assegurar a inclusão efetiva das pessoas mais vulneráveis (Iris Marion Young), o regimento local deve prever ajuda de custo orçamentária ou dispensa/abono de trabalho oficial para as horas de deliberação dos sorteados.
-*   **Redundância de Âncoras Monitórias:** A trilha de auditoria é ancorada no Diário Oficial Municipal, mas como salvaguarda contra fraudes do operador local, o sistema permite configurar âncoras redundantes automáticas em blockchains públicas ou via publicação estruturada em imprensa local independente.
-*   **Ciclos de Aprendizado Iterativo (Archon Fung):** O encerramento de cada release orçamentária (ciclo anual de obras) dispara o rito de "Revisão de Ciclo". A conformidade da entrega das obras executadas altera parâmetros de pesos na distribuição orçamentária das regiões no ciclo subsequente, criando uma penalização automatizada por ineficiência do executivo.
+> Blockchain prova que algo existiu e não foi alterado. Ela não deve carregar
+> a pessoa.
 
 ---
 
-## Parte 4 — Bairro sem maintainer (válvula anti-exclusão)
+## Parte 9 — UI que esconde a constituição
 
-A regra original ("sem maintainer = não aceita vínculos") é forte, mas tem
-efeito distributivo perverso: bairros organizados ganham voz rápido; periferia
-desorganizada — quem mais precisa — fica em leitura pública indefinidamente.
+Condição de adoção: o cidadão não deve precisar entender a máquina institucional
+para participar.
 
-**Válvula:** em vez de bloquear tudo, o território sem maintainer aceita
-participação provisória e de baixo impacto.
+O cidadão não deve ver:
 
 ```txt
-Território SEM maintainer ativo:
-  leitura pública              : SIM
-  cadastro provisório (T1)     : SIM  ← entra em fila, sem poder deliberativo
-  fila de interessados         : SIM
-  issues informativas          : SIM
-  abertura de issue formal     : LIMITADA  [DECIDIR o que é "limitada"]
-  vínculo T3 (validado)        : NÃO
-  votação local                : NÃO
-  solicitação de maintainer    : SIM  ← caminho para sair da condição
-  maintainer institucional temp: SIM  ← designação emergencial provisória
-  temas de baixo impacto       : SIM  [DECIDIR a lista]
+state machine
+trust_level
+ABAC
+circuit breaker jurídico-orçamentário
+audit chain
+hash anchor
 ```
 
-Isso preserva o incentivo à organização comunitária **sem** excluir quem ainda
-não se organizou.
-
-**[DECIDIR]** "Issue formal limitada" e "temas de baixo impacto" precisam de
-definição objetiva — provavelmente uma lista de categorias permitidas em modo
-provisório (ex.: infraestrutura e transparência sim; alteração normativa não).
-
----
-
-## Parte 5 — UI que esconde a constituição
-
-Condição de adoção. Se o cidadão precisar entender "T3" ou "contestação
-escalada" para reportar um buraco, o projeto falha.
-
-O cidadão **nunca** vê:
-
-```txt
-T0 T1 T2 T3 T4 · pending_local_review · appealed_to_general_maintainer
-contestação escalada · ABAC · state machine · trust_level
-```
-
-O cidadão vê:
+O cidadão deve ver:
 
 ```txt
 Qual é o seu bairro?
 Você mora, trabalha ou estuda aqui?
-Envie uma comprovação (conta de luz, telefone…)
-Seu pedido está em análise.
-Este bairro ainda não tem representante — você pode acompanhar enquanto aguarda.
+Qual problema você quer registrar?
+Outras pessoas também apoiam essa demanda.
+Sua demanda precisa de mais informação.
+Sua proposta voltou para ajuste.
+Esta proposta está pronta para votação.
+Esta demanda foi aprovada e agora será acompanhada.
 ```
 
-### Tabela de tradução status técnico → linguagem cidadã
+Princípio:
 
-```txt
-pending_local_review            → "Seu pedido foi enviado ao representante do bairro."
-appealed_to_general_maintainer  → "Seu recurso foi enviado para revisão geral."
-territory_without_maintainer    → "Este bairro ainda não tem representante ativo.
-                                   Seu cadastro ficará em fila provisória."
-approved (T3)                   → "Você está validado como morador do seu bairro."
-contested                       → "Seu vínculo está em revisão. Você pode enviar
-                                   uma explicação."
-revoked                         → "Seu vínculo foi encerrado. Veja o motivo e seus
-                                   direitos de recurso."
-```
-
-Princípio: **a UI traduz a constituição interna em linguagem comum.** O backend
-guarda o rigor; a interface entrega simplicidade.
+> O backend guarda o rigor institucional; a interface entrega simplicidade
+> cívica.
 
 ---
 
-## Parte 6 — Arquitetura institucional consolidada
+## Parte 10 — Release do ciclo
+
+A release do ciclo é a versão pública, consolidada e auditável de um ciclo de
+Orçamento Participativo.
+
+Ela registra:
 
 ```txt
-SysAdmin Municipal
-  - infraestrutura, segurança, usuários administrativos
-  - SEM poder silencioso sobre mérito político (toda ação relevante é auditada)
-
-Maintainer Geral  (associável ao Legislativo)
-  - instância recursal
-  - revisão de conflitos territoriais
-  - validação institucional / merge geral
-  - decide recursos e contestações escaladas
-  - abre revisão e destitui maintainer territorial por processo
-
-Maintainer Territorial
-  - primeira análise de vínculo
-  - organização do bairro e validação de problemas locais
-  - poder limitado e auditado, mandato com prazo
-  - responde ao território e ao Maintainer Geral, não ao executivo
-
-Cidadão Territorial
-  - participa a partir do território-base
-  - pode recorrer, contestar vínculo suspeito, abrir problemas do bairro
-  - pode iniciar/assinar moção de saída do Maintainer Territorial
-
-Cidadão Municipal (sem vínculo territorial validado)
-  - participa de temas amplos da cidade, em nível reduzido
+- demandas aprovadas
+- propostas priorizadas
+- territórios beneficiados
+- vínculo com PPA, LDO e LOA
+- valores previstos
+- prazos
+- status institucional
+- hash de auditoria
+- itens em execução
+- divergências ou recusas justificadas
 ```
+
+A release não substitui automaticamente o ato oficial publicado.
+
+Se houver divergência entre o sistema e o ato oficial, o sistema deve abrir um
+incidente público de divergência institucional.
+
+Regra:
+
+```txt
+para efeito jurídico formal, prevalece o ato oficial publicado
+para efeito de auditoria pública, permanece o histórico do Código Público
+```
+
+---
+
+## Parte 11 — Execução e aprendizado
+
+O ciclo não termina na votação. Termina na execução e no aprendizado.
+
+Estados de execução:
+
+```txt
+não iniciada
+em planejamento
+em licitação
+em execução
+atrasada
+paralisada
+concluída
+cancelada
+frustrada
+```
+
+Eventos de aprendizado:
+
+```txt
+- promessa frustrada vira memória do território
+- atraso recorrente aumenta prioridade de fiscalização
+- demanda dormente pode voltar no ciclo seguinte
+- território com carência persistente pode ganhar peso no próximo ciclo,
+  conforme parâmetro local
+```
+
+**[DECIDIR]** Como a frustração de execução altera quantitativamente o índice
+de carência ou o envelope financeiro do território no ciclo seguinte.
 
 ---
 
 ## Ordem de execução recomendada
 
 ```txt
-1. Testar regras de vínculo, recurso e contestação (testes "constitucionais")
-2. Especificar nomeação/destituição de maintainers (este doc → protocolo final)
-3. Desenhar UI simples de vínculo territorial
-4. Só então: blockchain/OpenTofu como camadas de prova e infraestrutura
+1. Fechar o protocolo operacional do OP
+2. Fechar regra comum vs. regra local
+3. Modelar ciclo, demanda, proposta, fork, filtro, matriz e execução
+4. Implementar inscrição e sorteio de Maintainer Territorial
+5. Implementar esteira de demanda simples até proposta apta
+6. Implementar votação territorial e matriz do OP
+7. Implementar institucionalização no PPA/LDO/LOA
+8. Implementar release do ciclo e execução fiscalizada
+9. Implementar auditoria, denúncias sigilosas e âncoras blockchain
+10. Preparar piloto institucional com Câmara municipal
 ```
 
-Por que esta ordem: o custo de um bug mudou de natureza. Um erro na máquina de
-estados do vínculo não é mais um bug — é uma **injustiça institucional**
-(alguém excluído do próprio bairro por erro de código). Código que funciona
-como constituição se testa **antes** de promulgar.
+Por que esta ordem: antes de crescer em funcionalidades, o sistema precisa
+definir o rito. Um bug na governança não é só bug técnico; pode virar injustiça
+territorial.
 
-### Artefatos a produzir
+---
+
+## Artefatos a produzir
 
 ```txt
-docs/GOVERNANCA-TERRITORIAL.md                      (atualizar com maintainers)
-docs/PROTOCOLO-DE-MAINTAINERS-TERRITORIAIS.md       (novo — derivado deste doc)
-docs/PROTOCOLO-DE-VINCULO-TERRITORIAL.md            (atualizar: período de descanso)
-backend/internal/territorial/*_test.go              (testes das regras)
+docs/PROTOCOLO-OP.md
+docs/REGRAS-DO-PROTOCOLO.md
+docs/GOVERNANCA-TERRITORIAL.md
+docs/PROTOCOLO-DE-MAINTAINERS-TERRITORIAIS.md
+docs/PROTOCOLO-DE-VINCULO-TERRITORIAL.md
+docs/ORCAMENTO-PARTICIPATIVO.md
 ```
 
 ---
@@ -308,29 +750,32 @@ backend/internal/territorial/*_test.go              (testes das regras)
 ## Riscos abertos a vigiar
 
 ```txt
-- Captura via nomeação do executivo        → mandato provisório obrigatório
-- Exclusão da periferia desorganizada      → válvula do bairro sem maintainer
-- Contestação como arma de perseguição     → período de descanso de 180 dias
-- Complexidade afastando o cidadão comum   → UI que esconde a constituição
-- Bug = injustiça institucional            → testes antes de qualquer feature nova
+- captura do Maintainer Territorial
+- Legislativo como veto invisível
+- especialista como porteiro do processo
+- território sem maintainer virar território mudo
+- demanda impossível virar frustração popular
+- blockchain usada indevidamente para dado pessoal
+- complexidade institucional afastar cidadão comum
+- execução frustrada não afetar ciclo seguinte
 ```
 
 ---
 
-## Decisões pendentes (consolidado [DECIDIR])
+## Decisões pendentes
 
-1. Peso do voto municipal vs. territorial (proposta: binário por escopo)
-2. Definição objetiva de "fato novo" na recontestação
-3. Janela de descanso: 90 / 180 / 365 dias (proposta: 180)
-4. Conversão de maintainer provisório → ativo (proposta: só por eleição/ratificação)
-5. Transições da máquina de estados do maintainer (quem move cada uma)
-6. Duração do mandato pleno
-7. Limiar de reformas que abre revisão automática do maintainer
-8. Quórum de moção popular de destituição (proposta: 50% + 1 dos T3+)
-9. Casos especiais (se algum) em que o executivo poderia intervir
-10. Definição de "issue formal limitada" e "temas de baixo impacto" em bairro sem maintainer
-11. Estratégia de Convite Ativo: limite máximo de recusas ou rodadas de reposição para evitar viés de opt-in involuntário.
-12. Custos e Origem da Ajuda de Custo: de onde provêm os recursos para remunerar as horas de serviço dos conselheiros sorteados vulneráveis?
-13. Parâmetros de Redundância de Âncoras: quais blockchains públicas e periódicos locais serão exigidos como âncoras adicionais obrigatórias.
-14. Algoritmo de Aprendizado Iterativo: como as metas de entrega de obras não cumpridas alteram quantitativamente o índice de carência ou o envelope financeiro do bairro no ciclo seguinte.
-```
+1. Duração do mandato do Maintainer Territorial.
+2. Limite de mandatos consecutivos.
+3. Quórum de recall territorial.
+4. Prazo de inscrição para sorteio.
+5. Regra final para território com apenas uma pessoa inscrita.
+6. Regra final para território sem inscritos.
+7. Se território sem maintainer pode votar ou precisa de zeladoria formal.
+8. Se ajuda de custo será obrigatória ou parâmetro local recomendado.
+9. Fórmula do índice de carência.
+10. Como custo alto demais retorna: faseamento, ciclo plurianual ou bloqueio.
+11. Lista de vedações do circuit breaker jurídico-orçamentário.
+12. Como a matriz OP entra formalmente no PPA, LDO e LOA.
+13. Como divergência entre sistema e ato oficial é corrigida.
+14. Como execução frustrada altera o próximo ciclo.
+15. Quais eventos serão ancorados em blockchain.

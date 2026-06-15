@@ -1,105 +1,152 @@
 # Governança Territorial
 
+Este documento define a governança territorial do Código Público como infraestrutura de Orçamento Participativo.
+
 ## Cadeia de governança
 
 ```txt
-SysAdmin Municipal
+Maintainer Geral       = Legislativo municipal
+Maintainer Técnico     = operador de infraestrutura
+Maintainer Territorial = representante sorteado do território
+Cidadão Territorial    = participante com vínculo validado
+```
+
+## Princípio central
+
+```txt
+1 território = 1 representação
+```
+
+Cada bairro, comunidade ou distrito reconhecido deve ter direito a um representante territorial. A regra não é proporcional por população; ela existe para garantir que nenhum território desapareça dentro da média municipal.
+
+## Maintainer Geral
+
+O Maintainer Geral corresponde ao Legislativo municipal no rito do OP.
+
+Pode ser a Câmara, uma comissão, mesa, gabinete ou estrutura formal definida por ato municipal.
+
+Responsabilidades:
+
+- abrir o ciclo do OP;
+- definir calendário, territórios e envelope disponível;
+- indicar ou validar o Maintainer Técnico;
+- abrir inscrição para Maintainer Territorial;
+- receber a matriz do OP;
+- filtrar impedimentos institucionais com justificativa;
+- conduzir a institucionalização na Câmara;
+- conectar o resultado ao PPA, LDO e LOA;
+- decidir recursos e contestações escaladas;
+- abrir revisão de Maintainer Territorial por processo.
+
+Limites:
+
+- não pode apagar histórico;
+- não pode recusar sem fundamento;
+- não pode alterar matriz invisivelmente;
+- não pode expor voto individual;
+- não pode expor denúncia sigilosa;
+- não pode transformar filtro institucional em veto político silencioso.
+
+## Maintainer Técnico
+
+O Maintainer Técnico opera infraestrutura.
+
+Pode ser indicado pelo Legislativo e pode vir da TI municipal, inclusive do Executivo, desde que sua função seja técnica.
+
+Responsabilidades:
+
+- deploy;
+- banco;
+- Redis;
+- backup;
+- logs;
+- segurança;
+- auditoria;
+- configuração de parâmetros aprovados.
+
+Limites:
+
+- não decide mérito político;
+- não filtra demandas;
+- não altera regra local sem autorização;
+- não acessa dado sensível sem rito formal.
+
+## Maintainer Territorial
+
+O Maintainer Territorial é o representante temporário de um território no ciclo do OP.
+
+Regra:
+
+> É escolhido por inscrição e sorteio auditável entre cidadãos vinculados ao território.
+
+Responsabilidades:
+
+- organizar demandas do território;
+- agrupar duplicidades;
+- orientar forks;
+- pedir complementos;
+- validar pertinência territorial;
+- conduzir maturação;
+- encaminhar propostas aptas;
+- justificar filtros aplicados.
+
+Limites:
+
+- não é dono do território;
+- não decide sozinho o mérito político;
+- não pode rejeitar por opinião pessoal;
+- não pode apagar histórico;
+- não pode impedir contestação;
+- não pode favorecer demanda própria sem registro de conflito.
+
+## Território sem maintainer
+
+Território sem Maintainer Territorial ativo não fica mudo.
+
+Deve ser permitido:
+
+- leitura pública;
+- cadastro;
+- vínculo territorial;
+- demanda simples;
+- apoio ou não apoio;
+- comentários e complementos;
+- acompanhamento de execução;
+- inscrição para novo sorteio.
+
+O primeiro filtro territorial pode ficar sob zeladoria limitada do Maintainer Geral até novo sorteio.
+
+**[DECIDIR]** Se a votação territorial pode ocorrer sem Maintainer Territorial ativo ou se exige zeladoria formal.
+
+## Recursos e contestações
+
+Nenhuma decisão territorial relevante deve ser irrecorrível.
+
+```txt
+Cidadão abre demanda ou vínculo
   ↓
-Maintainer Geral
+Maintainer Territorial organiza ou filtra com justificativa
   ↓
-Maintainer Territorial
+Cidadão discorda
   ↓
-Cidadão Territorial
+Recurso ao Maintainer Geral
+  ↓
+Decisão fundamentada
+  ↓
+Audit log
 ```
 
-### SysAdmin Municipal
+## Denúncia sigilosa
 
-Indicado pela prefeitura (pode haver mais de um). Administração **técnica**:
-gestão de usuários administrativos, configuração, segurança, backup,
-manutenção e auditoria. **Não altera mérito político sem registro auditável**
-— toda ação administrativa relevante gera `audit_event` encadeado.
+Denúncias sobre abuso, pressão local, fraude, compra de apoio ou manipulação de demanda podem ser sigilosas.
 
-### Maintainer Geral
+Modelo:
 
-Camada institucional geral, associável ao Legislativo municipal. É a
-**instância recursal**: revisa conflitos territoriais, decide recursos e
-contestações escaladas, valida a governança geral e executa decisões
-sensíveis. Na metáfora: *o Legislativo é o maintainer da branch principal da
-cidade*.
+- conteúdo criptografado fora da blockchain;
+- hash público de existência;
+- acesso apenas por rito formal;
+- toda abertura de dado sensível gera auditoria.
 
-No sistema: registro em `territory_maintainers` com `scope = 'geral'`.
+## Regra de ouro
 
-### Maintainer Territorial
-
-Substitui a ideia de "presidente de bairro". Pode ser eleito, indicado por
-associação local, indicado institucionalmente, nomeado provisoriamente ou
-reconhecido pela comunidade (`appointed_by` registra a origem).
-
-Pode:
-
-```txt
-aprovar vínculo ao bairro
-recusar vínculo COM justificativa (a API rejeita recusa sem motivo)
-validar problemas locais
-organizar prioridades e encaminhar demandas
-decidir contestações em primeira instância
-```
-
-**Não é dono do bairro.** Por desenho, não consegue:
-
-```txt
-recusar vínculo sem justificativa     → 400 na API
-revogar vínculo sem processo          → revogação só via contestação decidida
-decisão irrecorrível                  → recurso ao Maintainer Geral sempre cabe
-alterar histórico                     → trilha de auditoria com hash encadeado
-```
-
-No sistema: `territory_maintainers` com `scope = 'territorial'`.
-
-## Bairro sem maintainer
-
-Regra forte:
-
-> Se o território não tiver maintainer territorial ativo, ele **não aceita
-> novos vínculos** — mas continua visível.
-
-```txt
-Leitura pública:            permitida
-Novos vínculos:             bloqueados (409 na API)
-Solicitação de maintainer:  permitida
-```
-
-Endpoint público: `GET /territories/{id}/governance` retorna
-`hasActiveMaintainer` e `acceptsNewBonds`. O objetivo do bloqueio é
-**incentivar a organização comunitária**.
-
-## Instâncias e recursos
-
-Nenhuma decisão territorial relevante é irrecorrível:
-
-```txt
-Cidadão solicita vínculo
-  ↓ Maintainer Territorial aprova ou recusa (com justificativa)
-  ↓ cidadão discorda → recurso ao Maintainer Geral
-  ↓ decisão fundamentada (a API exige reason)
-  ↓ registro em audit log com hash encadeado
-  ↓ a cabeça da cadeia pode ser ancorada em blockchain
-```
-
-## Contestação comunitária
-
-A população contesta vínculo suspeito (ex.: mora no Centro, cadastrou-se na
-Lagoa Azul):
-
-```txt
-Vínculo aprovado
-  ↓ cidadão do MESMO território (vínculo aprovado) contesta com justificativa
-  ↓ o vínculo vai para "Contestado" — revisão aberta, sem suspensão automática
-  ↓ a pessoa contestada pode apresentar defesa
-  ↓ Maintainer Territorial decide: Mantido | Revogado | Escalada
-  ↓ se Escalada → somente o Maintainer Geral decide
-```
-
-Regras de proteção implementadas: só contesta quem tem vínculo aprovado no
-mesmo território (ABAC); ninguém contesta o próprio vínculo; uma contestação
-aberta por vínculo; decisão exige justificativa.
+> O território organiza a demanda, o sistema preserva o rito, o Legislativo institucionaliza, e a execução fica fiscalizável.

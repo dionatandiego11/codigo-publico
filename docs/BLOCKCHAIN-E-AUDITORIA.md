@@ -2,14 +2,17 @@
 
 ## Princípio
 
-> Blockchain funciona como **cartório cívico de provas**, não como banco de
-> dados pessoal.
+Blockchain é cartório de integridade, não banco de dados pessoal.
 
-A blockchain não verifica endereço sozinha. Ela registra a **prova de que uma
-validação aconteceu**. O PostgreSQL é o banco oficial; a blockchain apenas
-ancora hashes que permitem auditar a integridade do histórico.
+No Código Público, a fonte oficial de dados é o PostgreSQL. A blockchain, o Diário Oficial ou outras âncoras externas servem para provar que determinado estado existia em determinado momento e não foi reescrito em silêncio.
 
-## O que NUNCA vai on-chain
+## Regra forte
+
+> Dado pessoal não vai para blockchain, nem criptografado.
+
+Blockchain é permanente demais para CPF, endereço, documento, voto individual ou denúncia identificável.
+
+## O que nunca vai para blockchain
 
 ```txt
 CPF
@@ -17,75 +20,120 @@ nome completo
 endereço
 documento pessoal
 comprovante de residência
-voto identificável
-dados de saúde ou escola
+voto individual
+denúncia identificável
+dado de saúde
+dado escolar
+dado sensível
+conteúdo de contestação sigilosa
 ```
 
-## O que pode ir on-chain
+## O que pode ser ancorado
 
 ```txt
-hash da credencial territorial
-município e território
-nível de confiança
-tipo de vínculo
-datas de emissão/expiração
 hash da cabeça da cadeia de auditoria
+hash da lista elegível do sorteio
+seed pública do sorteio
+hash do resultado do sorteio
+hash da matriz do OP
+hash da release do ciclo
+hash de ata pública
+hash de atualização relevante de execução
 ```
 
-```txt
-Dados pessoais ficam off-chain.
-Hash da credencial territorial vai on-chain.
-```
+## Auditoria interna
 
-## Camada 1 — Trilha de auditoria com hash encadeado
+Cada evento relevante gera `audit_event`.
 
-Implementada em `backend/internal/audit` (migration 010). Cada `audit_event`
-carrega:
+Modelo:
 
 ```txt
-prev_hash  = event_hash do evento anterior
+prev_hash  = hash do evento anterior
 event_hash = SHA-256(prev_hash | ator | ação | entidade | metadata)
 ```
 
-Os appends são serializados por advisory lock do PostgreSQL. Qualquer
-alteração retroativa em um evento quebra todos os hashes seguintes — a cadeia
-é verificável por qualquer pessoa com acesso de leitura.
+Alterar o passado quebra a cadeia.
 
-Endpoints públicos:
+Eventos relevantes:
+
+- abertura de ciclo;
+- vínculo territorial;
+- inscrição para sorteio;
+- sorteio;
+- demanda;
+- apoio;
+- fork;
+- filtro;
+- votação;
+- matriz do OP;
+- institucionalização;
+- release;
+- execução;
+- denúncia;
+- recurso;
+- contestação.
+
+## Ancoragem externa
+
+Âncoras possíveis:
+
+- Diário Oficial;
+- blockchain pública;
+- publicação independente;
+- log externo imutável.
+
+A ancoragem deve publicar apenas hashes.
+
+## Denúncia sigilosa
+
+Modelo:
 
 ```txt
-GET /api/v1/audit/head      → hash da cabeça da cadeia + total de eventos
-GET /api/v1/audit/anchors   → âncoras registradas
+conteúdo sensível criptografado fora da blockchain
+hash público de existência e integridade
+acesso por rito formal
+abertura de conteúdo sempre auditada
 ```
 
-## Camada 2 — Ancoragem externa
+Assim o público pode verificar que algo existiu sem conhecer a pessoa ou o conteúdo.
 
-Implementada em `backend/internal/blockchain` via a interface `Anchorer`:
+## Sorteio auditável
 
-```go
-type Anchorer interface {
-    Name() string
-    Anchor(ctx context.Context, payloadHash string) (txRef string, err error)
-}
-```
-
-`POST /api/v1/admin/audit/anchor` (papel administrativo) fotografa a cabeça
-da cadeia em `audit_anchors` e chama o `Anchorer` configurado
-(`ANCHOR_MODE`):
+Para o sorteio do Maintainer Territorial:
 
 ```txt
-noop  → não ancora (desenvolvimento)
-log   → registra no log estruturado (prova fraca de existência)
-<futuro> → contrato em rede pública ou permissionada
+lista elegível privada
+hash da lista publicado antes
+seed pública definida por regra verificável
+resultado reproduzível
+ata pública com hash
+janela de contestação
 ```
 
-Trocar a implementação não exige mudança em nenhum outro módulo.
+O público confere integridade sem ver CPF ou documentos dos inscritos.
 
-## Por que esse desenho
+## Release do ciclo
 
-1. **LGPD por construção**: dado pessoal nunca sai do banco off-chain.
-2. **Auditabilidade sem custo de chain**: a cadeia de hashes já garante
-   integridade interna; a blockchain só adiciona a prova de que ninguém —
-   nem o sysadmin — reescreveu o histórico depois da âncora.
-3. **Reversibilidade**: se a ancoragem externa falhar ou for descontinuada,
-   o sistema continua íntegro e auditável.
+A release do OP deve ter hash próprio.
+
+Pode ser ancorado:
+
+- versão consolidada da matriz;
+- itens institucionalizados;
+- prazos;
+- status de execução;
+- divergências institucionais.
+
+## Implementação atual
+
+O backend já possui base de auditoria em `backend/internal/audit` e contrato de ancoragem em `backend/internal/blockchain`.
+
+A evolução necessária é conectar esses mecanismos aos novos eventos do OP:
+
+- ciclo;
+- demanda;
+- proposta;
+- sorteio;
+- matriz;
+- release;
+- execução.

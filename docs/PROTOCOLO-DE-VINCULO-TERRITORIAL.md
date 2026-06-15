@@ -1,99 +1,154 @@
 # Protocolo de Vínculo Territorial
 
+O vínculo territorial define quem participa plenamente do Orçamento Participativo em cada território.
+
 ## Regra-síntese
 
 ```txt
 Uma pessoa
-Uma cidade
-Um território-base
-Um nível de confiança
+Um município
+Um território-base principal
+Um vínculo auditável
 ```
 
-No banco: índice único parcial garante **um vínculo vivo por cidadão**
-(`Pendente`, `Aprovado` ou `Contestado`).
+## Por que vínculo territorial
+
+O OP depende de território. A votação territorial, o sorteio do Maintainer Territorial e a fiscalização de execução precisam saber qual comunidade cada cidadão integra.
+
+O vínculo não é apenas autodeclarado nem imposto: ele deve ser validado, contestável, recorrível e auditável.
 
 ## Tipos de vínculo
 
-| Tipo          | Quem é                                   | Teto de confiança |
-| ------------- | ---------------------------------------- | ----------------- |
-| `morador`     | reside no território                     | T4                |
-| `trabalhador` | trabalha na cidade, mora fora            | T2                |
-| `estudante`   | estuda na cidade, mora fora              | T2                |
+| Tipo | Quem é | Uso no OP |
+|---|---|---|
+| Morador | reside no território | participação territorial plena |
+| Trabalhador | trabalha no município ou território | participação limitada conforme regra local |
+| Estudante | estuda no município ou território | participação limitada conforme regra local |
 
-Quem trabalha ou estuda participa, mas com menos poder deliberativo que um
-morador validado.
+O desenho-alvo do OP prioriza o morador territorial para votação plena e sorteio de Maintainer Territorial.
 
-## Níveis de confiança
+## Níveis
+
+Os níveis técnicos podem continuar existindo internamente, mas a UI deve escondê-los.
 
 ```txt
-T0 — Visitante            apenas visualiza informações públicas
-T1 — Autodeclarado        declarou vínculo (estado inicial de todo pedido)
-T2 — Vínculo evidenciado  apresentou alguma prova (evidence_note)
-T3 — Validado             aprovado pelo maintainer territorial (default morador)
-T4 — Qualificado          apto a processos mais sensíveis
+T0 — visitante
+T1 — autodeclarado
+T2 — evidenciado
+T3 — validado
+T4 — qualificado
 ```
 
-A API valida o teto por tipo: aprovar `trabalhador` com `T3` retorna 400.
-
-## Ciclo de vida do vínculo (state machine)
+Para o cidadão, a linguagem deve ser:
 
 ```txt
-            solicitação (exige maintainer ativo no território)
-                 │
-              Pendente
-               /     \
-        aprovar       recusar (justificativa obrigatória)
-             │            │
-         Aprovado      Recusado ──recurso──► Maintainer Geral
-             │                                  │ deferido → Aprovado
-        contestação                             │ indeferido → Recusado
-             │
-         Contestado ──decisão──► Mantido (volta a Aprovado)
-                                 Revogado (vínculo Revogado)
-                                 Escalada (decide o Maintainer Geral)
+Seu vínculo foi solicitado.
+Seu vínculo está em análise.
+Você está validado no território.
+Seu vínculo precisa de mais informação.
+Seu vínculo foi contestado.
+Você pode recorrer.
 ```
 
-## Endpoints
+## Ciclo de vida
 
 ```txt
-POST /api/v1/territories/{id}/bonds          solicitar vínculo {bondType, evidenceNote}
-GET  /api/v1/me/bond                         meu vínculo ativo
-GET  /api/v1/territories/{id}/bonds          fila do maintainer (?status=Pendente)
-POST /api/v1/bonds/{id}/decision             {approve, trustLevel?, reason}
-POST /api/v1/bonds/{id}/appeal               {reason}
-POST /api/v1/appeals/{id}/decision           {uphold, reason} — Maintainer Geral
-POST /api/v1/bonds/{id}/contest              {reason, hasNewFact?} — vínculo aprovado no mesmo território
-POST /api/v1/contestations/{id}/defense      {defense} — dono do vínculo
-POST /api/v1/contestations/{id}/decision     {outcome: Mantido|Revogado|Escalada, reason}
-GET  /api/v1/territories/{id}/governance     público: aceita vínculos? tem maintainer?
+solicitação
+  ↓
+pendente
+  ↓ aprovar
+aprovado
+  ↓ contestar
+contestado
+  ↓ decisão
+mantido / revogado / escalado
 ```
 
-## Período de descanso contra recontestação
+Recusa ou revogação exige justificativa.
 
-> Vínculo confirmado após contestação ("Mantido") não pode ser recontestado
-> por **180 dias**, salvo apresentação de **fato novo** (`hasNewFact: true`).
+## Quem decide
 
-Reduz perseguição local por recontestação repetida. A regra é uma função pura
-testável (`policy.go`, `CanReopenContestation`); a janela é a constante
-`RecontestationCooldown`. A invocação de fato novo fica registrada na
-auditoria (`bond.contested` com `newFact: true`) para coibir abuso.
+Primeira instância:
 
-## Camada de decisão pura e testes
+- Maintainer Territorial, quando ativo;
+- Maintainer Geral em zeladoria limitada quando não houver Maintainer Territorial.
 
-As regras institucionais vivem em `backend/internal/territorial/policy.go` —
-funções puras, sem banco: autoridade de decisão, tetos de confiança,
-elegibilidade de contestação, período de descanso e desfechos por instância.
-O `Service` resolve os fatos no repositório e delega a decisão à policy.
+Recurso:
 
-Os testes constitucionais (`policy_test.go`) cobrem esses cenários sem exigir
-PostgreSQL e rodam com `go test ./...`.
+- Maintainer Geral.
 
-## Auditoria
+## Território sem maintainer
 
-Cada passo gera evento encadeado na trilha:
+A ausência de Maintainer Territorial não deve bloquear a existência política do território.
+
+Permitido:
+
+- cadastro;
+- solicitação de vínculo;
+- demanda simples;
+- apoio;
+- comentários;
+- acompanhamento;
+- inscrição para novo sorteio.
+
+**[DECIDIR]** Se o vínculo pode chegar a validação plena sem Maintainer Territorial ou se depende de zeladoria formal do Maintainer Geral.
+
+## Contestação
+
+Cidadãos do mesmo território podem contestar vínculo suspeito.
+
+Regras mínimas:
+
+- contestação exige justificativa;
+- a pessoa contestada pode se defender;
+- decisão exige fundamento;
+- cabe recurso;
+- tudo gera audit log.
+
+## Período de descanso
+
+Vínculo mantido após contestação não deve ser recontestado por 180 dias, salvo fato novo.
+
+Objetivo: impedir perseguição local por recontestação repetida.
+
+**[DECIDIR]** Se 180 dias é regra comum ou parâmetro local com limite mínimo.
+
+## Denúncia sigilosa
+
+Quando a contestação envolver risco de retaliação, deve existir opção sigilosa.
+
+Modelo:
+
+- conteúdo criptografado fora da blockchain;
+- hash público de existência;
+- acesso apenas por rito formal;
+- abertura de conteúdo sensível auditada.
+
+## Endpoints-alvo
 
 ```txt
-bond.requested · bond.approved · bond.rejected · bond.appealed
-bond.appeal_decided · bond.appeal_granted · bond.contested
-bond.defense_submitted · bond.contestation_decided
+POST /api/v1/territories/{id}/bonds
+GET  /api/v1/me/bond
+GET  /api/v1/territories/{id}/bonds
+POST /api/v1/bonds/{id}/decision
+POST /api/v1/bonds/{id}/appeal
+POST /api/v1/appeals/{id}/decision
+POST /api/v1/bonds/{id}/contest
+POST /api/v1/contestations/{id}/defense
+POST /api/v1/contestations/{id}/decision
+GET  /api/v1/territories/{id}/governance
+```
+
+## Eventos de auditoria
+
+```txt
+bond.requested
+bond.approved
+bond.rejected
+bond.appealed
+bond.appeal_decided
+bond.contested
+bond.defense_submitted
+bond.contestation_decided
+bond.revoked
 ```

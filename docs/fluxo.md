@@ -1,35 +1,35 @@
-# Fluxo do Codigo Publico como Infraestrutura de Orcamento Participativo
+# Fluxo do Código Público como Infraestrutura de Orçamento Participativo
 
-O Codigo Publico passa a ser entendido como uma infraestrutura publica, auditavel e open source de Orcamento Participativo municipal.
+O Código Público passa a ser entendido como uma infraestrutura pública, auditável e open source de Orçamento Participativo municipal.
 
-A logica central deixa de ser apenas "GitHub de leis" e passa a ser uma esteira civica:
+A lógica central deixa de ser apenas "GitHub de leis" e passa a ser uma esteira cívica:
 
 ```text
-territorio
+território
 -> demanda simples
--> apoio comunitario
--> maturacao
--> filtros publicos
--> votacao territorial
--> consolidacao municipal
--> institucionalizacao
--> execucao
+-> apoio comunitário
+-> maturação
+-> filtros públicos
+-> votação territorial
+-> consolidação municipal
+-> institucionalização
+-> execução
 -> aprendizado do proximo ciclo
 ```
 
-O principio "code is law" permanece como base: as regras do processo precisam estar descritas em protocolo, implementadas no sistema, auditaveis e parametrizaveis por municipio dentro de limites comuns.
+O princípio `code is law` permanece como base: as regras do processo precisam estar descritas em protocolo, implementadas no sistema, auditáveis e parametrizáveis por município dentro de limites comuns.
 
 ## Premissas do Fluxo
 
-- O Orcamento Participativo e o eixo principal do sistema.
-- O territorio e a unidade politica base.
+- O Orçamento Participativo é o eixo principal do sistema.
+- O território é a unidade política base.
 - Cada bairro, comunidade ou distrito tem direito a 1 representante territorial.
-- A escolha do representante territorial ocorre por inscricao e sorteio.
+- A escolha do representante territorial ocorre por inscrição e sorteio.
 - A demanda nasce simples e amadurece por camadas.
-- O sistema deve evitar que especialistas ou burocracias sejam porteiros unicos do processo.
-- Toda negativa deve gerar justificativa publica, possibilidade de correcao, fork, recurso ou memoria historica.
+- O sistema deve evitar que especialistas ou burocracias sejam porteiros únicos do processo.
+- Toda negativa deve gerar justificativa pública, possibilidade de correção, fork, recurso ou memória histórica.
 - O Legislativo atua como Maintainer Geral do rito institucional.
-- O Maintainer Tecnico cuida da infraestrutura de TI, sem decidir merito politico.
+- O Maintainer Técnico cuida da infraestrutura de TI, sem decidir mérito político.
 - O Maintainer Territorial organiza o fluxo local, sem ser dono da vontade popular.
 
 ## Papeis
@@ -305,4 +305,3 @@ O Legislativo incorpora.
 A execucao e fiscalizada.
 O proximo ciclo aprende com o resultado.
 ```
-
