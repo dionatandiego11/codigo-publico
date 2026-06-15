@@ -11,6 +11,11 @@ fiscalização de execução.
 
 No ar: **https://codigopublico.stellaris.net.br**
 
+**Caso de uso fundador:** infraestrutura de **Orçamento Participativo**
+institucionalizável por lei — ver [docs/ORCAMENTO-PARTICIPATIVO.md](docs/ORCAMENTO-PARTICIPATIVO.md).
+
+📄 **Comece pelo [WHITEPAPER.md](WHITEPAPER.md)** — a apresentação do projeto para a sociedade.
+
 ## Estrutura do monorepo
 
 ```txt
@@ -24,7 +29,9 @@ docs/       documentação conceitual, institucional e operacional
 
 **Conceitual** — o que é e por quê
 - [docs/CONCEITO.md](docs/CONCEITO.md) — a ideia e o ciclo cívico completo
+- [docs/ORCAMENTO-PARTICIPATIVO.md](docs/ORCAMENTO-PARTICIPATIVO.md) — o caso de uso fundador (OP, sorteio, gov.br, valor jurídico)
 - [docs/ARQUITETURA.md](docs/ARQUITETURA.md) — stack, módulos e padrões
+- [docs/ESTRUTURA-DO-APP.md](docs/ESTRUTURA-DO-APP.md) — estrutura-alvo e caminho de migração
 - [docs/FUNDAMENTACAO-TEORICA.md](docs/FUNDAMENTACAO-TEORICA.md) — teoria política, obstáculos e perguntas em aberto
 
 **Institucional** — as regras de governança
