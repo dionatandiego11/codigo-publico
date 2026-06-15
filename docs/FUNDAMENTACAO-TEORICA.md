@@ -15,16 +15,17 @@
 
 O Código Público é uma instância executável de **Open Democracy** (Landemore,
 2020): representação não-eleitoral, aberta e auditável, em que a legitimidade
-nasce do **rito público verificável**, não da origem do mandato. Ele combina
-quatro linhagens — **proceduralismo epistêmico** (Estlund), **democracia
-monitória** (Keane), **republicanismo da não-dominação** (Pettit) e **governança
-de comuns** (Ostrom) — e as torna *código* no sentido forte de Lessig: a
-arquitetura do sistema **é** a constituição. Sua aposta distintiva é resolver o
-problema mais difícil da democracia digital — **resistência a Sybil sem
-plutocracia** — por meio de **vínculo territorial validado**, e tornar todo o
-histórico **inviolável por encadeamento de hash**. Em uma frase: *democracia
-monitória, procedimentalmente epistêmica, resistente a Sybil por território e
-auditável por hash.*
+nasce do **rito público verificável** e da qualidade das decisões no exercício,
+não apenas da origem do mandato. Ele combina linhagens consolidadas — a legitimidade
+democrática pós-eleitoral de **Bernard Manin**, a **democracia monitória** de 
+**John Keane**, o **proceduralismo epistêmico** de **David Estlund**, o 
+**republicanismo da não-dominação** de **Philip Pettit**, a **governança de comuns**
+de **Elinor Ostrom**, a inclusão ativa na presença de **Iris Marion Young**, e o
+**aprendizado deliberativo e iterativo** de **Archon Fung** — e as materializa em
+*código* no sentido forte de Lessig: a arquitetura do sistema **é** a constituição.
+Sua aposta distintiva é resolver o problema da **resistência a Sybil sem plutocracia**
+por meio de **vínculo territorial validado**, tornando todo o histórico cívico
+**inviolável por encadeamento de hash**.
 
 ---
 
@@ -62,33 +63,24 @@ auditável e forkável** dele.
 
 ## 2. Mapa teoria → código
 
-### A. Open Democracy — Hélène Landemore (2020)
+### A. Open Democracy — Hélène Landemore (2020) e Bernard Manin (1997)
 
-**Tese.** A representação não precisa ser eleitoral. Mini-públicos, rotação,
-deliberação aberta e seleção inclusiva podem produzir representação legítima sem
-o filtro eleitoral (que favorece os já poderosos).
+**Tese.** A representação legítima não depende de eleição. Bernard Manin estabelece a distinção crucial entre **legitimidade de origem** (como o representante ascende ao cargo) e **legitimidade de exercício** (como atua no cargo). Historicamente, em Atenas, o sorteio era tido como democrático (por dar chances iguais a todos), enquanto a eleição era considerada aristocrática (pois favorece os ricos, visíveis e influentes). Landemore unifica isso propondo a "Open Democracy", onde mini-públicos, rotação, deliberação aberta e seleção inclusiva descentralizam o poder.
 
-**No código.** O maintainer territorial pode nascer de eleição, indicação
-legislativa, nomeação executiva ou designação emergencial
-(`maintainer_policy.go`, `AppointmentInitialStatus`). O sistema **não exige**
-eleição — exige **rito auditável**. Mandato com início e fim
-(`term_start`/`term_end`, migration 011) implementa a **rotação** de Landemore.
+**No código.** O maintainer territorial pode nascer de eleição, indicação legislativa, nomeação executiva ou designação emergencial ([maintainer_policy.go](file:///C:/Users/dionatan.resende/Downloads/codigo-publico/backend/internal/territorial/maintainer_policy.go), [AppointmentInitialStatus](file:///C:/Users/dionatan.resende/Downloads/codigo-publico/backend/internal/territorial/maintainer_policy.go#L43)). O sistema foca na **legitimidade de exercício** através de um rito rigoroso de prestação de contas, justificativas e recall. Mandatos com datas explícitas de expiração (`term_start`/`term_end`, [migration 011](file:///C:/Users/dionatan.resende/Downloads/codigo-publico/backend/migrations/011_maintainer_protocol.sql)) garantem a **rotação** democrática.
 
-**O que falta. [não implementado]** O pilar mais forte de Landemore — **seleção
-por sorteio (mini-públicos)** — não existe. Hoje só há representante
-eleito/indicado, nunca sorteado. É a maior aproximação possível ao estado da arte
-(ver §6).
+**O que falta e como fundamentar.** A seleção por sorteio de conselheiros territoriais (mini-públicos) precisa ser construída na policy para inverter o ônus da prova contra a eleição: a indicação e a eleição são os vetores prováveis de captura local; o sorteio por aleatoriedade estruturada é a defesa legítima de origem.
 
 ### B. Code is Law — Lawrence Lessig (*Code 2.0*, 2006)
 
 **Tese.** A arquitetura de um sistema técnico regula comportamento como a lei
 regula — e escolhas de design são escolhas políticas disfarçadas de técnicas.
 
-**No código.** Isto deixa de ser metáfora: `territorial/policy.go` e
-`maintainer_policy.go` **são texto constitucional**. Quando o sistema define
-`RecontestationCooldown = 180 dias` ou `RecallQuorum = 50% + 1`, está legislando.
+**No código.** Isto deixa de ser metáfora: [territorial/policy.go](file:///C:/Users/dionatan.resende/Downloads/codigo-publico/backend/internal/territorial/policy.go) e
+[maintainer_policy.go](file:///C:/Users/dionatan.resende/Downloads/codigo-publico/backend/internal/territorial/maintainer_policy.go) **são texto constitucional**. Quando o sistema define
+[RecontestationCooldown](file:///C:/Users/dionatan.resende/Downloads/codigo-publico/backend/internal/territorial/policy.go#L20) `= 180 dias` ou [RecallQuorum](file:///C:/Users/dionatan.resende/Downloads/codigo-publico/backend/internal/territorial/maintainer_policy.go#L131) `= 50% + 1`, está legislando.
 A camada de política pura (funções sem banco, testáveis) é, literalmente, a
-**constituição operacional** — e os testes (`*_policy_test.go`) são o controle de
+**constituição operacional** — e os testes (como [policy_test.go](file:///C:/Users/dionatan.resende/Downloads/codigo-publico/backend/internal/territorial/policy_test.go) e [maintainer_policy_test.go](file:///C:/Users/dionatan.resende/Downloads/codigo-publico/backend/internal/territorial/maintainer_policy_test.go)) são o controle de
 constitucionalidade.
 
 **Consequência.** Toda constante default é uma decisão política que precisa ser
@@ -108,20 +100,18 @@ populares, checks de admissibilidade) **qualifica** a decisão. Estlund nos dá 
 nome exato da posição implícita do sistema — e dissolve a contradição que parecia
 existir entre legitimidade procedimental e substantiva.
 
-### D. Democracia monitória + "quem vigia o vigia" — Keane (2009)
+### D. Democracia monitória e Escrutínio Escalável — John Keane (2009)
 
-**Tese.** Poder legítimo é poder continuamente monitorado.
+**Tese.** A democracia monitória é caracterizada pela proliferação de teias de escrutínio público que operam à margem das eleições clássicas, forçando nos detentores do poder uma consciência constante de prestação de contas (*humility*).
 
-**No código — e este é o achado mais bonito do projeto.** A **cadeia de hash
-encadeada** (`audit/audit.go`, migration 010) resolve o problema de 2.000 anos —
-*quis custodiet ipsos custodes?* No topo da hierarquia (SysAdmin, Maintainer
-Geral) **não há principal superior para apelar**. A resposta clássica seria "mais
-um vigia" (regressão infinita). A resposta do sistema é **matemática**: cada
-evento carrega `prev_hash` + `event_hash`; alterar o passado quebra a cadeia de
-forma detectável. Ninguém precisa vigiar o vigia se a adulteração é
-*impossível de esconder*. A ancoragem externa (`blockchain/anchor.go`) leva isso
-para fora do próprio sistema. **Não é segurança por confiança; é segurança por
-verificabilidade.**
+**No código.** A **cadeia de hash encadeada** ([audit/audit.go](file:///C:/Users/dionatan.resende/Downloads/codigo-publico/backend/internal/audit/audit.go), [migration 010](file:///C:/Users/dionatan.resende/Downloads/codigo-publico/backend/migrations/010_audit_hash_chain.sql))
+resolve materialmente a regressão infinita de *quem vigia o vigia?*. No topo do
+sistema (SysAdmin, Maintainer Geral), a resposta não é "mais um vigia", mas sim
+a impossibilidade matemática de alterar o histórico retrospectivo em silêncio. A
+ancoragem externa ([blockchain/anchor.go](file:///C:/Users/dionatan.resende/Downloads/codigo-publico/backend/internal/blockchain/anchor.go)) garante que o poder governante opere
+sob permanente monitoramento público.
+
+**O que falta e redundância.** Para que o monitoramento seja imune a governos fracos que possam capturar o próprio meio de ancoragem oficial (como o Diário Oficial municipal), é necessário projetar uma **redundância sistemática de âncoras**: a publicação da cabeça do hash tanto em meios oficiais locais quanto em periódicos independentes de ampla circulação ou blockchains públicas, garantindo a escala e a descentralização da prova histórica.
 
 ### E. Republicanismo da não-dominação — Philip Pettit (1997; 2012)
 
@@ -132,7 +122,7 @@ de quem tem poder sobre você sem medo (*eyeball test*).
 **No código.**
 - *"Maintainer não é dono do bairro"* é republicanismo puro: mandato limitado,
   recusa **exige justificativa** (a API rejeita recusa silenciosa — 400),
-  destituição só por processo (`CanRemoveForCause`), nada irrecorrível.
+  destituição só por processo ([CanRemoveForCause](file:///C:/Users/dionatan.resende/Downloads/codigo-publico/backend/internal/territorial/maintainer_policy.go#L111)), nada irrecorrível.
 - **Contestabilidade** (o conceito operacional de Pettit) está implementada como
   fluxo de primeira coisa: contestação comunitária + recurso ao Maintainer Geral
   + moção de recall. O sistema é deliberadamente **mais editorial que eleitoral**
@@ -145,7 +135,7 @@ dominação pelo poder público (*imperium*) da dominação por poder privado
 maintainer) com maestria. Mas **a governança territorial é toda pública** —
 contestar um vínculo ou assinar um recall expõe o cidadão à retaliação do
 *dominium*. Protegemos o **voto** contra o dominium (sigiloso, agregado, recibo
-que não codifica a escolha — `votings_repository.go`), mas **não protegemos a
+que não codifica a escolha — [votings_repository.go](file:///C:/Users/dionatan.resende/Downloads/codigo-publico/backend/internal/public/votings_repository.go)), mas **não protegemos a
 governança**. Em território capturado por milícia, transparência radical pode
 ser perigosa. **Tensão não resolvida** (ver §5).
 
@@ -156,14 +146,14 @@ interesse, o principal não monitora tudo, a informação é assimétrica.
 
 **No código.** O sistema inteiro é uma máquina de reduzir assimetria de
 informação: justificativa obrigatória, status público, trilha de auditoria. O
-`pr_transition_events` (migration 007) registra quem moveu o quê e por quê.
+`pr_transition_events` ([migration 007](file:///C:/Users/dionatan.resende/Downloads/codigo-publico/backend/migrations/007_pr_state_machine.sql)) registra quem moveu o quê e por quê.
 
 **O que a teoria nos cobra.**
 - **Alarme de incêndio, não patrulha** (McCubbins & Schwartz): em vez de
   monitoramento constante (caro), gatilhos que ativam fiscalização. O recall e a
   contestação são alarmes. ✓
 - **O problema real é o *under-firing*** (Olson, ação coletiva): fiscalizar é bem
-  público, cidadãos dispersos sub-investem. O *cooldown* de 180 dias protege
+  público, cidadãos dispersos sub-investem. O [cooldown de 180 dias](file:///C:/Users/dionatan.resende/Downloads/codigo-publico/backend/internal/territorial/policy.go#L20) protege
   contra o *over-firing* (contestação vexatória), mas **nada garante que o alarme
   seja puxado quando deve**. A correção ostromiana: monitoramento por um
   **subconjunto designado** (associações locais, "oposição leal"), não por todos.
@@ -179,11 +169,11 @@ funciona" — é **policentrismo**: cada comum **escreve as próprias regras**.
 
 | Princípio | Implementação real | Veredito |
 | --- | --- | --- |
-| 1. Fronteiras claras | Vínculo T0–T4 validado e contestável (`009`, `policy.go`) | **Forte** |
+| 1. Fronteiras claras | Vínculo T0–T4 validado e contestável ([migration 009](file:///C:/Users/dionatan.resende/Downloads/codigo-publico/backend/migrations/009_territorial_governance.sql), [policy.go](file:///C:/Users/dionatan.resende/Downloads/codigo-publico/backend/internal/territorial/policy.go)) | **Forte** |
 | 2. Regras adaptadas ao local | Mandato 90/365 e quórum 50%+1 são constantes **globais** | **Fraco** |
 | 3. Afetados modificam as regras | Cidadão age *dentro* das regras; o bairro não **legisla** sobre elas | **Fraco** |
-| 4. Monitoramento | Cadeia de hash + status público (`010`) | **Forte** |
-| 5. Sanções graduais | Maintainer: revisão → suspenso → destituído (`011`) | **Parcial** |
+| 4. Monitoramento | Cadeia de hash + status público ([migration 010](file:///C:/Users/dionatan.resende/Downloads/codigo-publico/backend/migrations/010_audit_hash_chain.sql)) | **Forte** |
+| 5. Sanções graduais | Maintainer: revisão → suspenso → destituído ([migration 011](file:///C:/Users/dionatan.resende/Downloads/codigo-publico/backend/migrations/011_maintainer_protocol.sql)) | **Parcial** |
 | 6. Resolução de conflito acessível | Recurso ao Geral + contestação | **Parcial** (acessível?) |
 | 7. Reconhecimento externo | Município/SysAdmin reconhece a governança | **Presente** |
 | 8. Governança aninhada | SysAdmin → Geral → Territorial | **Forte** |
@@ -234,22 +224,31 @@ focada onde o sistema mais precisa funcionar. Solução leve: autodeclaração
 **opcional** de perfil do representante (morador, tempo de moradia, vínculo com
 organizações), como informação pública — nunca como filtro. **[não implementado]**
 
-### J. Esfera pública e seus limites — Habermas (1996); Fraser (1990); Sunstein (2001)
+### J. Esfera pública e Espaço Deliberativo — Habermas (1996); Fishkin (2018); Chwalisz (2017)
 
-**Tese.** Decisões são legítimas quando saem de deliberação racional, pública,
-inclusiva e livre de coerção (Habermas).
+**Tese.** Decisões legítimas não decorrem da mera agregação mecânica de votos (racionalidade instrumental), mas do processo intersubjetivo de formação de consensos por meio de debates racionais, livres de coerção e orientados ao entendimento mútuo (racionalidade comunicativa).
 
-**Os limites que precisamos respeitar.**
-- **Polarização de grupo** (Sunstein, *Republic.com*): fórum aberto e assíncrono
-  não tende ao consenso — tende ao flame war e à câmara de eco. A "situação ideal
-  de fala" exige **voz igual**; texto assíncrono com letramento assimétrico viola
-  isso por construção.
-- **Contrapúblicos subalternos** (Fraser): a esfera pública de Habermas excluía
-  os subalternos; a resposta são espaços onde grupos marginalizados formulam
-  demandas longe do olhar dominante. **Releitura generativa:** cada território
-  pode ser um contrapúblico fraseriano — argumento *a favor* da autonomia local
-  de regras (§G) — mas só funciona se a periferia conseguir **entrar** (daí a
-  urgência da "UI que esconde a constituição").
+**Os limites e a deliberação estruturada.**
+- **Polarização de Grupo (Sunstein):** O debate assíncrono sem moderação tende a polarizar e a favorecer cúpulas com maior letramento e tempo livre. 
+- **Contrapúblicos Subalternos (Nancy Fraser):** Periferias desorganizadas precisam de arenas protegidas para articular demandas sem a interferência ou intimidação da elite local.
+- **Deliberative Polls e Assembleias Cidadãs (Fishkin & Chwalisz):** O Código Público precisa construir arquiteturas deliberativas estruturadas no intervalo entre a demanda e a votação. Três critérios devem ser codificados:
+  1. *Informação Qualificada:* Acesso universal a pareceres técnicos e simplificados sobre a viabilidade das propostas.
+  2. *Estrutura de Razões:* Interfaces de comentários que exijam a categorização de argumentos (prós, contras e trade-offs) em vez de fóruns genéricos de opinião.
+  3. *Tempo Mínimo:* Estabelecer fases temporais obrigatórias de debate que impeçam votações rápidas e reativas.
+
+### K. Política da Presença e Exclusão Estrutural — Iris Marion Young (2000); Anne Phillips (1995)
+
+**Tese.** Processos e sorteios neutros não produzem representações neutras se aplicados em cima de desigualdades estruturais. A "política da presença" argumenta que o pertencimento e a inclusão efetiva das vozes mais vulneráveis exigem contramedidas sistêmicas, pois recursos de participação (tempo, segurança, habilidades de oratória) são desigualmente distribuídos.
+
+**No código e no Whitepaper.** 
+- O sorteio por aleatoriedade simples corre o risco de sobre-representar elites instruídas se o pool de elegíveis for puramente *opt-in*. A modelagem do sorteio deve avançar para o **Convite Ativo** (seleção aleatória do registro geral de cidadãos com convites diretos) para neutralizar a autoseleção.
+- A **Ajuda de custo ao conselheiro sorteado** deixa de ser um detalhe administrativo opcional. Sob a lente de Young, ela é uma **garantia constitucional** de viabilidade de participação: sem ela, a sortição exclui sistematicamente trabalhadores que não dispõem de flexibilidade laboral, elitizando o conselho por padrão.
+
+### L. Teoria da Implementação e Participação Empoderada — Archon Fung (2004); Dani Rodrik (2007)
+
+**Tese.** Projetos de governança local só se sustentam a longo prazo se apresentarem devolução real de poder (decisão vinculante), supervisão institucional externa robusta contra captura e um canal contínuo de **aprendizado iterativo** (capacidade do sistema aprender com seus próprios ciclos).
+
+**No código.** O Código Público atende à devolução real ao alimentar a LOA. Contudo, falta modelar as regras do **ciclo de retroalimentação**. O sistema precisa registrar a conformidade da execução de releases passadas e usá-la como condicionador do ciclo orçamentário subsequente. O regimento de governança local deve prever um "rito de encerramento de ciclo" onde a comunidade e as instâncias monitórias revisam o desempenho e ajustam os pesos das fórmulas de forma deliberada.
 
 ---
 
@@ -283,92 +282,55 @@ fraco em "inclusão", que é o desafio central.
 - **Linguagem dupla** (entendimento esclarecido de Dahl).
 - **Ciclo cívico fechado**: issue → PR → diff → votação (encerra sozinha no
   prazo) → merge → release → fiscalização.
-- **Constituição como código testável** (policy pura + testes constitucionais).
+- **Constituição como código testável** (camada de policy pura + testes constitucionais como [policy_test.go](file:///C:/Users/dionatan.resende/Downloads/codigo-publico/backend/internal/territorial/policy_test.go) e [maintainer_policy_test.go](file:///C:/Users/dionatan.resende/Downloads/codigo-publico/backend/internal/territorial/maintainer_policy_test.go)).
 
 ---
 
 ## 5. Obstáculos e desafios (ranqueados)
 
-1. **Centralização da confecção de regras** (Ostrom 2 e 3). O território opera,
-   mas não legisla. Maior lacuna teórica.
-2. **Exclusão da periferia desorganizada.** "Bairro sem maintainer não aceita
-   vínculos" protege fronteiras (Ostrom 1) mas pode reproduzir a desigualdade de
-   capital social que o projeto quer corrigir — o "problema de Aaron Swartz":
-   sistemas abertos reproduzem desigualdade de acesso se não desenhados contra
-   isso. A válvula (cadastro provisório T1, fila, UI simples) é mitigação parcial.
-3. **Transparência que expõe ao *dominium*.** Governança pública pode entregar o
-   cidadão ao poder privado. O sigilo do voto não se estende à governança.
-4. **Under-firing do alarme.** Sem ator com incentivo estrutural para fiscalizar,
-   o recall pode nunca ser acionado (ação coletiva de Olson).
-5. **Deliberação que polariza.** Fórum aberto sem estrutura → câmara de eco
-   (Sunstein). Falta deliberação estruturada antes do voto.
-6. **Lacuna descritiva** na representação, concentrada onde mais dói (Mansbridge).
-7. **Paradoxo de bootstrap.** Quem nomeia o *primeiro* maintainer, antes de
-   existir qualquer instância legítima? Hoje: o SysAdmin (admin municipal). É uma
-   costura de legitimidade — a origem do sistema é, inevitavelmente, um ato de
-   autoridade não-democrática. Honestidade exige nomeá-la.
-8. **Identidade frágil.** CPF + data de nascimento são semi-públicos; a Sybil-
-   resistência só fica forte com identidade real (gov.br).
+1. **Centralização da confecção de regras** (Ostrom 2 e 3). O território opera, mas não legisla sobre seus próprios parâmetros (quóruns, tempos).
+2. **Exclusão da periferia desorganizada e viés de autoseleção** (Young & Phillips). Bairros com menor capital social demoram a nomear maintainers, e o sorteio puramente opt-in tende a elitizar a participação.
+3. **Transparência que expõe ao *dominium* (Pettit).** Assinar moções de recall ou contestar vínculos em público pode expor o cidadão à coerção miliciana, privada ou empresarial do território.
+4. **Deliberação sem qualidade (Habermas & Fishkin).** A ausência de interfaces que exijam apresentação racional de argumentos e forneçam relatórios simplificados degrada a inteligibilidade do debate.
+5. **Under-firing do alarme (Olson).** Falta de atores dedicados e institucionalizados para fiscalizar e alertar a comunidade sobre desvios do maintainer, incorrendo no paradoxo da ação coletiva.
+6. **Fragilidade do canal de aprendizado (Fung).** Risco de o sistema virar um ritual burocrático anual repetitivo sem mecanismos formais de ajuste e melhoria das regras após cada ciclo.
+7. **Paradoxo de bootstrap.** A nomeação do primeiro mantenedor de um ciclo é, por necessidade histórica, um ato autoritário do administrador local.
+8. **Segurança de Identidade.** Dependência de dados de CPF e nascimento, cuja fragilidade de proteção contra perfis falsos só se resolve de forma confiável via OAuth do gov.br.
 
 ---
 
 ## 6. O que a teoria manda construir (roadmap teórico-orientado)
 
-1. **Autonomia local de regras** (Ostrom, policentrismo). Tornar mandato, quórum
-   e exigências configuráveis por território. Cada bairro escreve sua regra
-   dentro de limites comuns. *Prioridade teórica nº 1.*
-2. **Sortição / mini-públicos** (Landemore, Van Reybrouck, *Against Elections*).
-   Painéis de cidadãos sorteados para deliberar e decidir casos sensíveis. O
-   sorteio é o método de seleção mais igualitário — antídoto direto ao problema
-   de acesso (§5.2). É o que falta para o projeto *ser* Open Democracy de fato.
-3. **Deliberação estruturada antes do voto** (Fishkin, *Deliberative Polls*):
-   período obrigatório de argumentos e perguntas públicas aos candidatos/à
-   medida, registrado e auditável, contra a polarização de Sunstein.
-4. **Ator-alarme designado** (McCubbins & Schwartz): dar status a associações
-   locais / observatórios para resolver o under-firing.
-5. **Proteção contra dominium na governança**: avaliar sigilo (ou pseudonímia
-   auditável) para assinatura de recall e contestação em contextos de risco.
-6. **Perfil descritivo opcional** do representante (Mansbridge).
-7. **Identidade forte** (gov.br) para fechar a resistência a Sybil.
-8. *(Explorar)* **Voto quadrático** (Posner & Weyl, *Radical Markets*, 2018) como
-   alternativa ao 1p1v que deixa a *intensidade* de preferência contar sem deixar
-   o dinheiro contar — relevante para consultas onde minorias intensas importam.
+1. **Autonomia local de regras (Ostrom):** Parâmetros locais do regimento configuráveis por território (dentro de limites constitucionais comuns).
+2. **Sortição baseada em Convite Ativo (Landemore & Young):** Sorteio a partir do cadastro geral, complementado por ajuda de custo vinculante no regimento.
+3. **Mapeamento de Deliberação Estruturada (Fishkin & Chwalisz):** Fases obrigatórias de informação simplificada pré-votação e caixa de comentários baseada em categorização de razões/trade-offs.
+4. **Mecanismo de Aprendizado Iterativo (Fung):** Painéis pós-ciclo para aferição de conformidade das releases de obras e ajuste de parâmetros operacionais.
+5. **Redundância de Âncoras Monitórias (Keane):** Protocolo de publicação de hashes em blockchain pública e jornal impresso local além do Diário Oficial.
+6. **Proteção de Governança contra o Dominium (Pettit):** Assinaturas de recall e contestação mascaradas sob criptografia homomórfica ou ZKP, decodificáveis sob intervenção do tribunal geral.
+7. **Representação Quadro-Direcional (Mansbridge):** Mapeamento do papel do conselheiro sorteado (giroscópico + substitutivo temporário) na interface pública.
+8. **Identidade Forte (OAuth2 gov.br):** Implementação final do validador federado estatal para Sybil-resistência robusta.
 
 ---
 
 ## 7. As perguntas em aberto (as difíceis)
 
-1. **Quem puxa o alarme?** Se fiscalizar é bem público sub-provido, qual ator tem
-   incentivo estrutural para acionar o recall — e como criá-lo sem criar um novo
-   poder a ser capturado?
-2. **Transparência protege ou expõe?** Em que ponto a publicidade radical (que
-   combate o *imperium*) passa a servir o *dominium*? O sigilo deveria se estender
-   à governança, e a que custo de auditabilidade?
-3. **Quem escreve as regras do bairro?** Até onde vai a autonomia de um território
-   (Ostrom) antes de fraturar a constituição comum do município?
-4. **Como incluir sem diluir?** Baixar a barreira de entrada da periferia sem
-   abrir o flanco da Sybil-resistência. Inclusão (Dahl) vs. fronteiras (Ostrom 1).
-5. **Legitimidade da origem.** O paradoxo de bootstrap tem solução democrática, ou
-   todo sistema constitucional começa, inevitavelmente, por um ato fundador
-   não-eleito (o "momento constituinte" de Sieyès/Arendt)?
-6. **A linguagem dupla é suficiente?** Traduzir a constituição interna em
-   linguagem cidadã resolve o entendimento esclarecido (Dahl) — ou apenas o
-   desloca, exigindo confiança em quem traduz?
+1. **Quem financia o comum?** A ajuda de custo como garantia da presença periférica deve vir de um fundo municipal fixado em lei ou do próprio envelope do OP? Como blindar esse financiamento contra contingenciamento político?
+2. **ZKP vs. Transparência Plena:** Até que ponto o uso de criptografia de preservação de privacidade (ZKP/Pseudonímia) para proteger os participantes do *dominium* local enfraquece a facilidade de auditoria popular ordinária?
+3. **Resistência ao Opt-in Bias:** Se o convite ativo para o sorteio do conselho for recusado massivamente por cidadãos vulneráveis, o sorteio deve insistir na reposição até atingir a proporcionalidade desejada ou aceitar a composição final?
+4. **O conflito do rito constituinte (Bootstrap):** O momento fundador do Código Público é inevitavelmente tecnocrático/autoritário. Como realizar a transição rápida desse ato de força para uma legitimidade democrática plena?
 
 ---
 
 ## 8. Caminho de leitura sugerido
 
-1. Landemore, *Open Democracy* (2020) — quase o manual do que estamos construindo.
+1. Landemore, *Open Democracy* (2020) & Manin, *Principles of Representative Government* (1997) — os pilares do sorteio e da inversão do ônus eleitoral.
 2. Ostrom, *Governing the Commons* (1990) — focar nos princípios 2, 3 e 8.
-3. Estlund, *Democratic Authority* (2008) — capítulos sobre proceduralismo
-   epistêmico.
-4. Pettit, *On the People's Terms* (2012) — imperium/dominium e a dimensão
-   editorial.
-5. Keane, *The Life and Death of Democracy* (2009) — democracia monitória.
-6. Fraser, "Rethinking the Public Sphere" (1990) e Lessig, *Code 2.0* (2006) — os
-   dois textos curtos da crítica.
-7. Dahl, *Democracy and Its Critics* (1989) — para autoavaliação contínua.
+3. Young, *Inclusion and Democracy* (2000) & Phillips, *The Politics of Presence* (1995) — a crítica ao procedimentalismo abstrato e a defesa da presença.
+4. Fung, *Empowered Participation* (2004) & Rodrik, *One Economics, Many Recipes* (2007) — as teorias de implementação local e ciclos de aprendizado.
+5. Fishkin, *Democracy When the People Are Thinking* (2018) & Chwalisz, *The People's Verdict* (2017) — deliberação informada e mini-públicos.
+6. Pettit, *On the People's Terms* (2012) — imperium/dominium e a dimensão editorial de contestabilidade.
+7. Keane, *The Life and Death of Democracy* (2009) — monitoramento público contínuo e *humility*.
+8. Dahl, *Democracy and Its Critics* (1989) — grade analítica de inclusão e esclarecimento.
 
 ---
 
@@ -376,16 +338,15 @@ fraco em "inclusão", que é o desafio central.
 
 | Conceito político | Onde vive no código |
 | --- | --- |
-| Fronteiras / vínculo (Ostrom 1, Sybil) | `migrations/009`, `territorial/policy.go` |
-| Não-dominação, mandato, recall (Pettit) | `territorial/maintainer_policy.go`, `migrations/011` |
-| Contestabilidade (Pettit) | `territorial/service.go` (contest, appeal) |
-| Monitoramento / quem vigia o vigia (Keane) | `audit/audit.go`, `blockchain/anchor.go`, `migrations/010` |
-| Proceduralismo epistêmico (Estlund) | `public/pr_statemachine.go`, merge institucional |
-| Epistemologia do Git (Benkler) | diff normativo, `pr_transition_events` (`007`) |
-| Voto sem dominium (Pettit) | `public/votings_repository.go` (sigilo, agregação) |
-| Ciclo cívico com fim definido | encerramento automático de votações |
+| Legitimidade de Exercício (Manin) | Justificativa de recusa em `territorial/policy.go`, logs de transição |
+| Sorteio / Mini-público (Landemore/Young) | `[não implementado]` — no roadmap de `maintainer_policy.go` |
+| Redundância de Âncoras (Keane) | Interface em `blockchain/anchor.go` |
+| Deliberação Estruturada (Chwalisz/Fishkin) | `[não implementado]` — em `public/contracts.go` (tipos de comentários/anexos) |
+| Não-dominação e Contestação (Pettit) | `territorial/service.go` (contest, appeal) |
+| Ciclos de Aprendizado Iterativo (Fung) | `[não implementado]` — regras de encerramento em `public/` |
+| Vínculo & Sybil-resistência (Ostrom 1 / Buterin)| `migrations/009`, `territorial/policy.go` |
 | Constituição como código testável (Lessig) | `*_policy.go` + `*_policy_test.go` |
-| Entendimento esclarecido (Dahl) | linguagem dupla (modo técnico / cidadão) |
+| Entendimento esclarecido (Dahl) | Camada de tradução de status da UI (modo cidadão) |
 
 ---
 

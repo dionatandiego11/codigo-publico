@@ -165,6 +165,15 @@ maintainer.mandate_renewed · maintainer.recall_motion_opened
 maintainer.recall_motion_decided
 ```
 
+### 3.6 Regras do Sorteio e Aprendizado Iterativo (Modo OP)
+
+No Orçamento Participativo, os conselheiros do território são **sorteados**. A engenharia deste sorteio deve contemplar:
+
+*   **Filtro contra Auto-seleção (Convite Ativo):** O sorteio não deve ocorrer em uma lista de voluntários (*opt-in* puro), pois isso sobre-representa pessoas de maior letramento e tempo livre. O sistema realiza o sorteio na base geral de cidadãos com vínculo territorial validado (T3+), emitindo **convites ativos** individuais. Caso o sorteado decline por motivos de força maior, novas rodadas de sorteio de reposição são realizadas até preencher a cota do território.
+*   **Compensação de Participação (Ajuda de Custo):** Para assegurar a inclusão efetiva das pessoas mais vulneráveis (Iris Marion Young), o regimento local deve prever ajuda de custo orçamentária ou dispensa/abono de trabalho oficial para as horas de deliberação dos sorteados.
+*   **Redundância de Âncoras Monitórias:** A trilha de auditoria é ancorada no Diário Oficial Municipal, mas como salvaguarda contra fraudes do operador local, o sistema permite configurar âncoras redundantes automáticas em blockchains públicas ou via publicação estruturada em imprensa local independente.
+*   **Ciclos de Aprendizado Iterativo (Archon Fung):** O encerramento de cada release orçamentária (ciclo anual de obras) dispara o rito de "Revisão de Ciclo". A conformidade da entrega das obras executadas altera parâmetros de pesos na distribuição orçamentária das regiões no ciclo subsequente, criando uma penalização automatizada por ineficiência do executivo.
+
 ---
 
 ## Parte 4 — Bairro sem maintainer (válvula anti-exclusão)
@@ -320,4 +329,8 @@ backend/internal/territorial/*_test.go              (testes das regras)
 8. Quórum de moção popular de destituição (proposta: 50% + 1 dos T3+)
 9. Casos especiais (se algum) em que o executivo poderia intervir
 10. Definição de "issue formal limitada" e "temas de baixo impacto" em bairro sem maintainer
+11. Estratégia de Convite Ativo: limite máximo de recusas ou rodadas de reposição para evitar viés de opt-in involuntário.
+12. Custos e Origem da Ajuda de Custo: de onde provêm os recursos para remunerar as horas de serviço dos conselheiros sorteados vulneráveis?
+13. Parâmetros de Redundância de Âncoras: quais blockchains públicas e periódicos locais serão exigidos como âncoras adicionais obrigatórias.
+14. Algoritmo de Aprendizado Iterativo: como as metas de entrega de obras não cumpridas alteram quantitativamente o índice de carência ou o envelope financeiro do bairro no ciclo seguinte.
 ```

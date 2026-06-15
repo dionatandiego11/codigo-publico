@@ -137,30 +137,17 @@ sistema resistente a perfis falsos **sem** virar plutocracia.
 
 ## 6. O sorteio — por que não eleição
 
-No OP tradicional, os conselheiros são eleitos. Aqui eles são **sorteados** — por
-um motivo simples e profundo: **não se captura um sorteio.** Um chefe político
-local compra ou coage votos numa eleição; não consegue predeterminar quem é
-sorteado. O conselho passa a ser uma amostra da comunidade, não da sua estrutura
-de poder. É o que as **assembleias cidadãs** (como as da Irlanda) já praticam com
-sucesso, e o que aproxima o projeto do estado da arte da democracia deliberativa.
+No OP tradicional, os conselheiros são eleitos. Aqui eles são **sorteados**. Fundamentado nas clássicas análises de Bernard Manin, o rito inverte o ônus da prova contra as eleições: a eleição, em si, carrega um viés aristocrático inevitável (beneficia quem já possui dinheiro, visibilidade e contatos de poder), tornando as estruturas locais vulneráveis a clientelismos e coação de votos. O sorteio por aleatoriedade estruturada, pelo contrário, é democraticamente neutro e incapturável, extraindo uma amostra real do território.
 
 Como funciona, de forma justa e verificável:
 
-- **Quem entra:** cidadãos com vínculo no território que se voluntariam.
-- **Aleatoriedade pura:** sorteio simples, **sem cotas e sem critérios de grupo** —
-  ninguém decide "quais grupos entram", e é essa ausência de critério que o torna
-  incapturável.
-- **Sorteio auditável:** a "semente" do sorteio vem de uma fonte pública e futura
-  que o operador não controla, e todo o sorteio fica registrado na trilha de
-  auditoria — qualquer pessoa reproduz e confere.
-- **Deliberação informada:** o conselho recebe assessoria técnica (que **assessora,
-  não decide**), para deliberar com informação, não no escuro.
-- **Mandato curto e recall:** o conselheiro fica pouco tempo, não pode se eternizar,
-  e pode ser destituído. **O sorteio substitui a escolha, não a prestação de
-  contas.**
+- **Quem entra (Filtro do Convite Ativo):** Para mitigar o viés de autoseleção (onde apenas os já engajados e instruídos participam), o sorteio é realizado a partir de um pool geral de cidadãos com vínculo territorial validado, enviando **convites ativos** e incentivando a presença de todos.
+- **Aleatoriedade pura:** Sorteio simples, **sem cotas ou manipulações de grupos**, garantindo neutralidade metodológica absoluta.
+- **Sorteio auditável:** A semente matemática de aleatoriedade provém de uma fonte pública e imprevisível a ser anunciada previamente (ex.: hash de um bloco público futuro), registrada integralmente na trilha de auditoria para replicação livre.
+- **Deliberação informada:** O conselho sorteado recebe assessoria de técnicos do município, que fornecem briefings claros sobre os orçamentos e trade-offs sem poder decisório.
+- **Mandato rotativo e recall:** O mandato dura apenas um ciclo (não renovável imediatamente) e o conselheiro pode ser destituído a qualquer momento por moção popular de recall.
 
-Na nossa metáfora: o conselho sorteado é o **"mantenedor" do repositório do
-bairro** — faz curadoria e junta as contribuições, mas é **gestor, não dono.**
+Na nossa metáfora: o conselho sorteado é o **"mantenedor" do repositório do bairro** — faz curadoria, analisa propostas e junta as contribuições, mas atua como **gestor, não dono.**
 
 ---
 
@@ -248,19 +235,10 @@ enfeite, mas como engenharia:
 
 Um projeto que finge não ter limites não merece confiança. Os nossos, declarados:
 
-- **Domínio privado absoluto.** Onde uma força local (uma milícia, um poder
-  econômico) controla todo mundo, nenhum sistema vence sozinho. O Código Público
-  **eleva o custo e deixa rastro**, e permite recurso a instâncias superiores — mas
-  não promete milagre.
-- **Ajuda de custo ao sorteado.** Sem apoio, servir no conselho exclui quem não pode
-  faltar ao trabalho — reintroduzindo o viés que o sorteio combate. É uma questão
-  de desenho e de financiamento ainda em aberto.
-- **Espelhamento da comunidade.** A aleatoriedade pura é incapturável, mas não
-  garante que um conselho pequeno reflita a diversidade do bairro. É um trade-off
-  assumido, a ser monitorado.
-- **Adoção institucional.** O sistema só importa se uma cidade real o adotar e tratar
-  seus resultados como entrada do processo orçamentário. Conseguir a primeira é o
-  desafio central.
+- **Domínio privado absoluto.** Onde forças locais (como milícias, facções ou oligopólios de terra) mantêm dominação física total, a participação pública expõe os cidadãos ao perigo. O Código Público eleva o custo dessa captura de histórico e deixa rastros auditáveis de adulterações, mas não substitui a segurança física estatal básica.
+- **Financiamento da Presença (Ajuda de custo).** Sob a lente de Iris Marion Young, a ajuda de custo ao cidadão sorteado não é um benefício administrativo acessório, mas uma **garantia constitucional de inclusão**. Sem compensação financeira justa por faltar ao trabalho ou dispor de seu tempo de repouso, a sortição pura exclui estruturalmente a periferia vulnerável. A forma jurídica e orçamentária desse fundo de ajuda continua sob debate.
+- **Espelhamento vs. Rotação.** A aleatoriedade simples no sorteio de conselhos pequenos (ex.: 10 a 15 pessoas) não assegura representação descritiva estatística de todas as interseções demográficas. Confia-se na rotação contínua e rápida dos ciclos para equilibrar o espelhamento a longo prazo.
+- **Adoção e Aprendizado.** Conseguir o primeiro município-piloto disposto a vincular legalmente sua LOA ao Código Público e a instituir ritos periódicos de aprendizado pós-ciclo para ajustar os algoritmos e regras locais com base nos erros operacionais.
 
 ---
 
