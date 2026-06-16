@@ -1,5 +1,11 @@
 # Fluxo do Código Público como Infraestrutura de Orçamento Participativo
 
+> **Consolidado.** A esteira de referência passou a ser [PROTOCOLO-OP.md](PROTOCOLO-OP.md),
+> que incorpora as correções estruturais (conselho territorial colegiado, envelope
+> dividido por território, filtro institucional limitado com incidente público de
+> veto, e a camada de calendário/quóruns como regimento local). Este documento
+> permanece como registro da formulação original do fluxo.
+
 O Código Público passa a ser entendido como uma infraestrutura pública, auditável e open source de Orçamento Participativo municipal.
 
 A lógica central deixa de ser apenas "GitHub de leis" e passa a ser uma esteira cívica:
@@ -97,7 +103,7 @@ Responsabilidades:
 
 | Etapa | Estado | O que acontece | Quem atua |
 |---|---|---|---|
-| 0 | Ciclo aberto | Legislativo abre o ciclo do OP, calendario, territorios e orcamento disponivel | Maintainer Geral, com indicacao do Maintainer Tecnico |
+| 0 | Ciclo aberto | Legislativo abre o ciclo do OP: calendario, territorios e envelope orcamentario (no 1o ciclo, valor de bootstrap; nos seguintes, fracao consolidada participativamente no PPA — ver ORCAMENTO-PARTICIPATIVO) | Maintainer Geral, com indicacao do Maintainer Tecnico |
 | 1 | Cadastro e vinculo | A populacao se cadastra no sistema e cria vinculo com um territorio | Cidadaos |
 | 2 | Inscricao territorial | Abre-se o periodo de inscricao para quem deseja se tornar Maintainer Territorial | Cidadaos vinculados ao territorio |
 | 3 | Sorteio | O sistema realiza sorteio entre inscritos habilitados | Sistema, com auditoria publica |

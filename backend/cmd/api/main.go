@@ -17,6 +17,7 @@ import (
 	"codigo-publico/backend/internal/database"
 	"codigo-publico/backend/internal/health"
 	appmiddleware "codigo-publico/backend/internal/middleware"
+	"codigo-publico/backend/internal/op"
 	publicapi "codigo-publico/backend/internal/public"
 	appredis "codigo-publico/backend/internal/redis"
 	"codigo-publico/backend/internal/territorial"
@@ -57,6 +58,7 @@ func main() {
 	publicHandler := publicapi.NewHandler(dbPool)
 	authHandler := auth.NewHandler(dbPool, cfg.JWTSecret, cfg.CPFHashSecret, cfg.JWTExpiration)
 	territorialHandler := territorial.NewHandler(dbPool)
+	opHandler := op.NewHandler(dbPool)
 	auditHandler := audit.NewHandler(dbPool, blockchain.FromMode(cfg.AnchorMode, logger))
 
 	router.Route("/api/v1", func(r chi.Router) {
@@ -100,6 +102,13 @@ func main() {
 			r.Post("/maintainers/{id}/recall", territorialHandler.OpenRecall)
 			r.Post("/recalls/{id}/sign", territorialHandler.SignRecall)
 
+			// Orçamento Participativo: ciclo (instância geral move as fases)
+			r.Post("/admin/op/cycles", opHandler.CreateCycle)
+			r.Post("/admin/op/cycles/{id}/configure", opHandler.ConfigureCycle)
+			r.Post("/admin/op/cycles/{id}/advance", opHandler.AdvanceCycle)
+			r.Post("/admin/op/cycles/{id}/cancel", opHandler.CancelCycle)
+			r.Post("/admin/op/envelope/preview", opHandler.PreviewEnvelope)
+
 			// Integridade da auditoria (ancoragem exige papel administrativo)
 			r.Post("/admin/audit/anchor", auditHandler.CreateAnchor)
 
@@ -110,6 +119,9 @@ func main() {
 		r.Get("/territories", publicHandler.ListTerritories)
 		r.Get("/territories/{id}", publicHandler.GetTerritory)
 		r.Get("/territories/{id}/governance", territorialHandler.TerritoryGovernance)
+
+		r.Get("/op/cycles", opHandler.ListCycles)
+		r.Get("/op/cycles/{id}", opHandler.GetCycle)
 
 		r.Get("/audit/head", auditHandler.GetChainHead)
 		r.Get("/audit/anchors", auditHandler.ListAnchors)

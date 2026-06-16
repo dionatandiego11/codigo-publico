@@ -53,12 +53,17 @@ Aprendizado             = efeito da execução no próximo ciclo
 ## Estrutura
 
 ```txt
-src/        Front-end React + TypeScript + Vite
+frontend/   Front-end React + TypeScript + Vite
 backend/    API Go + Chi + PostgreSQL + Redis
+infra/      Docker, Nginx e OpenTofu (infra como código)
 docs/       documentação conceitual, institucional, técnica e operacional
 ```
 
 ## Documentação
+
+**Comece aqui**
+
+- [docs/WHITEPAPER.md](docs/WHITEPAPER.md) — apresentação do projeto para a sociedade.
 
 **Conceito e teoria**
 
@@ -69,7 +74,8 @@ docs/       documentação conceitual, institucional, técnica e operacional
 
 **Governança**
 
-- [docs/fluxo.md](docs/fluxo.md) — esteira de funcionamento do OP.
+- [docs/PROTOCOLO-OP.md](docs/PROTOCOLO-OP.md) — **protocolo canônico** da esteira do OP.
+- [docs/fluxo.md](docs/fluxo.md) — formulação original do fluxo (consolidada no protocolo).
 - [docs/sugestao_de_governanca.md](docs/sugestao_de_governanca.md) — governança consolidada após a virada para OP.
 - [docs/GOVERNANCA-TERRITORIAL.md](docs/GOVERNANCA-TERRITORIAL.md) — papéis, territórios e instâncias.
 - [docs/PROTOCOLO-DE-VINCULO-TERRITORIAL.md](docs/PROTOCOLO-DE-VINCULO-TERRITORIAL.md) — vínculo do cidadão ao território.
@@ -81,8 +87,10 @@ docs/       documentação conceitual, institucional, técnica e operacional
 - [docs/ARQUITETURA.md](docs/ARQUITETURA.md) — arquitetura técnica-alvo.
 - [docs/ESTRUTURA-DO-APP.md](docs/ESTRUTURA-DO-APP.md) — organização do front e backend por domínio.
 - [docs/proximos-passos.md](docs/proximos-passos.md) — roteiro para transformar a teoria em modelo operacional.
-- [docs/lacunas.md](docs/lacunas.md) — lacunas conhecidas.
-- [docs/OPERACAO.md](docs/OPERACAO.md) — runbook de produção.
+- [docs/lacunas.md](docs/lacunas.md) — o que já existe vs. o que falta (estado real).
+- [docs/OPERACAO.md](docs/OPERACAO.md) — política de operação (ambientes, incidentes, privacidade).
+- [docs/RUNBOOK.md](docs/RUNBOOK.md) — procedimentos concretos (deploy, backup, troubleshooting).
+- [CONTRIBUTING.md](CONTRIBUTING.md) — subir o ambiente local, testar e contribuir.
 - [backend/README.md](backend/README.md) — referência do backend atual.
 
 ## Executando localmente
@@ -90,20 +98,18 @@ docs/       documentação conceitual, institucional, técnica e operacional
 Pré-requisitos: Docker, Go e Node.
 
 ```bash
-# Banco e Redis
-cd backend
+# Banco e Redis (na raiz do projeto)
 docker compose up -d
 
-# API
-cp .env.example .env
-go run ./cmd/api
+# API (em backend/)
+cd backend && cp .env.example .env && go run ./cmd/api
 
-# Front-end, na raiz do projeto
-npm install
-npm run dev
+# Front-end (em frontend/)
+cd frontend && npm install && npm run dev
 ```
 
 A API sobe em `http://localhost:8080` e o front em `http://localhost:3000`.
+Detalhes de ambiente e testes em [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Licença
 

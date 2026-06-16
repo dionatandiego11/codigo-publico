@@ -15,11 +15,31 @@ Severidade:
 - 🟡 média;
 - 🟢 baixa.
 
+## 0. O que JÁ existe (calibração)
+
+Os documentos de visão (`fluxo.md`, `ORCAMENTO-PARTICIPATIVO.md`, `WHITEPAPER.md`)
+descrevem a esteira completa do OP. **Em código, essa esteira é ~0% construída** —
+o que existe hoje é o **substrato cívico** sobre o qual ela será erguida:
+
+- lei versionada com diff; issues (registro/debate/apoio); PRs com diff,
+  reviews/checks de leitura e merge institucional; votação com voto sigiloso e
+  resultado agregado (encerramento automático no prazo); releases; fiscalização;
+- governança territorial: vínculo (T0–T4), protocolo de maintainers (nomeação,
+  mandato, recall) e contestação;
+- trilha de auditoria com **hash encadeado** + ancoragem noop/log;
+- login por CPF + senha (bcrypt) e JWT;
+- regras críticas cobertas por **testes constitucionais** (policy pura);
+- **keystone do OP já em código (policy pura):** faixas do regimento local
+  ("regra comum, número local"), sorteio auditável do conselho e divisão do
+  envelope em dois níveis — `backend/internal/op/`, 31 testes constitucionais.
+
+Tudo o que segue abaixo é a **distância** entre esse substrato e o alvo OP.
+
 ## 1. Produto OP
 
 | Lacuna | Status | Sev. | Observação |
 |---|---|---|---|
-| Protocolo OP oficial | 🔨 | 🔴 | Consolidar `fluxo.md` em `docs/PROTOCOLO-OP.md`. |
+| Protocolo OP oficial | ✅ | 🔴 | `docs/PROTOCOLO-OP.md` escrito (consolida `fluxo.md` + 4 fixes estruturais). Falta cravar as faixas comuns dos parâmetros. |
 | Ciclos do OP | 🔨 | 🔴 | Entidade `op_cycles`, calendário, envelope e status. |
 | Demanda simples | 🔨 | 🔴 | Entrada cidadã com problema, território, categoria e descrição. |
 | Apoio/não apoio | 🔨 | 🟡 | Engajamento inicial antes da maturação. |
@@ -75,11 +95,11 @@ Severidade:
 
 | Lacuna | Status | Sev. | Observação |
 |---|---|---|---|
-| Domínio `internal/op` | 🔨 | 🔴 | Criar módulos de ciclo, demanda, proposta, filtro, matriz e execução. |
+| Domínio `internal/op` | 🔨 | 🔴 | **Iniciado:** policy pura de faixas (regimento local), sorteio auditável e divisão do envelope (`params/sortition/envelope_policy.go`). Falta state machine de ciclo, demanda, filtro, matriz, execução — e repo/handlers/migrations. |
 | `internal/public` legado | 🧹 | 🟡 | Parar de crescer e extrair quando tocar. |
 | Contratos OP | 🔨 | 🔴 | Front, back e banco precisam compartilhar status. |
 | Front por features OP | 🔨 | 🔴 | Home e fluxo devem começar por ciclo/território/demanda. |
-| Testes de policy | 🔨 | 🔴 | Sorteio, filtros, retornos da esteira e execução. |
+| Testes de policy | 🔨 | 🔴 | **Feito:** faixas do regimento, sorteio auditável e divisão do envelope (31 testes). Faltam filtros, retornos da esteira e execução. |
 | Migrations versionadas | 🧹 | 🟡 | Usar goose ou golang-migrate. |
 | CI | 🧹 | 🟡 | `go test`, build do front, typecheck. |
 | Rate limiting | 🔨 | 🟡 | Login, cadastro, voto, apoio e comentários. |
