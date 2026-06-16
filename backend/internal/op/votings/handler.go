@@ -75,6 +75,22 @@ func (h *Handler) OpenVoting(w http.ResponseWriter, r *http.Request) {
 	web.WriteJSON(w, http.StatusCreated, voting)
 }
 
+func (h *Handler) ResolveVoting(w http.ResponseWriter, r *http.Request) {
+	citizenID, ok := auth.CitizenIDFromContext(r.Context())
+	if !ok {
+		web.WriteErrorMessage(w, http.StatusUnauthorized, "missing authenticated citizen")
+		return
+	}
+
+	voting, err := h.service.ResolveVoting(r.Context(), citizenID, chi.URLParam(r, "id"))
+	if err != nil {
+		web.WriteError(w, err)
+		return
+	}
+
+	web.WriteJSON(w, http.StatusOK, voting)
+}
+
 func (h *Handler) CastVote(w http.ResponseWriter, r *http.Request) {
 	citizenID, ok := auth.CitizenIDFromContext(r.Context())
 	if !ok {

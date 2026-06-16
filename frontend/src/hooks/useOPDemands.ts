@@ -18,7 +18,7 @@ import {
   supportOPDemand
 } from '../lib/api';
 import type { BudgetDemand } from '../types';
-import type { WriteSource } from './useIssues';
+import type { WriteSource } from './shared';
 
 export type NewBudgetDemandData = Pick<BudgetDemand, 'territoryId' | 'title' | 'description' | 'location' | 'category'>;
 export type ForkBudgetDemandData = Pick<BudgetDemand, 'title'> & Partial<Pick<BudgetDemand, 'description' | 'location' | 'category'>> & { reason?: string };

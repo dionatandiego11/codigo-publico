@@ -143,10 +143,10 @@ export function FlowHome({ setPath }: FlowHomeProps) {
 
               {/* Explorar sem login */}
               <button
-                onClick={() => setPath('/repositorios')}
+                onClick={() => setPath('/demandas')}
                 className="mt-4 w-full text-center text-xs text-[var(--color-git-muted)] hover:text-[var(--color-git-text2)] transition underline-offset-2 hover:underline"
               >
-                Explorar sem criar conta
+                Explorar demandas sem criar conta
               </button>
             </div>
           </div>

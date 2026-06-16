@@ -1,14 +1,18 @@
 # Proximos Passos - Codigo Publico
 
-Roteiro para transformar a nova teoria do Codigo Publico em modelo operacional.
+Roteiro atualizado para transformar o Codigo Publico em uma infraestrutura publica
+de Orcamento Participativo municipal, partindo do estado real do codigo.
 
-Atualizado em 15/06/2026.
+Atualizado em 16/06/2026.
 
-## Nova Direcao
+## Direcao Atual
 
-O Codigo Publico passa a ser tratado como infraestrutura publica de Orcamento Participativo municipal.
+O Codigo Publico passa a ser tratado como infraestrutura publica, auditavel e open
+source de Orcamento Participativo municipal.
 
-A metafora de GitHub continua existindo, mas como arquitetura interna: historico, versao, auditoria, merge institucional e release do ciclo. Para o cidadao, o eixo principal passa a ser:
+A metafora de GitHub continua existindo, mas como arquitetura interna: historico,
+versao, diffs, auditoria, merge institucional e release do ciclo. Para o cidadao,
+o eixo principal e:
 
 ```text
 territorio
@@ -17,299 +21,261 @@ territorio
 -> maturacao
 -> filtros publicos
 -> votacao territorial
--> consolidacao municipal
+-> matriz municipal do OP
 -> institucionalizacao no PPA/LDO/LOA
 -> execucao fiscalizada
 -> aprendizado do proximo ciclo
 ```
 
-O objetivo agora nao e apenas consultar normas, abrir issues ou propor PRs civicos. O objetivo e transformar problemas territoriais em decisoes orcamentarias rastreaveis.
+O objetivo nao e apenas consultar normas, abrir issues ou propor PRs civicos. O
+objetivo e transformar problemas territoriais em decisoes orcamentarias
+rastreaveis.
 
-## Onde Estamos
+## Estado Real do Projeto
 
-A base tecnica existente ainda e aproveitavel:
+O projeto ja mudou de eixo em boa parte do backend e do frontend.
 
-- backend Go com autenticacao, votacao, auditoria, releases e dados publicos;
-- frontend React integrado a API, com fallback local e rotas funcionais;
-- trilha conceitual de governanca territorial, auditoria, blockchain e maintainer territorial;
-- documentacao teorica ja apontando para OP, sorteio, territorio, execucao e aprendizado.
+Ja existe:
 
-Mas o produto ainda esta organizado no eixo antigo:
-
-```text
-Lei Organica -> issue -> PR civico -> voting -> merge -> release
-```
-
-A proxima etapa e migrar o eixo do sistema para:
-
-```text
-Ciclo OP -> territorio -> demanda -> proposta -> votacao territorial -> matriz OP -> execucao
-```
-
-## Prioridade 1 - Fechar o Protocolo Operacional do OP
-
-Antes de codar novas telas ou endpoints, precisamos fechar o protocolo do ciclo.
-
-- [ ] Consolidar `fluxo.md` dentro da documentacao oficial, possivelmente como `docs/PROTOCOLO-OP.md`.
-- [ ] Definir a diferenca formal entre:
-  - demanda;
-  - proposta;
-  - fork;
-  - projeto priorizado;
-  - item institucionalizado;
-  - item em execucao.
-- [ ] Definir os estados oficiais da esteira:
-  - ciclo aberto;
-  - cadastro e vinculo territorial;
-  - inscricao para maintainer territorial;
-  - sorteio;
-  - demanda recebida;
-  - engajamento inicial;
-  - agrupada;
-  - fork criada;
-  - em maturacao;
-  - filtro territorial;
+- protocolo canonico do OP em `docs/PROTOCOLO-OP.md`;
+- regras comuns e parametros locais em policy pura (`backend/internal/op`);
+- ciclo do OP com fases, calendario derivado, regimento local e envelope;
+- dominio OP iniciado no backend:
+  - demandas;
+  - propostas;
+  - votacoes territoriais;
+  - filtro institucional;
+  - incidentes de divergencia;
   - circuit breaker juridico-orcamentario;
-  - apta para votacao;
-  - em votacao;
-  - priorizada;
-  - consolidada na matriz OP;
-  - em institucionalizacao;
-  - incorporada ao PPA/LDO/LOA;
-  - em execucao;
-  - concluida;
-  - frustrada;
-  - devolvida para ajuste.
-- [ ] Definir o que acontece quando uma proposta nao avanca:
-  - volta para maturacao;
-  - vira fork;
-  - e agrupada;
-  - vai para ciclo plurianual;
-  - vira reivindicacao externa;
-  - fica dormente para ciclo futuro;
-  - abre recurso ou contestacao.
-- [ ] Definir o vocabulario de filtros:
-  - falta de informacao;
-  - duplicidade;
-  - fora do territorio;
-  - fora da competencia municipal;
-  - custo maior que o envelope;
-  - incompatibilidade constitucional ou legal;
-  - necessidade de faseamento;
-  - dependencia de outro ente federativo.
+  - sorteio auditavel como policy pura;
+- frontend principal reorientado para OP:
+  - home por ciclo;
+  - demandas;
+  - propostas;
+  - votacoes territoriais;
+  - area do cidadao;
+  - console de ciclo em `/admin`;
+- vinculo territorial com pedido, recurso e validacao pelo maintainer;
+- auditoria com hash encadeado e ancoragem noop/log;
+- votacao com recibo opaco e resultado agregado.
 
-## Prioridade 2 - Separar Regra Comum e Regra Local
+Ainda falta:
 
-O sistema precisa funcionar como "code is law": regras do rito devem ser publicas, auditaveis e parametrizaveis.
+- tornar o bootstrap institucional claro para abrir o primeiro ciclo em ambiente real;
+- persistir inscricao e sorteio do conselho territorial;
+- fechar a UI de resolucao da votacao territorial;
+- criar UI do filtro institucional do OP;
+- criar pagina publica de incidentes de divergencia;
+- gatear a UI por papel, territorio e fase do ciclo;
+- persistir sub-envelope territorial e filtros;
+- construir matriz OP, institucionalizacao, execucao e aprendizado no novo dominio;
+- substituir ou isolar melhor as telas legadas de issue/PR/Lei Organica.
 
-- [ ] Criar documento `docs/REGRAS-DO-PROTOCOLO.md`.
-- [ ] Definir o kernel comum obrigatorio:
-  - nenhum territorio sem voz;
-  - 1 representante por territorio;
-  - mandato sempre temporario;
-  - sorteio auditavel;
-  - todo filtro exige justificativa;
-  - toda negativa gera retorno, recurso, fork ou memoria publica;
-  - voto individual nunca e exposto;
-  - dados sensiveis nunca vao para blockchain;
-  - release do ciclo nao substitui ato oficial publicado.
-- [ ] Definir parametros locais configuraveis por municipio:
-  - duracao do mandato do Maintainer Territorial;
-  - limite de mandatos consecutivos;
-  - prazo de inscricao para sorteio;
-  - prazo de maturacao de demandas;
-  - criterios do indice de carencia;
-  - tamanho do envelope orcamentario;
-  - calendario do ciclo;
-  - regras de recall;
-  - prazos de execucao por tipo de demanda.
-- [ ] Definir limites que o municipio nao pode violar:
-  - maintainer vitalicio proibido;
-  - exclusao de territorio proibida;
-  - recusa sem justificativa proibida;
-  - alteracao invisivel de historico proibida;
-  - publicacao de CPF, voto individual ou denuncia sensivel proibida;
-  - filtro institucional sem fundamento proibido.
+## Mapa de Cobertura - Esteira x Backend x UI
 
-## Prioridade 3 - Modelar as Entidades do OP
+| Stage | Backend | UI | Proximo ajuste |
+|---|---|---|---|
+| 0 - Abrir e avancar ciclo | OK | Parcial | Existe `/admin`, mas falta bootstrap claro, configuracao completa em Rascunho e CTA para ator autorizado. |
+| 1 - Cadastro + vinculo territorial | OK | Parcial | Cadastro e pedido de vinculo existem; painel de validacao precisa entrar no fluxo principal de admin territorial. |
+| 2-3 - Inscricao + sorteio do conselho | Parcial | Falta | Sorteio existe como policy pura; faltam inscricoes, persistencia, endpoint, seed publica, resultado e suplentes. |
+| 4-7 - Demanda, apoio, fork, maturacao | OK | Parcial | Jornada existe, mas acoes de maintainer aparecem para qualquer usuario e precisam respeitar papel/fase. |
+| 8 - Circuit breaker | Parcial | Parcial | Regra existe, mas usa envelope total enquanto sub-envelope territorial nao e persistido; UI precisa explicar retornos. |
+| 9-10 - Proposta apta e votacao | OK | Parcial | Abrir votacao e votar funcionam; UI precisa respeitar fase `Votacao` e papel autorizado. |
+| 11 - Resolucao da votacao | OK | Falta | Endpoint existe, mas falta botao/fluxo de encerramento e exibicao de `Priorizada` ou `Retornada`. |
+| 12 - Filtro institucional | OK | Falta | Backend distingue admitir, filtrar e veto politico; falta painel OP. |
+| 12b - Incidentes de divergencia | OK | Falta | Endpoint publico existe; falta pagina publica de accountability. |
+| 13-16 - Matriz, PPA, execucao, aprendizado | Parcial | Parcial | Execucao atual ainda e do modelo legado; falta dominio OP completo. |
 
-O banco e a API precisam ganhar entidades proprias de Orcamento Participativo.
+## Problemas Reais a Resolver Primeiro
 
-- [ ] `op_cycles`
-  - ciclo do OP, calendario, status, ano, municipio, orcamento disponivel.
-- [ ] `territorial_bonds`
-  - vinculo entre cidadao e territorio.
-- [ ] `territorial_maintainer_applications`
-  - inscricoes para sorteio de maintainer territorial.
-- [ ] `territorial_maintainer_draws`
-  - sorteios, seed publica, hash, resultado e suplentes.
-- [ ] `budget_demands`
-  - demanda simples aberta pelo cidadao.
-- [ ] `budget_demand_supports`
-  - apoios, nao apoios e sinais de engajamento territorial.
-- [ ] `budget_proposals`
-  - demanda amadurecida em proposta.
-- [ ] `budget_proposal_forks`
-  - alternativas para o mesmo problema.
-- [ ] `budget_filters`
-  - registros de filtro territorial, juridico-orcamentario ou institucional.
-- [ ] `budget_votes`
-  - votacao territorial sobre propostas aptas.
-- [ ] `op_matrix_items`
-  - itens consolidados na matriz municipal do OP.
-- [ ] `institutionalizations`
-  - vinculo com Camara, PPA, LDO, LOA, emenda, anexo ou ato oficial.
-- [ ] `execution_items`
-  - acompanhamento da execucao.
-- [ ] `cycle_learning_events`
-  - efeitos de atraso, frustracao ou conclusao no ciclo seguinte.
+### 1. Ciclo e bootstrap institucional
 
-## Prioridade 4 - Reorientar o Backend
+Sem ciclo ativo, o produto parece parado. O painel `/admin` ja existe, mas a
+abertura do primeiro ciclo depende de usuario com papel ou maintainership correta.
 
-O backend deve deixar de crescer em torno de `issues` e `prs` como centro do dominio.
-
-- [ ] Criar dominio `op` no backend:
-  - `internal/op/cycles`;
-  - `internal/op/demands`;
-  - `internal/op/proposals`;
-  - `internal/op/filters`;
-  - `internal/op/votings`;
-  - `internal/op/matrix`;
-  - `internal/op/execution`.
-- [ ] Manter `issues` e `prs` como legado ou camada de compatibilidade, se ainda forem uteis.
-- [ ] Implementar endpoints publicos iniciais:
+- [x] Backend de ciclo:
+  - `GET /api/v1/op/cycles`;
   - `GET /api/v1/op/cycles/current`;
-  - `GET /api/v1/op/cycles/{id}`;
-  - `GET /api/v1/territories/{id}/demands`;
-  - `GET /api/v1/territories/{id}/proposals`;
-  - `GET /api/v1/op/matrix`;
-  - `GET /api/v1/op/executions`.
-- [ ] Implementar endpoints autenticados:
-  - `POST /api/v1/territorial-bonds`;
-  - `POST /api/v1/op/demands`;
-  - `POST /api/v1/op/demands/{id}/support`;
-  - `POST /api/v1/op/demands/{id}/comments`;
-  - `POST /api/v1/op/proposals/{id}/vote`;
-- [ ] Implementar endpoints de fluxo:
-  - `POST /api/v1/op/demands/{id}/group`;
-  - `POST /api/v1/op/demands/{id}/fork`;
-  - `POST /api/v1/op/proposals/{id}/filters`;
-  - `POST /api/v1/op/matrix/{id}/institutionalize`;
-  - `POST /api/v1/op/executions/{id}/updates`.
-- [ ] Todo movimento de estado deve gerar `audit_event`.
+  - `POST /api/v1/admin/op/cycles`;
+  - `POST /api/v1/admin/op/cycles/{id}/advance`;
+  - `POST /api/v1/admin/op/cycles/{id}/cancel`.
+- [x] Tela inicial de admin para criar e avancar ciclo.
+- [ ] Criar ou documentar bootstrap de usuario `sysadmin` / Maintainer Geral.
+- [ ] Permitir configurar ciclo em Rascunho pela UI, usando endpoint de configure.
+- [ ] Mostrar CTA administrativo na home quando nao ha ciclo ativo e o usuario tem permissao.
+- [ ] Mostrar explicacao publica quando nao ha ciclo ativo e o usuario nao tem permissao.
 
-## Prioridade 5 - Reorientar o Frontend
+### 2. Dois mundos institucionais coexistindo
 
-A primeira tela deve deixar claro que o sistema e uma infraestrutura de OP.
+O modelo antigo de Lei/issue/PR ainda aparece em partes do app. O novo filtro
+institucional do OP ja existe no backend, mas nao tem UI.
 
-- [ ] Trocar a home para mostrar:
-  - ciclo atual do OP;
-  - meu territorio;
-  - prazo do ciclo;
-  - orcamento disponivel;
-  - demandas abertas no meu territorio;
-  - propostas aptas para votacao;
-  - itens aprovados em execucao.
-- [ ] Criar fluxo de entrada:
-  - cadastro;
-  - vinculo territorial;
-  - inscricao para maintainer territorial;
-  - acompanhamento do sorteio.
-- [ ] Criar tela de demanda simples:
-  - problema;
-  - local;
-  - territorio;
-  - categoria;
-  - descricao;
-  - foto opcional.
-- [ ] Criar tela de maturacao:
-  - apoios;
-  - nao apoios;
-  - comentarios;
-  - informacoes faltantes;
-  - agrupamentos;
-  - forks.
-- [ ] Criar tela de proposta:
-  - versao amadurecida;
-  - historico da demanda;
-  - filtros aplicados;
-  - caminho de retorno se bloqueada;
-  - status na esteira.
-- [ ] Criar tela da matriz OP:
-  - propostas priorizadas por territorio;
-  - status institucional;
-  - vinculo com PPA/LDO/LOA;
-  - justificativas do Legislativo.
-- [ ] Criar tela de execucao:
-  - item aprovado;
-  - prazo;
-  - responsavel;
-  - status;
-  - evidencias;
-  - atrasos;
-  - impacto no proximo ciclo.
+- [ ] Criar painel institucional do OP para propostas `Priorizada`.
+- [ ] Permitir tres desfechos com justificativa:
+  - admitir na matriz;
+  - filtrar por fundamento formal;
+  - registrar veto politico.
+- [ ] Isolar telas legadas de Lei/issue/PR em area secundaria ou remover da navegacao principal.
+- [ ] Garantir que "merge institucional" antigo nao seja confundido com filtro institucional do OP.
 
-## Prioridade 6 - Sorteio Civico e Maintainers Territoriais
+### 3. Veto invisivel ainda nao ficou visivel
 
-O sorteio deve ser um modulo central do OP.
+O incidente publico de divergencia e a parte mais importante do Fix 2: torna o
+veto politico rastreavel e custoso. Hoje ele existe no backend, mas nao aparece
+para a sociedade.
 
-- [ ] Definir o universo sorteavel:
-  - cidadaos com vinculo territorial validado;
-  - inscritos voluntariamente;
-  - sem impedimento registrado;
-  - pertencentes ao territorio.
-- [ ] Implementar inscricao para maintainer territorial.
-- [ ] Implementar sorteio auditavel:
+- [x] Backend de incidentes em `GET /api/v1/op/divergence-incidents`.
+- [ ] Criar pagina publica de incidentes de divergencia.
+- [ ] Mostrar proposta, territorio, justificativa, responsavel institucional e data.
+- [ ] Linkar a pagina a partir da home, propostas e painel institucional.
+- [ ] Corrigir auditoria do incidente para usar UUID interno em `entity_id` e `public_id` em `entity_public_id`.
+
+## Prioridade 1 - Corrigir Regras Bloqueadoras
+
+Antes de ampliar o produto, corrigir pontos que podem quebrar o rito ou gerar
+decisao invalida.
+
+- [ ] Corrigir `votingWindow` salvo como `time.Duration` no JSON do regimento:
+  - hoje o SQL trata `votingWindow` como dias;
+  - deve usar duracao real ou persistir janelas em dias de forma explicita.
+- [ ] Impedir apoio de cidadao fora do territorio da demanda.
+- [ ] Impedir apoio fora da fase `Coleta`, salvo regra explicita em contrario.
+- [ ] Impedir resolucao de votacao antes do prazo, ou exigir justificativa formal auditada.
+- [ ] Corrigir auditoria de `op_divergence_incident` para nao enviar `DIV-001` como UUID.
+- [ ] Criar testes para estes quatro casos.
+
+## Prioridade 2 - Gatear UI por Papel, Territorio e Fase
+
+A UI deve traduzir a regra do backend, nao expor botoes que viram 403/409.
+
+- [ ] Usar `useAdminContext` nas telas de demanda, proposta e votacao.
+- [ ] Esconder ou desabilitar acoes de maintainer territorial para cidadao comum:
+  - maturar;
+  - pedir informacao;
+  - validar territorialmente;
+  - marcar apta;
+  - agrupar;
+  - criar proposta.
+- [ ] Mostrar por que a acao esta indisponivel:
+  - sem permissao territorial;
+  - ciclo fora da fase correta;
+  - apoio minimo nao atingido;
+  - demanda em estado terminal.
+- [ ] Abrir votacao apenas quando:
+  - proposta esta `Apta para votacao`;
+  - ciclo esta em `Votacao`;
+  - usuario tem instancia territorial ou geral.
+- [ ] Votar apenas para cidadao vinculado ao territorio da proposta.
+
+## Prioridade 3 - Fechar Votacao Territorial
+
+O voto ja existe. Falta fechar o ciclo visivel da decisao.
+
+- [x] Abrir votacao territorial.
+- [x] Computar voto individual sem expor escolha publicamente.
+- [x] Emitir recibo opaco.
+- [x] Exibir resultado agregado.
+- [ ] Adicionar `resolveOPVoting` no client do frontend.
+- [ ] Adicionar acao "Encerrar votacao" para instancia territorial/geral.
+- [ ] Exibir resultado final:
+  - quorum atingido;
+  - aprovada ou rejeitada;
+  - proposta `Priorizada` ou `Retornada para maturacao`.
+- [ ] Atualizar lista de propostas depois do encerramento da votacao.
+- [ ] Avaliar job automatico para encerrar votacoes do OP vencidas.
+
+## Prioridade 4 - Implementar Filtro Institucional do OP na UI
+
+O backend ja implementa a decisao institucional, mas a UI ainda nao.
+
+- [x] Backend `POST /api/v1/admin/op/proposals/{id}/institutional-decision`.
+- [x] Policy de classificacao:
+  - admitida;
+  - filtrada por fundamento formal;
+  - veto politico com incidente publico.
+- [ ] Criar chamada no frontend para decisao institucional.
+- [ ] Criar painel de propostas priorizadas aguardando decisao.
+- [ ] Formular texto de interface em linguagem cidada:
+  - "admitir na matriz";
+  - "devolver com fundamento formal";
+  - "registrar divergencia institucional".
+- [ ] Validar justificativa obrigatoria na UI.
+- [ ] Mostrar retorno ao territorio quando a proposta for filtrada.
+
+## Prioridade 5 - Publicar Incidentes de Divergencia
+
+Sem pagina publica, o veto politico continua invisivel.
+
+- [ ] Criar `getDivergenceIncidents` no frontend.
+- [ ] Criar pagina publica de incidentes.
+- [ ] Mostrar incidentes como registro civico, nao como tela tecnica.
+- [ ] Adicionar entrada na navegacao ou home.
+- [ ] Linkar incidente ao detalhe da proposta quando existir tela de proposta detalhada.
+
+## Prioridade 6 - Completar Circuit Breaker e Filtros
+
+O circuit breaker existe como regra, mas ainda nao tem persistencia completa nem
+interface de retorno.
+
+- [x] Policy de admissibilidade juridico-orcamentaria.
+- [ ] Persistir sub-envelope territorial por ciclo.
+- [ ] Avaliar custo contra sub-envelope do territorio, nao envelope municipal total.
+- [ ] Criar `budget_filters` ou equivalente para registrar:
+  - fundamento;
+  - justificativa;
+  - ator;
+  - retorno da esteira;
+  - possibilidade de recurso.
+- [ ] Mostrar na UI o caminho de retorno:
+  - complementar informacao;
+  - fasear;
+  - fork;
+  - ciclo plurianual;
+  - reivindicacao externa.
+- [ ] Traduzir erro 422 em orientacao pratica, nao apenas toast tecnico.
+
+## Prioridade 7 - Persistir Sorteio Civico e Conselho Territorial
+
+O sorteio auditavel e central para legitimidade, mas hoje esta apenas em policy
+pura.
+
+- [x] Policy deterministica de sorteio por seed publica.
+- [x] Verificacao de resultado reproduzivel.
+- [ ] Criar `territorial_maintainer_applications`.
+- [ ] Criar `territorial_maintainer_draws`.
+- [ ] Registrar:
   - lista elegivel;
   - hash da lista;
   - seed publica;
+  - fonte da seed;
   - resultado;
   - suplentes;
   - janela de contestacao.
-- [ ] Definir regra quando ha apenas uma pessoa inscrita:
-  - aclamacao condicionada;
-  - janela publica de contestacao;
-  - mandato provisorio ou reduzido, se o municipio assim parametrizar.
-- [ ] Definir regra quando nao ha inscritos:
-  - territorio segue sem maintainer territorial ativo;
-  - cidadaos continuam podendo abrir demandas e votar;
-  - Maintainer Geral faz zeladoria limitada;
-  - novo convite ativo deve ser aberto.
+- [ ] Criar fluxo de inscricao para conselho territorial.
+- [ ] Criar tela publica de sorteio e verificacao.
+- [ ] Definir comportamento de:
+  - zero inscritos;
+  - inscrito unico;
+  - conselho incompleto.
 
-## Prioridade 7 - Auditoria, Privacidade e Blockchain
+## Prioridade 8 - Matriz OP, Institucionalizacao, Execucao e Aprendizado
 
-Blockchain deve servir para prova de integridade, nao para guardar dados pessoais.
+Esta e a parte que transforma votacao em orcamento executavel.
 
-- [ ] Definir eventos ancoraveis:
-  - abertura de ciclo;
-  - hash da lista elegivel do sorteio;
-  - resultado do sorteio;
-  - matriz OP consolidada;
-  - release do ciclo;
-  - atualizacoes relevantes de execucao.
-- [ ] Garantir que nunca vao para blockchain:
-  - CPF;
-  - nome completo;
-  - endereco;
-  - documento;
-  - voto individual;
-  - denuncia identificavel;
-  - dados sensiveis.
-- [ ] Criar modelo de denuncia sigilosa:
-  - conteudo criptografado fora da blockchain;
-  - hash publico de existencia;
-  - acesso apenas por rito formal;
-  - abertura de dado sempre auditada.
-- [ ] Definir como auditar sem expor:
-  - prova de existencia;
-  - prova de integridade;
-  - agregados publicos;
-  - dados pessoais protegidos.
-
-## Prioridade 8 - Execucao e Aprendizado
-
-O ciclo nao termina na votacao. Termina na execucao e no aprendizado.
-
+- [ ] Criar dominio `internal/op/matrix`.
+- [ ] Criar entidade `op_matrix_items`.
+- [ ] Consolidar vencedores territoriais sem repriorizar arbitrariamente.
+- [ ] Separar porcao territorial e porcao estruturante.
+- [ ] Criar dominio de institucionalizacao:
+  - vinculo com Camara;
+  - PPA;
+  - LDO;
+  - LOA;
+  - emenda;
+  - anexo;
+  - ato oficial.
+- [ ] Criar release do ciclo OP.
+- [ ] Criar dominio `internal/op/execution`.
 - [ ] Criar estados oficiais de execucao:
   - nao iniciada;
   - em planejamento;
@@ -320,77 +286,83 @@ O ciclo nao termina na votacao. Termina na execucao e no aprendizado.
   - concluida;
   - cancelada;
   - frustrada.
-- [ ] Criar eventos de execucao:
-  - atualizacao de prazo;
-  - atualizacao de valor;
-  - evidencia anexada;
-  - justificativa de atraso;
-  - contestacao cidada;
-  - conclusao.
-- [ ] Definir regra de aprendizado:
+- [ ] Criar eventos de aprendizado:
   - atraso recorrente aumenta prioridade de fiscalizacao;
-  - promessa frustrada entra como memoria do territorio;
-  - territorio com carencia persistente ganha peso no proximo ciclo, conforme parametro local;
-  - demandas dormentes podem retornar no ciclo seguinte.
+  - promessa frustrada vira memoria territorial;
+  - carencia persistente altera peso no proximo ciclo;
+  - demanda dormente pode retornar.
 
-## Prioridade 9 - Confiabilidade Tecnica
+## Prioridade 9 - Contratos, Testes e CI
 
-A virada para OP aumenta a responsabilidade do sistema.
+A virada para OP aumenta a responsabilidade do sistema. A regra precisa ser
+testavel e compartilhada entre banco, backend e frontend.
 
-- [ ] Atualizar testes existentes para o novo dominio de OP.
-- [ ] Criar testes de maquina de estados da esteira.
-- [ ] Criar testes para sorteio:
-  - elegibilidade;
-  - seed;
-  - suplentes;
-  - contestacao;
-  - caso sem inscritos;
-  - caso com inscrito unico.
-- [ ] Criar testes para filtros:
-  - volta para maturacao;
-  - fork;
-  - bloqueio com justificativa;
-  - recurso;
-  - audit_event obrigatorio.
+- [ ] Centralizar vocabularios OP:
+  - status do ciclo;
+  - status da demanda;
+  - status da proposta;
+  - status da votacao;
+  - fundamentos institucionais;
+  - estados de execucao.
+- [ ] Evitar strings duplicadas entre subpacotes de OP.
+- [ ] Criar testes de service/repository para:
+  - demanda;
+  - proposta;
+  - votacao;
+  - filtro institucional;
+  - incidentes.
+- [ ] Criar testes de UI para gates de papel/fase.
 - [ ] Criar CI com:
-  - `go test`;
-  - `go vet`;
-  - `npm run build`;
-  - typecheck do frontend.
+  - `go test ./...`;
+  - `go vet ./...`;
+  - `npm run lint`;
+  - `npm run build`.
 - [ ] Adotar ferramenta de migrations:
   - `goose` ou `golang-migrate`;
   - controle de versoes aplicadas;
   - rollback planejado para ambiente de teste.
 
-## Prioridade 10 - Piloto Institucional
+## Prioridade 10 - Operacao, Privacidade e Piloto Institucional
 
-O Codigo Publico precisa de uma cidade piloto e de um rito formal de OP.
+Para dados reais, o produto precisa de rito juridico, operacao e garantias de
+privacidade.
 
 - [ ] Escrever minuta de lei ou resolucao instituindo o OP via Codigo Publico.
-- [ ] Definir o papel da Camara como Maintainer Geral.
-- [ ] Definir o papel do Maintainer Tecnico.
+- [ ] Definir papel da Camara como Maintainer Geral.
+- [ ] Definir papel do Maintainer Tecnico.
 - [ ] Definir territorios iniciais do municipio.
 - [ ] Definir calendario do primeiro ciclo.
 - [ ] Definir envelope orcamentario inicial.
 - [ ] Definir como a matriz OP entra no PPA, LDO e LOA.
 - [ ] Definir como divergencias entre sistema e ato oficial serao tratadas.
+- [ ] Planejar backup e restore testado.
+- [ ] Criar monitoramento externo e alertas.
+- [ ] Garantir que nunca vao para blockchain:
+  - CPF;
+  - nome completo;
+  - endereco;
+  - documento;
+  - voto individual;
+  - denuncia identificavel;
+  - dados sensiveis.
 
 ## Sequencia Recomendada
 
-1. Transformar `fluxo.md` em protocolo oficial do OP.
-2. Fechar regra comum vs regra local.
-3. Modelar entidades do OP no banco e nos contratos.
-4. Criar o dominio `op` no backend.
-5. Redesenhar a home e o fluxo principal do frontend para ciclo, territorio e demanda.
-6. Implementar sorteio de Maintainer Territorial.
-7. Implementar demanda simples, apoio, maturacao, fork e filtro.
-8. Implementar votacao territorial e matriz OP.
-9. Implementar institucionalizacao, release do ciclo e execucao.
+1. Corrigir bugs bloqueadores de rito: `votingWindow`, apoio territorial, resolucao antes do prazo e auditoria de incidente.
+2. Fechar bootstrap e painel de ciclo: criar, configurar, abrir e avancar ciclo com permissao clara.
+3. Gatear a UI por papel, territorio e fase.
+4. Implementar encerramento de votacao territorial e exibicao do resultado final.
+5. Implementar filtro institucional do OP na UI.
+6. Publicar incidentes de divergencia.
+7. Persistir sub-envelope territorial, filtros e retornos do circuit breaker.
+8. Persistir inscricao e sorteio do conselho territorial.
+9. Criar matriz OP, institucionalizacao, release do ciclo, execucao e aprendizado.
 10. Preparar piloto institucional com Camara municipal.
 
 ## Frase Guia
 
-O Codigo Publico transforma uma demanda simples de um territorio em decisao orcamentaria rastreavel.
+O Codigo Publico transforma uma demanda simples de um territorio em decisao
+orcamentaria rastreavel.
 
 ```text
 O cidadao abre uma demanda simples.
@@ -398,7 +370,7 @@ O territorio amadurece.
 O sistema filtra.
 A comunidade vota.
 Os representantes consolidam.
-O Legislativo incorpora.
+O Legislativo incorpora ou justifica publicamente a divergencia.
 A execucao e fiscalizada.
 O proximo ciclo aprende com o resultado.
 ```

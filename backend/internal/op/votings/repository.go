@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"codigo-publico/backend/internal/audit"
+	"codigo-publico/backend/internal/op"
 	"codigo-publico/backend/internal/web"
 
 	"github.com/jackc/pgx/v5"
@@ -222,7 +223,7 @@ func (r *Repository) openVoting(ctx context.Context, a actor, proposal proposalR
 		ID:   a.ID,
 		Name: a.Name,
 		Role: a.Role,
-		Type: auditActorType(a.Role),
+		Type: op.AuditActorType(a.Role),
 	}, audit.Event{
 		Action:         "op.voting.opened",
 		EntityType:     "op_voting",
@@ -234,6 +235,64 @@ func (r *Repository) openVoting(ctx context.Context, a actor, proposal proposalR
 			"quorumNeeded": quorumNeeded,
 			"deadline":     deadline.UTC().Format(time.RFC3339),
 		},
+	}); err != nil {
+		return Voting{}, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return Voting{}, err
+	}
+
+	return r.getVoting(ctx, publicID)
+}
+
+// resolveVoting encerra a votação e resolve a proposta: aprovada (quórum atingido
+// e mais "Aprovo" que "Rejeito") vira 'Priorizada' e segue para o filtro
+// institucional; reprovada volta para maturação. Stage 11 → 12 da esteira.
+func (r *Repository) resolveVoting(ctx context.Context, a actor, identifier string) (Voting, error) {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return Voting{}, err
+	}
+	defer rollback(ctx, tx)
+
+	var votingID, publicID, status, proposalID string
+	var quorumNeeded, quorumReached, votesYes, votesNo int
+	if err := tx.QueryRow(ctx, `
+		SELECT id::text, public_id, status, quorum_needed, quorum_reached, votes_yes, votes_no, proposal_id::text
+		FROM op_votings
+		WHERE id::text = $1 OR public_id = $1
+		FOR UPDATE
+	`, identifier).Scan(&votingID, &publicID, &status, &quorumNeeded, &quorumReached, &votesYes, &votesNo, &proposalID); err != nil {
+		return Voting{}, err
+	}
+	if status != "Aberta" {
+		return Voting{}, web.NewError(http.StatusConflict, "votação não está aberta")
+	}
+
+	approved := quorumReached >= quorumNeeded && votesYes > votesNo
+	proposalStatus := "Retornada para maturação"
+	if approved {
+		proposalStatus = "Priorizada"
+	}
+
+	if _, err := tx.Exec(ctx, `UPDATE op_votings SET status = 'Encerrada' WHERE id = $1::uuid`, votingID); err != nil {
+		return Voting{}, err
+	}
+	if _, err := tx.Exec(ctx, `
+		UPDATE budget_proposals SET status = $1 WHERE id = $2::uuid AND status = 'Em votação'
+	`, proposalStatus, proposalID); err != nil {
+		return Voting{}, err
+	}
+
+	if err := audit.Insert(ctx, tx, audit.Actor{
+		ID: a.ID, Name: a.Name, Role: a.Role, Type: op.AuditActorType(a.Role),
+	}, audit.Event{
+		Action:         "op.voting.resolved",
+		EntityType:     "op_voting",
+		EntityID:       votingID,
+		EntityPublicID: publicID,
+		Metadata:       map[string]any{"approved": approved, "proposalStatus": proposalStatus, "votesYes": votesYes, "votesNo": votesNo},
 	}); err != nil {
 		return Voting{}, err
 	}
@@ -457,13 +516,4 @@ func rollback(ctx context.Context, tx pgx.Tx) {
 func isUniqueViolation(err error) bool {
 	var pgErr *pgconn.PgError
 	return errors.As(err, &pgErr) && pgErr.Code == "23505"
-}
-
-func auditActorType(role string) string {
-	switch role {
-	case "sysadmin", "admin", "institutional_admin", "legislative_admin", "vereador", "mesa_diretora":
-		return "institutional"
-	default:
-		return "citizen"
-	}
 }

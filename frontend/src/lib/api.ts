@@ -108,6 +108,31 @@ export async function getOPCycleById(id: string): Promise<OPCycle | undefined> {
   return requestOptionalJSON<OPCycle>(`/op/cycles/${routeId(id)}`);
 }
 
+// --- OP: administração do ciclo (instância geral) ----------------------------
+
+export interface CycleConfigData {
+  label: string;
+  envelopeTotal: number; // centavos
+  startsAt?: string; // ISO 8601
+  loaDeadline?: string; // ISO 8601
+}
+
+export async function createOPCycle(data: CycleConfigData): Promise<OPCycle> {
+  return postJSON<OPCycle>('/admin/op/cycles', data);
+}
+
+export async function configureOPCycle(id: string, data: CycleConfigData): Promise<OPCycle> {
+  return postJSON<OPCycle>(`/admin/op/cycles/${routeId(id)}/configure`, data);
+}
+
+export async function advanceOPCycle(id: string, to?: string): Promise<OPCycle> {
+  return postJSON<OPCycle>(`/admin/op/cycles/${routeId(id)}/advance`, { to });
+}
+
+export async function cancelOPCycle(id: string, reason: string): Promise<OPCycle> {
+  return postJSON<OPCycle>(`/admin/op/cycles/${routeId(id)}/cancel`, { reason });
+}
+
 export async function getOPDemands(): Promise<BudgetDemand[]> {
   return requestJSON<BudgetDemand[]>('/op/demands');
 }

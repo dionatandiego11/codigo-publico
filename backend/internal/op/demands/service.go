@@ -16,20 +16,8 @@ type Service struct {
 	repo *Repository
 }
 
-const (
-	statusReceived            = "Recebida"
-	statusInitialEngagement   = "Engajamento inicial"
-	statusNeedsInfo           = "Precisa de informações"
-	statusGrouped             = "Agrupada"
-	statusTerritorialMaturing = "Maturação territorial"
-	statusTerritoriallyValid  = "Validada territorialmente"
-	statusReadyPrioritization = "Apta para priorização"
-	statusIncludedMatrix      = "Incluída na matriz orçamentária"
-	statusInExecution         = "Em execução"
-	statusCompleted           = "Concluída"
-	statusDormant             = "Dormente"
-	statusArchived            = "Arquivada"
-)
+// O vocabulário de status, a tabela de transições e os gates puros vivem em
+// policy.go.
 
 func NewService(repo *Repository) *Service {
 	return &Service{repo: repo}
@@ -145,14 +133,10 @@ func (s *Service) CreateComment(ctx context.Context, citizenID string, identifie
 
 func (s *Service) StartMaturation(ctx context.Context, citizenID string, identifier string, input transitionInput) (Demand, error) {
 	return s.transitionWithAuthority(ctx, citizenID, identifier, transitionSpec{
-		NewStatus: statusTerritorialMaturing,
-		Action:    "op.demand.maturation_started",
-		AllowedFrom: map[string]bool{
-			statusReceived:          true,
-			statusInitialEngagement: true,
-			statusNeedsInfo:         true,
-		},
-		Reason: strings.TrimSpace(input.Reason),
+		NewStatus:   statusTerritorialMaturing,
+		Action:      "op.demand.maturation_started",
+		AllowedFrom: maturationAllowedFrom,
+		Reason:      strings.TrimSpace(input.Reason),
 	})
 }
 
@@ -163,29 +147,19 @@ func (s *Service) RequestInfo(ctx context.Context, citizenID string, identifier 
 	}
 
 	return s.transitionWithAuthority(ctx, citizenID, identifier, transitionSpec{
-		NewStatus: statusNeedsInfo,
-		Action:    "op.demand.info_requested",
-		AllowedFrom: map[string]bool{
-			statusReceived:            true,
-			statusInitialEngagement:   true,
-			statusTerritorialMaturing: true,
-			statusTerritoriallyValid:  true,
-		},
-		Reason: reason,
+		NewStatus:   statusNeedsInfo,
+		Action:      "op.demand.info_requested",
+		AllowedFrom: infoAllowedFrom,
+		Reason:      reason,
 	})
 }
 
 func (s *Service) ValidateTerritory(ctx context.Context, citizenID string, identifier string, input transitionInput) (Demand, error) {
 	return s.transitionWithAuthority(ctx, citizenID, identifier, transitionSpec{
-		NewStatus: statusTerritoriallyValid,
-		Action:    "op.demand.territory_validated",
-		AllowedFrom: map[string]bool{
-			statusReceived:            true,
-			statusInitialEngagement:   true,
-			statusNeedsInfo:           true,
-			statusTerritorialMaturing: true,
-		},
-		Reason: strings.TrimSpace(input.Reason),
+		NewStatus:   statusTerritoriallyValid,
+		Action:      "op.demand.territory_validated",
+		AllowedFrom: territoryAllowedFrom,
+		Reason:      strings.TrimSpace(input.Reason),
 	})
 }
 
@@ -194,11 +168,8 @@ func (s *Service) MarkReady(ctx context.Context, citizenID string, identifier st
 	if err != nil {
 		return Demand{}, err
 	}
-	if rec.Status != statusTerritoriallyValid {
-		return Demand{}, web.NewError(http.StatusConflict, "a demanda precisa estar validada territorialmente antes de ficar apta")
-	}
-	if rec.Supports < rec.SupportThreshold {
-		return Demand{}, web.NewError(http.StatusConflict, "a demanda ainda não atingiu o apoio mínimo do regimento local")
+	if err := canMarkReady(rec.Status, rec.Supports, rec.SupportThreshold); err != nil {
+		return Demand{}, err
 	}
 
 	return s.repo.transitionDemandStatus(ctx, a, rec, statusReadyPrioritization, "op.demand.ready_for_prioritization", strings.TrimSpace(input.Reason))
@@ -214,12 +185,6 @@ func (s *Service) GroupDemand(ctx context.Context, citizenID string, identifier 
 	if err != nil {
 		return Demand{}, err
 	}
-	if terminalDemandStatus(source.Status) {
-		return Demand{}, web.NewError(http.StatusConflict, "demanda em estado terminal não pode ser agrupada")
-	}
-	if source.GroupedIntoID != "" || source.Status == statusGrouped {
-		return Demand{}, web.NewError(http.StatusConflict, "demanda já está agrupada")
-	}
 
 	targetID := strings.TrimSpace(input.TargetDemandID)
 	if targetID == "" {
@@ -233,17 +198,9 @@ func (s *Service) GroupDemand(ctx context.Context, citizenID string, identifier 
 	if err != nil {
 		return Demand{}, err
 	}
-	if source.ID == target.ID {
-		return Demand{}, web.NewError(http.StatusBadRequest, "uma demanda não pode ser agrupada nela mesma")
-	}
-	if source.CycleID != target.CycleID {
-		return Demand{}, web.NewError(http.StatusConflict, "só é possível agrupar demandas do mesmo ciclo")
-	}
-	if source.TerritoryID != target.TerritoryID {
-		return Demand{}, web.NewError(http.StatusConflict, "agrupamento entre territórios ainda não está habilitado")
-	}
-	if target.GroupedIntoID != "" || target.Status == statusGrouped {
-		return Demand{}, web.NewError(http.StatusConflict, "não agrupe em uma demanda que já foi agrupada em outra")
+
+	if err := canGroup(groupFactsOf(source), groupFactsOf(target)); err != nil {
+		return Demand{}, err
 	}
 
 	return s.repo.groupDemand(ctx, a, source, target, reason)
@@ -262,14 +219,8 @@ func (s *Service) ForkDemand(ctx context.Context, citizenID string, identifier s
 	if err != nil {
 		return Demand{}, err
 	}
-	if !op.DemandsOpen(source.CyclePhase) {
-		return Demand{}, web.NewError(http.StatusConflict, "forks só podem ser criados na fase Coleta do ciclo de OP")
-	}
-	if source.GroupedIntoID != "" || source.Status == statusGrouped {
-		return Demand{}, web.NewError(http.StatusConflict, "crie forks a partir da demanda canônica, não da demanda agrupada")
-	}
-	if terminalDemandStatus(source.Status) {
-		return Demand{}, web.NewError(http.StatusConflict, "demanda em estado terminal não pode receber fork")
+	if err := canFork(source.CyclePhase, source.Status, source.GroupedIntoID); err != nil {
+		return Demand{}, err
 	}
 
 	input = normalizeForkInput(input, source)
@@ -303,11 +254,8 @@ func (s *Service) transitionWithAuthority(ctx context.Context, citizenID string,
 	if err != nil {
 		return Demand{}, err
 	}
-	if terminalDemandStatus(rec.Status) {
-		return Demand{}, web.NewError(http.StatusConflict, "demanda em estado terminal não pode ser movida por esta ação")
-	}
-	if !spec.AllowedFrom[rec.Status] {
-		return Demand{}, web.NewError(http.StatusConflict, "transição inválida a partir de "+rec.Status)
+	if err := canApplyTransition(rec.Status, spec.AllowedFrom); err != nil {
+		return Demand{}, err
 	}
 
 	return s.repo.transitionDemandStatus(ctx, a, rec, spec.NewStatus, spec.Action, spec.Reason)
@@ -327,7 +275,7 @@ func (s *Service) requireDemandAuthority(ctx context.Context, citizenID string, 
 		return actor{}, demandRecord{}, err
 	}
 
-	if isAdminRole(a.Role) {
+	if op.IsInstitutionalRole(a.Role) {
 		return a, rec, nil
 	}
 
@@ -349,24 +297,6 @@ func normalizeDemandInput(input createDemandInput) createDemandInput {
 	input.Location = strings.TrimSpace(input.Location)
 	input.Category = strings.TrimSpace(input.Category)
 	return input
-}
-
-func terminalDemandStatus(status string) bool {
-	switch status {
-	case statusGrouped, statusIncludedMatrix, statusInExecution, statusCompleted, statusDormant, statusArchived:
-		return true
-	default:
-		return false
-	}
-}
-
-func isAdminRole(role string) bool {
-	switch strings.ToLower(strings.TrimSpace(role)) {
-	case "sysadmin", "admin", "institutional_admin", "legislative_admin", "vereador", "mesa_diretora":
-		return true
-	default:
-		return false
-	}
 }
 
 func normalizeForkInput(input forkDemandInput, source demandRecord) forkDemandInput {

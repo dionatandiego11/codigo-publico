@@ -6,15 +6,15 @@ import (
 	"net/http"
 	"strings"
 
+	"codigo-publico/backend/internal/op"
 	"codigo-publico/backend/internal/web"
 
 	"github.com/jackc/pgx/v5"
 )
 
-const (
-	cyclePhaseVoting       = "Votação"
-	proposalReadyForVoting = "Apta para votação"
-)
+// proposalReadyForVoting é o status (vocabulário de proposta) que habilita abrir
+// a votação. A FASE do ciclo, ao contrário, vem da fonte canônica via op.VotingOpen.
+const proposalReadyForVoting = "Apta para votação"
 
 type Service struct {
 	repo *Repository
@@ -64,11 +64,11 @@ func (s *Service) OpenVoting(ctx context.Context, citizenID string, proposalID s
 	if proposal.Status != proposalReadyForVoting {
 		return Voting{}, web.NewError(http.StatusConflict, "somente proposta apta pode abrir votação")
 	}
-	if proposal.CyclePhase != cyclePhaseVoting {
+	if !op.VotingOpen(proposal.CyclePhase) {
 		return Voting{}, web.NewError(http.StatusConflict, "o ciclo do OP precisa estar na fase de votação")
 	}
 
-	if !isAdminRole(a.Role) {
+	if !op.IsInstitutionalRole(a.Role) {
 		allowed, err := s.repo.hasVotingAuthority(ctx, a, proposal.TerritoryID)
 		if err != nil {
 			return Voting{}, err
@@ -79,6 +79,35 @@ func (s *Service) OpenVoting(ctx context.Context, citizenID string, proposalID s
 	}
 
 	return s.repo.openVoting(ctx, a, proposal)
+}
+
+// ResolveVoting encerra a votação e resolve a proposta. Ato da instância que
+// conduz o território (territorial/geral) ou institucional.
+func (s *Service) ResolveVoting(ctx context.Context, citizenID string, votingID string) (Voting, error) {
+	a, err := s.requireActor(ctx, citizenID)
+	if err != nil {
+		return Voting{}, err
+	}
+
+	voting, err := s.repo.getVoting(ctx, strings.TrimSpace(votingID))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Voting{}, web.NewError(http.StatusNotFound, "votação não encontrada")
+	}
+	if err != nil {
+		return Voting{}, err
+	}
+
+	if !op.IsInstitutionalRole(a.Role) {
+		allowed, err := s.repo.hasVotingAuthority(ctx, a, voting.TerritoryID)
+		if err != nil {
+			return Voting{}, err
+		}
+		if !allowed {
+			return Voting{}, web.NewError(http.StatusForbidden, "encerrar votação exige instância territorial ou geral")
+		}
+	}
+
+	return s.repo.resolveVoting(ctx, a, voting.ID)
 }
 
 func (s *Service) CastVote(ctx context.Context, citizenID string, votingID string, input voteRequest) (voteResponse, error) {
@@ -114,14 +143,5 @@ func normalizeVoteSelection(input voteRequest) (string, error) {
 		return selection, nil
 	default:
 		return "", errors.New("opção de voto deve ser Aprovo, Rejeito ou Abstenção")
-	}
-}
-
-func isAdminRole(role string) bool {
-	switch strings.ToLower(strings.TrimSpace(role)) {
-	case "sysadmin", "admin", "institutional_admin", "legislative_admin", "vereador", "mesa_diretora":
-		return true
-	default:
-		return false
 	}
 }

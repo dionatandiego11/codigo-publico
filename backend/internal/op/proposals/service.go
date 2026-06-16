@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	"codigo-publico/backend/internal/op"
 	"codigo-publico/backend/internal/web"
 
 	"github.com/jackc/pgx/v5"
@@ -54,7 +55,7 @@ func (s *Service) CreateProposalFromDemand(ctx context.Context, citizenID string
 		return Proposal{}, web.NewError(http.StatusConflict, "somente demanda apta para priorização pode virar proposta")
 	}
 
-	if !isAdminRole(a.Role) {
+	if !op.IsInstitutionalRole(a.Role) {
 		allowed, err := s.repo.hasProposalAuthority(ctx, a, demand.TerritoryID)
 		if err != nil {
 			return Proposal{}, err
@@ -76,6 +77,25 @@ func (s *Service) CreateProposalFromDemand(ctx context.Context, citizenID string
 	}
 	if input.Category == "" {
 		return Proposal{}, web.NewError(http.StatusBadRequest, "category é obrigatório")
+	}
+
+	// Circuit breaker jurídico-orçamentário (PROTOCOLO-OP §13): a proposta só é
+	// admitida se passar no filtro. Por ora aferimos a dimensão orçamentária
+	// contra o envelope do ciclo (teto municipal); o sub-envelope territorial e
+	// as afirmações de competência/legalidade/custeio entram quando a etapa de
+	// filtro com carência persistida existir (lacunas.md).
+	budget, err := s.repo.cycleEnvelope(ctx, demand.CycleID)
+	if err != nil {
+		return Proposal{}, err
+	}
+	if err := op.AdmitProposal(op.ProposalFacts{
+		EstimatedCostCents:  input.EstimatedCostCents,
+		AvailableCents:      budget,
+		MunicipalCompetence: true,
+		Legal:               true,
+		HasFundingSource:    true,
+	}); err != nil {
+		return Proposal{}, err
 	}
 
 	return s.repo.createProposal(ctx, a, demand, input)
@@ -106,13 +126,4 @@ func normalizeProposalInput(input createProposalInput, demand demandRecord) crea
 	}
 
 	return input
-}
-
-func isAdminRole(role string) bool {
-	switch strings.ToLower(strings.TrimSpace(role)) {
-	case "sysadmin", "admin", "institutional_admin", "legislative_admin", "vereador", "mesa_diretora":
-		return true
-	default:
-		return false
-	}
 }

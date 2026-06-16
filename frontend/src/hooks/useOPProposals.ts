@@ -11,7 +11,7 @@ import {
   type CreateBudgetProposalData
 } from '../lib/api';
 import type { BudgetDemand, BudgetProposal } from '../types';
-import type { WriteSource } from './useIssues';
+import type { WriteSource } from './shared';
 
 export type NewBudgetProposalData = CreateBudgetProposalData;
 

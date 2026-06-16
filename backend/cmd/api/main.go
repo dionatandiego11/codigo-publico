@@ -20,6 +20,7 @@ import (
 	appmiddleware "codigo-publico/backend/internal/middleware"
 	"codigo-publico/backend/internal/op"
 	opdemands "codigo-publico/backend/internal/op/demands"
+	opinstitutional "codigo-publico/backend/internal/op/institutional"
 	opproposals "codigo-publico/backend/internal/op/proposals"
 	opvotings "codigo-publico/backend/internal/op/votings"
 	publicapi "codigo-publico/backend/internal/public"
@@ -67,6 +68,7 @@ func main() {
 	opDemandHandler := opdemands.NewHandler(dbPool)
 	opProposalHandler := opproposals.NewHandler(dbPool)
 	opVotingHandler := opvotings.NewHandler(dbPool)
+	opInstitutionalHandler := opinstitutional.NewHandler(dbPool)
 	auditHandler := audit.NewHandler(dbPool, blockchain.FromMode(cfg.AnchorMode, logger))
 
 	router.Route("/api/v1", func(r chi.Router) {
@@ -129,6 +131,8 @@ func main() {
 			r.Post("/op/demands/{id}/proposal", opProposalHandler.CreateProposalFromDemand)
 			r.Post("/op/proposals/{id}/voting", opVotingHandler.OpenVoting)
 			r.Post("/op/votings/{id}/vote", opVotingHandler.CastVote)
+			r.Post("/op/votings/{id}/resolve", opVotingHandler.ResolveVoting)
+			r.Post("/admin/op/proposals/{id}/institutional-decision", opInstitutionalHandler.DecideInstitutional)
 
 			// Integridade da auditoria (ancoragem exige papel administrativo)
 			r.Post("/admin/audit/anchor", auditHandler.CreateAnchor)
@@ -154,6 +158,7 @@ func main() {
 		r.Get("/op/votings/{id}", opVotingHandler.GetVoting)
 		r.Get("/op/votings/{id}/results", opVotingHandler.GetResults)
 		r.Get("/territories/{id}/op-votings", opVotingHandler.ListVotingsByTerritory)
+		r.Get("/op/divergence-incidents", opInstitutionalHandler.ListIncidents)
 
 		r.Get("/audit/head", auditHandler.GetChainHead)
 		r.Get("/audit/anchors", auditHandler.ListAnchors)

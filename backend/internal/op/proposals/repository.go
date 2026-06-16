@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"codigo-publico/backend/internal/audit"
+	"codigo-publico/backend/internal/op"
 	"codigo-publico/backend/internal/web"
 
 	"github.com/jackc/pgx/v5"
@@ -95,6 +96,15 @@ func (r *Repository) demandRecord(ctx context.Context, identifier string) (deman
 	)
 
 	return rec, err
+}
+
+// cycleEnvelope devolve o envelope total do ciclo (centavos) — teto contra o
+// qual o circuit breaker afere o custo da proposta enquanto o sub-envelope
+// territorial não é persistido.
+func (r *Repository) cycleEnvelope(ctx context.Context, cycleID string) (int64, error) {
+	var total int64
+	err := r.db.QueryRow(ctx, `SELECT envelope_total FROM op_cycles WHERE id = $1::uuid`, cycleID).Scan(&total)
+	return total, err
 }
 
 func (r *Repository) hasProposalAuthority(ctx context.Context, a actor, territoryID string) (bool, error) {
@@ -189,7 +199,7 @@ func (r *Repository) createProposal(ctx context.Context, a actor, demand demandR
 		ID:   a.ID,
 		Name: a.Name,
 		Role: a.Role,
-		Type: auditActorType(a.Role),
+		Type: op.AuditActorType(a.Role),
 	}, audit.Event{
 		Action:         "op.proposal.created",
 		EntityType:     "budget_proposal",
@@ -281,13 +291,4 @@ func rollback(ctx context.Context, tx pgx.Tx) {
 func isUniqueViolation(err error) bool {
 	var pgErr *pgconn.PgError
 	return errors.As(err, &pgErr) && pgErr.Code == "23505"
-}
-
-func auditActorType(role string) string {
-	switch role {
-	case "sysadmin", "admin", "institutional_admin", "legislative_admin", "vereador", "mesa_diretora":
-		return "institutional"
-	default:
-		return "citizen"
-	}
 }

@@ -11,8 +11,8 @@ import {
   openOPVotingForProposal
 } from '../lib/api';
 import type { BudgetProposal, OPVoting } from '../types';
-import type { VoteSelection } from './useVotings';
-import type { WriteSource } from './useIssues';
+import type { VoteSelection } from './shared';
+import type { WriteSource } from './shared';
 
 export interface OPVoteReceipt {
   id: string;
