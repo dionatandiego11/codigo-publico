@@ -192,6 +192,43 @@ export async function getMe(): Promise<Citizen> {
   return requestJSON<Citizen>('/me');
 }
 
+// --- Administração: contexto de papéis ---------------------------------------
+
+export type AdminLevel = 'technical' | 'general' | 'territorial';
+
+export interface AdminMaintainerContext {
+  id: string;
+  territoryId?: string;
+  territorySlug?: string;
+  territoryName?: string;
+  scope: 'territorial' | 'geral';
+  status: string;
+  appointmentSource?: string;
+  termStart?: string;
+  termEnd?: string;
+  createdAt: string;
+}
+
+export interface AdminContext {
+  citizenId: string;
+  fullName: string;
+  role: string;
+  roleLabel: string;
+  levels: AdminLevel[];
+  canTechnical: boolean;
+  canGeneral: boolean;
+  canTerritorial: boolean;
+  canManageAllTerritories: boolean;
+  registeredTerritoryId?: string;
+  registeredTerritorySlug?: string;
+  registeredTerritoryName?: string;
+  maintainers: AdminMaintainerContext[];
+}
+
+export async function getAdminContext(): Promise<AdminContext> {
+  return requestJSON<AdminContext>('/me/admin-context');
+}
+
 // --- Escrita cívica autenticada ----------------------------------------------
 
 export interface CreateIssueData {

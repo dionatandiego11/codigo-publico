@@ -1,6 +1,6 @@
 import { GitBranch, LogIn, LogOut, ShieldCheck, Zap } from 'lucide-react';
 import { useAuth } from '../../auth';
-import { useApiHealth, type ApiHealthStatus } from '../../hooks';
+import { useAdminContext, useApiHealth, type ApiHealthStatus } from '../../hooks';
 
 
 interface NavbarProps {
@@ -18,6 +18,8 @@ const healthBadge: Record<ApiHealthStatus, { label: string; className: string }>
 export default function Navbar({ currentPath, setPath }: NavbarProps) {
   const { citizen, isAuthenticated, openAuthModal, logout } = useAuth();
   const apiHealth = useApiHealth();
+  const { adminContext } = useAdminContext(isAuthenticated);
+  const hasAdminAccess = (adminContext?.levels.length ?? 0) > 0;
 
   return (
     <header className="sticky top-0 z-40 glass-header px-4 py-3">
@@ -53,11 +55,11 @@ export default function Navbar({ currentPath, setPath }: NavbarProps) {
         {/* Account pill */}
         {isAuthenticated && citizen ? (
           <div className="flex items-center gap-2">
-            {citizen.role && citizen.role !== 'Cidadão' && (
+            {hasAdminAccess && (
               <button
                 onClick={() => setPath('/admin')}
                 className="group flex items-center gap-1.5 rounded-full border border-[rgba(192,132,252,0.3)] bg-[rgba(192,132,252,0.05)] px-2.5 py-1.5 text-[11px] font-medium text-[#c084fc] transition-all duration-300 hover:bg-[rgba(192,132,252,0.1)] hover:shadow-[0_0_16px_rgba(192,132,252,0.2)]"
-                title="Acessar Console Institucional"
+                title={`Acessar Console Administrativo · ${adminContext?.roleLabel ?? citizen.role}`}
               >
                 <ShieldCheck className="h-3.5 w-3.5 icon-glow-purple" />
                 <span className="hidden sm:inline">Admin</span>

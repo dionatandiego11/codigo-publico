@@ -1,6 +1,9 @@
 package op
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 // actor é a visão interna do cidadão que age (sem dados de exibição supérfluos).
 type actor struct {
@@ -12,8 +15,18 @@ type actor struct {
 // isSysadminRole espelha a regra do módulo territorial: papéis administrativos
 // têm a autoridade institucional de bootstrap.
 func isSysadminRole(role string) bool {
-	switch role {
+	switch strings.ToLower(strings.TrimSpace(role)) {
 	case "sysadmin", "admin", "institutional_admin":
+		return true
+	default:
+		return false
+	}
+}
+
+// isLegislativeRole cobre a instância geral do OP: Legislativo municipal.
+func isLegislativeRole(role string) bool {
+	switch strings.ToLower(strings.TrimSpace(role)) {
+	case "legislative_admin", "vereador", "mesa_diretora":
 		return true
 	default:
 		return false

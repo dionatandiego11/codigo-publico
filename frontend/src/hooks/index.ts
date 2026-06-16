@@ -13,6 +13,8 @@ export { useVotings } from './useVotings';
 export type { LocalVoteReceipt, VoteSelection } from './useVotings';
 export { useApiHealth } from './useApiHealth';
 export type { ApiHealthStatus } from './useApiHealth';
+export { useAdminContext } from './useAdminContext';
+export type { AdminContextStatus } from './useAdminContext';
 export { useOPCycle } from './useOPCycle';
 export type { OPCycleLoadStatus } from './useOPCycle';
 export { useOPDemands } from './useOPDemands';

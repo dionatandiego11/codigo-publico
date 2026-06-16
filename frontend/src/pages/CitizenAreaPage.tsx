@@ -25,6 +25,7 @@ export function CitizenArea({
   onSelectVoting: (votingId: string) => void;
 }) {
   const territory = territories.find(item => item.id === profile.territoryId);
+  const hasRegisteredTerritory = Boolean(profile.territoryId || profile.territoryName || territory);
 
   return (
     <div className="space-y-6 fade-in">
@@ -39,7 +40,7 @@ export function CitizenArea({
         </button>
       )}
 
-      {isAuthenticated && <TerritoryBondCard territories={territories} />}
+      {isAuthenticated && !hasRegisteredTerritory && <TerritoryBondCard territories={territories} />}
 
       <div className="glass-panel p-5 rounded-[20px]">
         <h3 className="font-mono text-xs font-bold text-[var(--color-git-muted)] uppercase tracking-wider mb-2">Território</h3>

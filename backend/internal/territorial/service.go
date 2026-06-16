@@ -36,16 +36,21 @@ func (s *Service) requireActor(ctx context.Context, citizenID string) (actor, er
 // authorityFor resolve os fatos de autorização do ator. Sysadmin curto-circuita
 // as consultas de maintainer. territoryID vazio dispensa o vínculo territorial.
 func (s *Service) authorityFor(ctx context.Context, requester actor, territoryID string) (DecisionAuthority, error) {
-	auth := DecisionAuthority{IsSysadmin: isSysadminRole(requester.Role)}
+	auth := DecisionAuthority{
+		IsSysadmin:          isSysadminRole(requester.Role),
+		IsGeneralMaintainer: isLegislativeRole(requester.Role),
+	}
 	if auth.IsSysadmin {
 		return auth, nil
 	}
 
-	general, err := s.repo.isGeneralMaintainer(ctx, requester.ID)
-	if err != nil {
-		return DecisionAuthority{}, err
+	if !auth.IsGeneralMaintainer {
+		general, err := s.repo.isGeneralMaintainer(ctx, requester.ID)
+		if err != nil {
+			return DecisionAuthority{}, err
+		}
+		auth.IsGeneralMaintainer = general
 	}
-	auth.IsGeneralMaintainer = general
 
 	if territoryID != "" {
 		local, err := s.repo.isTerritorialMaintainer(ctx, requester.ID, territoryID)

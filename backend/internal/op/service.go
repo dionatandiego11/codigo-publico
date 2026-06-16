@@ -31,16 +31,21 @@ func (s *Service) requireActor(ctx context.Context, citizenID string) (actor, er
 // cycleActorFor resolve a autoridade para mover o ciclo: sysadmin (bootstrap) ou
 // Maintainer Geral efetivo. Espelha authorityFor do módulo territorial.
 func (s *Service) cycleActorFor(ctx context.Context, requester actor) (CycleActor, error) {
-	ca := CycleActor{IsSysadmin: isSysadminRole(requester.Role)}
+	ca := CycleActor{
+		IsSysadmin:          isSysadminRole(requester.Role),
+		IsGeneralMaintainer: isLegislativeRole(requester.Role),
+	}
 	if ca.IsSysadmin {
 		return ca, nil
 	}
 
-	general, err := s.repo.isGeneralMaintainer(ctx, requester.ID)
-	if err != nil {
-		return CycleActor{}, err
+	if !ca.IsGeneralMaintainer {
+		general, err := s.repo.isGeneralMaintainer(ctx, requester.ID)
+		if err != nil {
+			return CycleActor{}, err
+		}
+		ca.IsGeneralMaintainer = general
 	}
-	ca.IsGeneralMaintainer = general
 
 	return ca, nil
 }

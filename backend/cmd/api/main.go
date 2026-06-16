@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"codigo-publico/backend/internal/admin"
 	"codigo-publico/backend/internal/audit"
 	"codigo-publico/backend/internal/auth"
 	"codigo-publico/backend/internal/blockchain"
@@ -60,6 +61,7 @@ func main() {
 	healthHandler := health.NewHandler(dbPool, redisClient, cfg.HealthTimeout)
 	publicHandler := publicapi.NewHandler(dbPool)
 	authHandler := auth.NewHandler(dbPool, cfg.JWTSecret, cfg.CPFHashSecret, cfg.JWTExpiration)
+	adminHandler := admin.NewHandler(dbPool)
 	territorialHandler := territorial.NewHandler(dbPool)
 	opHandler := op.NewHandler(dbPool)
 	opDemandHandler := opdemands.NewHandler(dbPool)
@@ -75,6 +77,7 @@ func main() {
 		r.Group(func(r chi.Router) {
 			r.Use(auth.JWTMiddleware(cfg.JWTSecret))
 			r.Get("/me", authHandler.Me)
+			r.Get("/me/admin-context", adminHandler.Context)
 			r.Get("/me/dashboard", publicHandler.GetCitizenDashboard)
 			r.Post("/issues", publicHandler.CreateIssue)
 			r.Post("/issues/{id}/comments", publicHandler.CreateIssueComment)

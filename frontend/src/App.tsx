@@ -526,21 +526,6 @@ export default function App() {
         );
       }
       
-      if (citizen?.role === 'Cidadão' || !citizen?.role) {
-        return (
-          <div className="flex h-full items-center justify-center fade-in">
-            <div className="glass-panel p-8 text-center rounded-[20px] max-w-sm w-full border border-[rgba(248,113,113,0.15)] shadow-[0_0_40px_rgba(248,113,113,0.05)]">
-              <ShieldAlert className="mx-auto h-12 w-12 text-[var(--color-git-red)] mb-4" />
-              <h1 className="font-display text-xl font-bold text-white">Acesso Negado</h1>
-              <p className="mt-2 text-sm leading-relaxed text-[var(--color-git-muted)] mb-6">
-                Sua conta não possui permissão administrativa. Apenas perfis institucionais têm acesso ao painel de triagem.
-              </p>
-              <button onClick={() => setPath('/')} className="btn-secondary w-full">Voltar ao início</button>
-            </div>
-          </div>
-        );
-      }
-
       return (
         <InstitutionalPanel
           issues={issues}

@@ -6,6 +6,8 @@
 // confiança" — e nenhuma decisão territorial relevante é irrecorrível.
 package territorial
 
+import "strings"
+
 const (
 	BondTypeResident = "morador"
 	BondTypeWorker   = "trabalhador"
@@ -21,9 +23,9 @@ const (
 )
 
 const (
-	AppealStatusPending  = "Pendente"
-	AppealStatusGranted  = "Deferido"
-	AppealStatusDenied   = "Indeferido"
+	AppealStatusPending = "Pendente"
+	AppealStatusGranted = "Deferido"
+	AppealStatusDenied  = "Indeferido"
 )
 
 const (
@@ -73,14 +75,14 @@ type Contestation struct {
 
 // GovernanceSummary é o retrato público da governança de um território.
 type GovernanceSummary struct {
-	TerritoryID          string `json:"territoryId"`
-	TerritoryName        string `json:"territoryName"`
-	HasActiveMaintainer  bool   `json:"hasActiveMaintainer"`
-	AcceptsNewBonds      bool   `json:"acceptsNewBonds"`
-	ActiveMaintainers    int    `json:"activeMaintainers"`
-	ApprovedBondsCount   int    `json:"approvedBondsCount"`
-	PendingBondsCount    int    `json:"pendingBondsCount"`
-	ContestedBondsCount  int    `json:"contestedBondsCount"`
+	TerritoryID         string `json:"territoryId"`
+	TerritoryName       string `json:"territoryName"`
+	HasActiveMaintainer bool   `json:"hasActiveMaintainer"`
+	AcceptsNewBonds     bool   `json:"acceptsNewBonds"`
+	ActiveMaintainers   int    `json:"activeMaintainers"`
+	ApprovedBondsCount  int    `json:"approvedBondsCount"`
+	PendingBondsCount   int    `json:"pendingBondsCount"`
+	ContestedBondsCount int    `json:"contestedBondsCount"`
 }
 
 type actor struct {
@@ -169,8 +171,18 @@ func trustLevelExceeds(level, limit string) bool {
 
 // isSysadminRole cobre a administração técnica municipal.
 func isSysadminRole(role string) bool {
-	switch role {
+	switch strings.ToLower(strings.TrimSpace(role)) {
 	case "sysadmin", "admin", "institutional_admin":
+		return true
+	default:
+		return false
+	}
+}
+
+// isLegislativeRole cobre a instância geral do OP: Legislativo municipal.
+func isLegislativeRole(role string) bool {
+	switch strings.ToLower(strings.TrimSpace(role)) {
+	case "legislative_admin", "vereador", "mesa_diretora":
 		return true
 	default:
 		return false
