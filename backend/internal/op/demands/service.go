@@ -84,20 +84,29 @@ func (s *Service) CreateDemand(ctx context.Context, citizenID string, input crea
 		return Demand{}, web.NewError(http.StatusBadRequest, "category é obrigatório")
 	}
 
-	territoryIdentifier := input.TerritoryID
-	if territoryIdentifier == "" {
-		territoryIdentifier = a.TerritoryID
-	}
-	if territoryIdentifier == "" {
-		return Demand{}, web.NewError(http.StatusBadRequest, "territoryId é obrigatório")
+	if a.TerritoryID == "" {
+		return Demand{}, web.NewError(http.StatusForbidden, "criar demanda territorial exige cidadão vinculado a um território")
 	}
 
-	territory, err := s.repo.resolveTerritory(ctx, territoryIdentifier)
+	territory, err := s.repo.resolveTerritory(ctx, a.TerritoryID)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return Demand{}, web.NewError(http.StatusBadRequest, "territoryId não foi encontrado")
+		return Demand{}, web.NewError(http.StatusForbidden, "território do cidadão autenticado não foi encontrado")
 	}
 	if err != nil {
 		return Demand{}, err
+	}
+
+	if input.TerritoryID != "" {
+		requestedTerritory, err := s.repo.resolveTerritory(ctx, input.TerritoryID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Demand{}, web.NewError(http.StatusBadRequest, "territoryId não foi encontrado")
+		}
+		if err != nil {
+			return Demand{}, err
+		}
+		if requestedTerritory.ID != territory.ID {
+			return Demand{}, web.NewError(http.StatusForbidden, "demanda territorial só pode ser criada no território do cidadão autenticado")
+		}
 	}
 
 	return s.repo.createDemand(ctx, a, cycle, territory, input)

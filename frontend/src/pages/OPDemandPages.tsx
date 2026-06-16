@@ -5,10 +5,10 @@
 
 import { useState } from 'react';
 import type { FormEvent } from 'react';
-import { ArrowRight, GitFork, Link2, MapPin, MessageSquare, Plus, ScrollText, ThumbsUp } from 'lucide-react';
+import { ArrowRight, GitFork, Link2, MapPin, MessageSquare, ScrollText, ThumbsUp } from 'lucide-react';
 import type { ForkBudgetDemandData, NewBudgetDemandData, NewBudgetProposalData } from '../hooks';
 import { Badge, MetricMini, NotFound, PercentBar, formatDate, statusClass } from '../shared/ui';
-import type { BudgetDemand, Territory } from '../types';
+import type { BudgetDemand } from '../types';
 
 const DEMAND_CATEGORIES = [
   'Saúde',
@@ -77,24 +77,31 @@ export function OPDemandList({
 }
 
 export function OPDemandComposer({
-  territories,
+  isAuthenticated,
+  currentTerritory,
+  onLogin,
   onSubmit
 }: {
-  territories: Territory[];
+  isAuthenticated: boolean;
+  currentTerritory?: { id: string; name: string; zone?: string };
+  onLogin: () => void;
   onSubmit: (data: NewBudgetDemandData) => void;
 }) {
   const [title, setTitle] = useState('');
-  const [territoryId, setTerritoryId] = useState(territories[0]?.id ?? '');
   const [category, setCategory] = useState(DEMAND_CATEGORIES[0]);
   const [location, setLocation] = useState('');
   const [description, setDescription] = useState('');
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    if (!title.trim() || !territoryId || !category) return;
+    if (!isAuthenticated) {
+      onLogin();
+      return;
+    }
+    if (!title.trim() || !currentTerritory?.id || !category) return;
 
     onSubmit({
-      territoryId,
+      territoryId: currentTerritory.id,
       title: title.trim(),
       category,
       location: location.trim(),
@@ -109,28 +116,32 @@ export function OPDemandComposer({
   return (
     <form onSubmit={submit} className="glass-panel p-4 rounded-[20px]">
       <div className="flex items-center gap-2">
-        <Plus className="h-4 w-4 text-[var(--color-git-blue)] icon-glow-blue" />
         <h3 className="font-display text-base font-bold text-white">Nova demanda</h3>
       </div>
 
       <div className="mt-4 space-y-3">
+        <div className="rounded-xl border border-[var(--color-git-border)] bg-white/[0.02] p-3">
+          <p className="font-mono text-[9px] font-bold uppercase tracking-widest text-[var(--color-git-muted)]">
+            Território da demanda
+          </p>
+          {currentTerritory ? (
+            <div className="mt-1 flex items-center justify-between gap-3">
+              <p className="text-sm font-bold text-white">{currentTerritory.name}</p>
+              {currentTerritory.zone && <Badge className="chip-blue">{currentTerritory.zone}</Badge>}
+            </div>
+          ) : (
+            <p className="mt-1 text-sm leading-6 text-[var(--color-git-muted)]">
+              Entre com um cadastro vinculado a bairro, comunidade ou distrito para registrar demanda territorial.
+            </p>
+          )}
+        </div>
+
         <input
           value={title}
           onChange={event => setTitle(event.target.value)}
           placeholder="Ex: Falta médico no PSF do bairro"
           className="field"
         />
-
-        <select
-          value={territoryId}
-          onChange={event => setTerritoryId(event.target.value)}
-          className="field"
-        >
-          <option value="">Selecione o território</option>
-          {territories.map(option => (
-            <option key={option.id} value={option.id}>{option.name}</option>
-          ))}
-        </select>
 
         <select
           value={category}
@@ -155,7 +166,9 @@ export function OPDemandComposer({
           className="field resize-none"
         />
 
-        <button className="btn-primary w-full">Registrar demanda</button>
+        <button className="btn-primary w-full" disabled={isAuthenticated && !currentTerritory}>
+          {isAuthenticated ? 'Registrar demanda' : 'Entrar para registrar'}
+        </button>
       </div>
     </form>
   );

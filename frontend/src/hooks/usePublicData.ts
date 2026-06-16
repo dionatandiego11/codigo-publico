@@ -25,6 +25,7 @@ import {
   PublicStats
 } from '../lib/api';
 import {
+  Citizen,
   CitizenDashboardData,
   CivicPR,
   ExecutionTracker,
@@ -37,10 +38,37 @@ export type CitizenVoteReceipt = CitizenDashboardData['votedList'][number];
 
 interface UsePublicDataOptions {
   isAuthenticated?: boolean;
+  citizen?: Citizen | null;
+}
+
+function dashboardCitizenId(citizen: Citizen): string {
+  if (citizen.id.startsWith('CP-')) return citizen.id;
+  return `CP-CITIZEN-${citizen.id.replace(/-/g, '').slice(0, 8).toUpperCase()}`;
+}
+
+function profileFromCitizen(
+  citizen: Citizen,
+  previous?: CitizenDashboardData
+): CitizenDashboardData {
+  const citizenId = dashboardCitizenId(citizen);
+  const shouldKeepLists = previous?.citizenId === citizenId;
+
+  return {
+    name: citizen.fullName,
+    email: citizen.email ?? '',
+    territoryId: citizen.territoryId ?? previous?.territoryId ?? '',
+    territoryName: citizen.territoryName ?? previous?.territoryName,
+    registeredAt: citizen.createdAt,
+    citizenId,
+    createdIssues: shouldKeepLists ? previous.createdIssues : [],
+    createdPRs: shouldKeepLists ? previous.createdPRs ?? [] : [],
+    votedList: shouldKeepLists ? previous.votedList : [],
+    supportedPRs: shouldKeepLists ? previous.supportedPRs : []
+  };
 }
 
 export function usePublicData(options: UsePublicDataOptions = {}) {
-  const { isAuthenticated = false } = options;
+  const { isAuthenticated = false, citizen = null } = options;
 
   const [artigos, setArtigos] = useState<LawArticle[]>(fallbackArticles);
   const [releases, setReleases] = useState<Release[]>(fallbackReleases);
@@ -99,6 +127,10 @@ export function usePublicData(options: UsePublicDataOptions = {}) {
       return;
     }
 
+    if (citizen) {
+      setUserProfile(previous => profileFromCitizen(citizen, previous));
+    }
+
     let isMounted = true;
 
     getCitizenDashboard()
@@ -112,7 +144,15 @@ export function usePublicData(options: UsePublicDataOptions = {}) {
     return () => {
       isMounted = false;
     };
-  }, [isAuthenticated]);
+  }, [
+    isAuthenticated,
+    citizen?.id,
+    citizen?.fullName,
+    citizen?.email,
+    citizen?.territoryId,
+    citizen?.territoryName,
+    citizen?.createdAt
+  ]);
 
   const addVoteReceipt = (receipt: CitizenVoteReceipt) => {
     setUserProfile(prev => ({

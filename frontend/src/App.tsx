@@ -59,7 +59,7 @@ export default function App() {
     addVoteReceipt,
     applyMergedPR,
     refreshNormativeState
-  } = usePublicData({ isAuthenticated });
+  } = usePublicData({ isAuthenticated, citizen });
 
   const { issues, addIssue, commentOnIssue, upvoteIssue, triageIssue } = useIssues();
   const { demands, addDemand, supportDemand, commentOnDemand, transitionDemand, groupDemand, forkDemand } = useOPDemands();
@@ -325,6 +325,22 @@ export default function App() {
     repositorySummaries.find(repo => repo.slug === 'lei-organica') ??
     repositorySummaries[0] ??
     fallbackRepository;
+  const citizenTerritoryId = isAuthenticated
+    ? citizen?.territoryId ?? userProfile.territoryId
+    : undefined;
+  const citizenTerritoryName = isAuthenticated
+    ? citizen?.territoryName ?? userProfile.territoryName
+    : undefined;
+  const citizenTerritory = citizenTerritoryId || citizenTerritoryName
+    ? territories.find(territory =>
+        territory.id === citizenTerritoryId ||
+        territory.name === citizenTerritoryName ||
+        territory.name === citizenTerritoryId
+      ) ?? {
+        id: citizenTerritoryId ?? citizenTerritoryName ?? '',
+        name: citizenTerritoryName ?? citizenTerritoryId ?? ''
+      }
+    : undefined;
 
   const page = (() => {
     if (selectedDemandRouteId) {
@@ -410,10 +426,12 @@ export default function App() {
 
     if (currentPath === '/demandas') {
       return (
-        <div className="grid gap-6 lg:grid-cols-[1fr_360px] fade-in">
+        <div className="space-y-6 fade-in">
           <OPDemandList demands={demands} onSelect={demandId => setPath(`/demandas/${encodeURIComponent(demandId)}`)} />
           <OPDemandComposer
-            territories={territories}
+            isAuthenticated={isAuthenticated}
+            currentTerritory={citizenTerritory}
+            onLogin={openAuthModal}
             onSubmit={handleAddNewDemand}
           />
         </div>
