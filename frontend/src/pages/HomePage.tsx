@@ -3,8 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { ArrowRight, BookOpen, GitPullRequest, Scale, UserPlus, Vote } from 'lucide-react';
+import { ArrowRight, CalendarDays, GitBranch, GitPullRequest, MapPin, UserPlus, Vote } from 'lucide-react';
 import { useAuth } from '../auth';
+import { useOPCycle } from '../hooks';
+import type { OPCycle } from '../types';
 
 interface FlowHomeProps {
   setPath: (path: string) => void;
@@ -12,6 +14,7 @@ interface FlowHomeProps {
 
 export function FlowHome({ setPath }: FlowHomeProps) {
   const { citizen, isAuthenticated, openAuthModal } = useAuth();
+  const { currentCycle, status } = useOPCycle();
 
   return (
     <div className="flex min-h-[calc(100vh-10rem)] items-center justify-center px-2 py-8 fade-in">
@@ -49,28 +52,29 @@ export function FlowHome({ setPath }: FlowHomeProps) {
 
               {/* Ações rápidas */}
               <p className="font-mono text-[9px] font-bold uppercase tracking-widest text-[var(--color-git-muted)] mb-3">
-                Por onde começar
+                Orçamento participativo
               </p>
+              <CycleCard cycle={currentCycle} status={status} />
               <div className="space-y-2">
                 <QuickAction
-                  icon={Scale}
-                  label="Lei Orgânica"
-                  description="Leia e acompanhe o texto vigente"
-                  onClick={() => setPath('/repositorios/lei-organica/texto')}
+                  icon={MapPin}
+                  label="Registrar demanda"
+                  description="Problema simples do seu território"
+                  onClick={() => setPath('/demandas')}
                   color="blue"
                 />
                 <QuickAction
                   icon={Vote}
-                  label="Votações abertas"
-                  description="Sua voz nas consultas populares"
+                  label="Votações do OP"
+                  description="Priorize propostas aptas"
                   onClick={() => setPath('/votacoes')}
                   color="purple"
                 />
                 <QuickAction
                   icon={GitPullRequest}
-                  label="Propostas (PRs)"
-                  description="Acompanhe e vote em propostas"
-                  onClick={() => setPath('/repositorios/lei-organica/prs')}
+                  label="Fiscalizar execução"
+                  description="Acompanhe o que foi aprovado"
+                  onClick={() => setPath('/fiscalizacao')}
                   color="green"
                 />
               </div>
@@ -95,27 +99,29 @@ export function FlowHome({ setPath }: FlowHomeProps) {
               {/* Marca */}
               <div className="mb-6 text-center">
                 <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-[rgba(56,189,248,0.25)] bg-[rgba(56,189,248,0.08)] shadow-[0_0_30px_rgba(56,189,248,0.15)]">
-                  <BookOpen className="h-7 w-7 text-[var(--color-git-blue)]" />
+                  <GitBranch className="h-7 w-7 text-[var(--color-git-blue)]" />
                 </div>
                 <p className="font-mono text-[9px] font-bold uppercase tracking-[0.2em] text-[var(--color-git-blue)]">
                   Código Público
                 </p>
                 <h1 className="mt-2 font-display text-2xl font-bold leading-tight text-white">
-                  Democracia no<br />código aberto
+                  Orçamento<br />em código aberto
                 </h1>
               </div>
 
               {/* Descrição */}
               <p className="text-sm leading-6 text-[var(--color-git-muted)] text-center mb-6">
-                Acompanhe a Lei Orgânica, participe de votações populares e proponha alterações normativas — tudo com transparência e rastreabilidade.
+                Abra demandas do seu território, acompanhe a maturação das propostas, vote nas prioridades e fiscalize a execução do orçamento participativo.
               </p>
+
+              <CycleCard cycle={currentCycle} status={status} />
 
               {/* Features resumidas */}
               <div className="space-y-2.5 mb-7">
-                <Feature label="Leia e acompanhe o texto oficial das leis municipais" />
-                <Feature label="Vote em consultas populares com recibo verificável" />
-                <Feature label="Crie ou apoie propostas de alteração normativa" />
-                <Feature label="Fiscalize a execução das leis aprovadas" />
+                <Feature label="Um conselho territorial colegiado organiza cada território" />
+                <Feature label="Demandas simples ganham maturidade antes da votação" />
+                <Feature label="Envelope público separa piso territorial e carência" />
+                <Feature label="Execução aprovada vira item fiscalizável" />
               </div>
 
               {/* CTAs */}
@@ -159,7 +165,7 @@ function QuickAction({
   onClick,
   color
 }: {
-  icon: typeof Scale;
+  icon: typeof MapPin;
   label: string;
   description: string;
   onClick: () => void;
@@ -198,6 +204,88 @@ function QuickAction({
       <ArrowRight className="h-3.5 w-3.5 shrink-0 text-[var(--color-git-muted)] transition group-hover:text-white group-hover:translate-x-0.5" />
     </button>
   );
+}
+
+function CycleCard({
+  cycle,
+  status
+}: {
+  cycle?: OPCycle;
+  status: 'loading' | 'ready' | 'empty' | 'fallback';
+}) {
+  const stateLabel = (() => {
+    if (status === 'loading') return 'Carregando ciclo';
+    if (status === 'fallback') return 'API indisponível';
+    if (!cycle) return 'Sem ciclo ativo';
+    return cycle.phase;
+  })();
+
+  return (
+    <div className="mb-4 rounded-2xl border border-[var(--color-git-border2)] bg-white/[0.03] p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="font-mono text-[9px] font-bold uppercase tracking-widest text-[var(--color-git-blue)]">
+            Ciclo atual do OP
+          </p>
+          <h2 className="mt-1 truncate text-sm font-bold text-white">
+            {cycle?.label ?? 'Aguardando abertura institucional'}
+          </h2>
+        </div>
+        <span className="shrink-0 rounded-full border border-[rgba(56,189,248,0.2)] bg-[rgba(56,189,248,0.08)] px-2 py-1 text-[10px] font-semibold text-[var(--color-git-blue)]">
+          {stateLabel}
+        </span>
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        <CycleMetric
+          icon={CalendarDays}
+          label="Votação"
+          value={cycle?.calendar ? formatDate(cycle.calendar.votingStart) : 'A definir'}
+        />
+        <CycleMetric
+          icon={GitBranch}
+          label="Envelope"
+          value={cycle ? formatCurrency(cycle.envelopeTotal) : 'A definir'}
+        />
+      </div>
+    </div>
+  );
+}
+
+function CycleMetric({
+  icon: Icon,
+  label,
+  value
+}: {
+  icon: typeof CalendarDays;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="min-w-0 rounded-xl border border-[var(--color-git-border)] bg-black/10 px-3 py-2">
+      <div className="flex items-center gap-1.5 text-[10px] text-[var(--color-git-muted)]">
+        <Icon className="h-3 w-3 shrink-0" />
+        <span className="truncate">{label}</span>
+      </div>
+      <p className="mt-1 truncate text-xs font-bold text-[var(--color-git-text2)]">{value}</p>
+    </div>
+  );
+}
+
+function formatCurrency(cents: number) {
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+    maximumFractionDigits: 0
+  }).format(cents / 100);
+}
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  }).format(new Date(value));
 }
 
 function Feature({ label }: { label: string }) {

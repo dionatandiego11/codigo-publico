@@ -20,13 +20,13 @@ export function formatDate(value?: string) {
 
 // Mapeia status de domínio para os chips do design system (tema escuro).
 export function statusClass(status: string) {
-  if (['Resolvida', 'Cumprida', 'Aprovado', 'Aprovado formalmente', 'Incorporado ao texto oficial', 'Aprovado pela consulta pública'].includes(status)) {
+  if (['Resolvida', 'Cumprida', 'Aprovado', 'Aprovado formalmente', 'Incorporado ao texto oficial', 'Aprovado pela consulta pública', 'Validada territorialmente', 'Apta para priorização', 'Apta para votação', 'Priorizada', 'Incluída na matriz'].includes(status)) {
     return 'border bg-[rgba(52,211,153,0.08)] text-[var(--color-git-green)] border-[rgba(52,211,153,0.22)]';
   }
-  if (['Em votação', 'Aberta', 'Aberto para debate', 'Em execução', 'Pronto para votação'].includes(status)) {
+  if (['Em votação', 'Aberta', 'Aberto para debate', 'Em execução', 'Pronto para votação', 'Recebida', 'Engajamento inicial', 'Maturação territorial'].includes(status)) {
     return 'border bg-[rgba(56,189,248,0.08)] text-[var(--color-git-blue)] border-[rgba(56,189,248,0.22)]';
   }
-  if (['Em triagem', 'Em análise técnica', 'Atenção', 'Aguardando ajustes', 'Em regulamentação', 'Aguardando regulamentação', 'Parcialmente cumprida'].includes(status)) {
+  if (['Em triagem', 'Em análise técnica', 'Atenção', 'Aguardando ajustes', 'Em regulamentação', 'Aguardando regulamentação', 'Parcialmente cumprida', 'Precisa de informações', 'Agrupada', 'Dormente', 'Retornada para maturação'].includes(status)) {
     return 'border bg-[rgba(251,191,36,0.08)] text-[var(--color-git-amber)] border-[rgba(251,191,36,0.22)]';
   }
   if (['Rejeitado', 'Arquivada', 'Arquivado', 'Descumprida', 'Suspensa judicialmente', 'Reprovado'].includes(status)) {

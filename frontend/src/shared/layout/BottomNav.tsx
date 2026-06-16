@@ -1,4 +1,4 @@
-import { Home, Scale, User, Vote } from 'lucide-react';
+import { Home, MapPin, ScrollText, User, Vote } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 function cn(...classes: (string | undefined | null | false)[]) {
@@ -7,7 +7,8 @@ function cn(...classes: (string | undefined | null | false)[]) {
 
 const navItems = [
   { to: '/',         icon: Home,      label: 'Início',       match: (path: string) => path === '/' || path === '' },
-  { to: '/repositorios', icon: Scale, label: 'Normas',     match: (path: string) => path.startsWith('/repositorios') || path.startsWith('/lei-organica') },
+  { to: '/demandas', icon: MapPin, label: 'Demandas',     match: (path: string) => path.startsWith('/demandas') },
+  { to: '/propostas', icon: ScrollText, label: 'Propostas', match: (path: string) => path.startsWith('/propostas') },
   { to: '/votacoes',  icon: Vote,     label: 'Votações',     match: (path: string) => path.startsWith('/votacoes') },
   { to: '/minha-area',     icon: User,     label: 'Cidadão',      match: (path: string) => path.startsWith('/minha-area') },
 ];

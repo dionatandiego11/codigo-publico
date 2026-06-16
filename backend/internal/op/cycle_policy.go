@@ -149,11 +149,11 @@ func VotingOpen(phase string) bool {
 
 // Calendar são as datas-âncora do ciclo, derivadas das janelas do regimento.
 type Calendar struct {
-	InscriptionStart time.Time // abertura das inscrições ao conselho
-	SortitionAt      time.Time // fim das inscrições / sorteio dos conselhos
-	CollectionStart  time.Time // início da coleta (= sorteio)
-	VotingStart      time.Time // fim da maturação / início da votação
-	VotingEnd        time.Time // fim da votação territorial
+	InscriptionStart time.Time `json:"inscriptionStart"` // abertura das inscrições ao conselho
+	SortitionAt      time.Time `json:"sortitionAt"`      // fim das inscrições / sorteio dos conselhos
+	CollectionStart  time.Time `json:"collectionStart"`  // início da coleta (= sorteio)
+	VotingStart      time.Time `json:"votingStart"`      // fim da maturação / início da votação
+	VotingEnd        time.Time `json:"votingEnd"`        // fim da votação territorial
 }
 
 // BuildCalendar projeta as datas do ciclo a partir do início e das janelas do

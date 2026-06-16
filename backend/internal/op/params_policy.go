@@ -75,16 +75,16 @@ const (
 // RegimentoLocal são os parâmetros que cada município calibra dentro das faixas
 // comuns. DefaultRegimento devolve os defaults sugeridos no protocolo.
 type RegimentoLocal struct {
-	CouncilSize         int           // tamanho do conselho territorial
-	ConsecutiveTerms    int           // reconduções consecutivas permitidas
-	SupportThresholdPct int           // apoio mínimo p/ maturação (% dos vinculados)
-	VotingQuorumPct     int           // quórum de validade da votação territorial
-	RecallQuorumPct     int           // quórum de recall
-	EqualSharePct       int           // piso igual do envelope (restante é carência)
-	StructuringPct      int           // porção estruturante municipal
-	InscriptionWindow   time.Duration // janela de inscrição ao conselho
-	MaturationWindow    time.Duration // janela de maturação
-	VotingWindow        time.Duration // janela de votação territorial
+	CouncilSize         int           `json:"councilSize"`         // tamanho do conselho territorial
+	ConsecutiveTerms    int           `json:"consecutiveTerms"`    // reconduções consecutivas permitidas
+	SupportThresholdPct int           `json:"supportThresholdPct"` // apoio mínimo p/ maturação (% dos vinculados)
+	VotingQuorumPct     int           `json:"votingQuorumPct"`     // quórum de validade da votação territorial
+	RecallQuorumPct     int           `json:"recallQuorumPct"`     // quórum de recall
+	EqualSharePct       int           `json:"equalSharePct"`       // piso igual do envelope (restante é carência)
+	StructuringPct      int           `json:"structuringPct"`      // porção estruturante municipal
+	InscriptionWindow   time.Duration `json:"inscriptionWindow"`   // janela de inscrição ao conselho
+	MaturationWindow    time.Duration `json:"maturationWindow"`    // janela de maturação
+	VotingWindow        time.Duration `json:"votingWindow"`        // janela de votação territorial
 }
 
 // DefaultRegimento devolve os defaults sugeridos (docs/PROTOCOLO-OP.md §1.2).

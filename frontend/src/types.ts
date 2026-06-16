@@ -242,3 +242,150 @@ export interface Territory {
   executionProjectsCount: number;
   activeCitizensCount: number;
 }
+
+export type OPCyclePhase =
+  | 'Rascunho'
+  | 'Inscrições'
+  | 'Coleta'
+  | 'Votação'
+  | 'Consolidação'
+  | 'Institucionalização'
+  | 'Encerrado'
+  | 'Cancelado';
+
+export interface OPRegimento {
+  councilSize: number;
+  consecutiveTerms: number;
+  supportThresholdPct: number;
+  votingQuorumPct: number;
+  recallQuorumPct: number;
+  equalSharePct: number;
+  structuringPct: number;
+  inscriptionWindow: number;
+  maturationWindow: number;
+  votingWindow: number;
+}
+
+export interface OPCalendar {
+  inscriptionStart: string;
+  sortitionAt: string;
+  collectionStart: string;
+  votingStart: string;
+  votingEnd: string;
+}
+
+export interface OPCycle {
+  id: string;
+  label: string;
+  phase: OPCyclePhase;
+  regimento: OPRegimento;
+  envelopeTotal: number;
+  startsAt?: string | null;
+  loaDeadline?: string | null;
+  calendar?: OPCalendar;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type BudgetDemandStatus =
+  | 'Recebida'
+  | 'Engajamento inicial'
+  | 'Precisa de informações'
+  | 'Agrupada'
+  | 'Maturação territorial'
+  | 'Validada territorialmente'
+  | 'Apta para priorização'
+  | 'Incluída na matriz orçamentária'
+  | 'Em execução'
+  | 'Concluída'
+  | 'Dormente'
+  | 'Arquivada';
+
+export interface BudgetDemandComment {
+  id: string;
+  authorName: string;
+  content: string;
+  createdAt: string;
+}
+
+export type BudgetDemandLinkType = 'grouped_into' | 'grouped_from' | 'fork' | 'forked_from';
+
+export interface BudgetDemandLink {
+  type: BudgetDemandLinkType;
+  demandId: string;
+  demandTitle: string;
+  demandStatus: BudgetDemandStatus;
+  reason: string;
+  createdAt: string;
+}
+
+export interface BudgetDemand {
+  id: string;
+  cycleId: string;
+  territoryId: string;
+  territoryName: string;
+  title: string;
+  description: string;
+  location: string;
+  category: string;
+  authorName: string;
+  status: BudgetDemandStatus;
+  supports: number;
+  supportThreshold: number;
+  supportProgressPercent: number;
+  supportReached: boolean;
+  groupedIntoDemandId?: string;
+  forkedFromDemandId?: string;
+  links: BudgetDemandLink[];
+  comments: BudgetDemandComment[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type BudgetProposalStatus =
+  | 'Em elaboração'
+  | 'Apta para votação'
+  | 'Em votação'
+  | 'Priorizada'
+  | 'Incluída na matriz'
+  | 'Retornada para maturação'
+  | 'Arquivada';
+
+export interface BudgetProposal {
+  id: string;
+  cycleId: string;
+  demandId: string;
+  territoryId: string;
+  territoryName: string;
+  title: string;
+  problemSummary: string;
+  solutionScope: string;
+  estimatedCostCents: number;
+  category: string;
+  authorName: string;
+  status: BudgetProposalStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface OPVoting {
+  id: string;
+  cycleId: string;
+  proposalId: string;
+  territoryId: string;
+  territoryName: string;
+  title: string;
+  summary: string;
+  deadline: string;
+  quorumNeeded: number;
+  quorumReached: number;
+  votesYes: number;
+  votesNo: number;
+  votesAbstain: number;
+  status: VotingStatus;
+  hasVoted?: boolean;
+  userVoteSelection?: VoteSelectionValue;
+  voteReceipt?: string;
+  createdAt: string;
+  updatedAt: string;
+}

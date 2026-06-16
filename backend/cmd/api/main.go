@@ -18,6 +18,9 @@ import (
 	"codigo-publico/backend/internal/health"
 	appmiddleware "codigo-publico/backend/internal/middleware"
 	"codigo-publico/backend/internal/op"
+	opdemands "codigo-publico/backend/internal/op/demands"
+	opproposals "codigo-publico/backend/internal/op/proposals"
+	opvotings "codigo-publico/backend/internal/op/votings"
 	publicapi "codigo-publico/backend/internal/public"
 	appredis "codigo-publico/backend/internal/redis"
 	"codigo-publico/backend/internal/territorial"
@@ -59,6 +62,9 @@ func main() {
 	authHandler := auth.NewHandler(dbPool, cfg.JWTSecret, cfg.CPFHashSecret, cfg.JWTExpiration)
 	territorialHandler := territorial.NewHandler(dbPool)
 	opHandler := op.NewHandler(dbPool)
+	opDemandHandler := opdemands.NewHandler(dbPool)
+	opProposalHandler := opproposals.NewHandler(dbPool)
+	opVotingHandler := opvotings.NewHandler(dbPool)
 	auditHandler := audit.NewHandler(dbPool, blockchain.FromMode(cfg.AnchorMode, logger))
 
 	router.Route("/api/v1", func(r chi.Router) {
@@ -108,6 +114,18 @@ func main() {
 			r.Post("/admin/op/cycles/{id}/advance", opHandler.AdvanceCycle)
 			r.Post("/admin/op/cycles/{id}/cancel", opHandler.CancelCycle)
 			r.Post("/admin/op/envelope/preview", opHandler.PreviewEnvelope)
+			r.Post("/op/demands", opDemandHandler.CreateDemand)
+			r.Post("/op/demands/{id}/support", opDemandHandler.SupportDemand)
+			r.Post("/op/demands/{id}/comments", opDemandHandler.CreateComment)
+			r.Post("/op/demands/{id}/mature", opDemandHandler.StartMaturation)
+			r.Post("/op/demands/{id}/request-info", opDemandHandler.RequestInfo)
+			r.Post("/op/demands/{id}/validate-territory", opDemandHandler.ValidateTerritory)
+			r.Post("/op/demands/{id}/mark-ready", opDemandHandler.MarkReady)
+			r.Post("/op/demands/{id}/group", opDemandHandler.GroupDemand)
+			r.Post("/op/demands/{id}/fork", opDemandHandler.ForkDemand)
+			r.Post("/op/demands/{id}/proposal", opProposalHandler.CreateProposalFromDemand)
+			r.Post("/op/proposals/{id}/voting", opVotingHandler.OpenVoting)
+			r.Post("/op/votings/{id}/vote", opVotingHandler.CastVote)
 
 			// Integridade da auditoria (ancoragem exige papel administrativo)
 			r.Post("/admin/audit/anchor", auditHandler.CreateAnchor)
@@ -121,7 +139,18 @@ func main() {
 		r.Get("/territories/{id}/governance", territorialHandler.TerritoryGovernance)
 
 		r.Get("/op/cycles", opHandler.ListCycles)
+		r.Get("/op/cycles/current", opHandler.GetCurrentCycle)
 		r.Get("/op/cycles/{id}", opHandler.GetCycle)
+		r.Get("/op/demands", opDemandHandler.ListDemands)
+		r.Get("/op/demands/{id}", opDemandHandler.GetDemand)
+		r.Get("/territories/{id}/demands", opDemandHandler.ListDemandsByTerritory)
+		r.Get("/op/proposals", opProposalHandler.ListProposals)
+		r.Get("/op/proposals/{id}", opProposalHandler.GetProposal)
+		r.Get("/territories/{id}/proposals", opProposalHandler.ListProposalsByTerritory)
+		r.Get("/op/votings", opVotingHandler.ListVotings)
+		r.Get("/op/votings/{id}", opVotingHandler.GetVoting)
+		r.Get("/op/votings/{id}/results", opVotingHandler.GetResults)
+		r.Get("/territories/{id}/op-votings", opVotingHandler.ListVotingsByTerritory)
 
 		r.Get("/audit/head", auditHandler.GetChainHead)
 		r.Get("/audit/anchors", auditHandler.ListAnchors)

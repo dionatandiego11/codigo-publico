@@ -9,11 +9,14 @@ import { AuthModal, useAuth } from './auth';
 import { entityPath, routeEntityId, useBrowserRouter } from './app/useBrowserRouter';
 import {
   useIssues,
+  useOPDemands,
+  useOPProposals,
+  useOPVotings,
   usePRs,
   usePublicData,
   useVotings
 } from './hooks';
-import type { NewCivicPRData, NewIssueData, VoteSelection, WriteSource } from './hooks';
+import type { NewBudgetDemandData, NewBudgetProposalData, NewCivicPRData, NewIssueData, VoteSelection, WriteSource } from './hooks';
 import {
   CitizenArea,
   ExecutionCenter,
@@ -22,11 +25,15 @@ import {
   IssueComposer,
   IssueDetailPage,
   IssueList,
+  OPDemandComposer,
+  OPDemandDetailPage,
+  OPDemandList,
+  OPProposalList,
+  OPVotingCenter,
   PRDetailPage,
   PRList,
   RepositoryIndex,
   RepositoryWorkspace,
-  VotingCenter,
   isRepoTab
 } from './pages';
 import type { RepositorySummary } from './pages';
@@ -34,7 +41,7 @@ import { PRCreationWizard } from './shared/civic';
 import { Navbar, BottomNav } from './shared/layout';
 import { useToast } from './shared/feedback/ToastContext';
 import { motion, AnimatePresence } from 'motion/react';
-import type { IssueStatus, PRStatus } from './types';
+import type { BudgetDemand, BudgetProposal, IssueStatus, PRStatus } from './types';
 
 export default function App() {
   const { currentPath, setPath } = useBrowserRouter();
@@ -55,6 +62,9 @@ export default function App() {
   } = usePublicData({ isAuthenticated });
 
   const { issues, addIssue, commentOnIssue, upvoteIssue, triageIssue } = useIssues();
+  const { demands, addDemand, supportDemand, commentOnDemand, transitionDemand, groupDemand, forkDemand } = useOPDemands();
+  const { proposals, createFromDemand } = useOPProposals();
+  const { opVotings, openForProposal, castVote: castOPVote } = useOPVotings();
   const { prs, addPR, commentOnPR, upvotePR, triagePR } = usePRs({
     onPRMerged: applyMergedPR,
     onPRMergedRemotely: () => {
@@ -65,6 +75,9 @@ export default function App() {
 
   const selectedPRRouteId = routeEntityId(currentPath, '/prs');
   const selectedIssueRouteId = routeEntityId(currentPath, '/issues');
+  const selectedDemandRouteId = currentPath.startsWith('/demandas/')
+    ? decodeURIComponent(currentPath.slice('/demandas/'.length))
+    : null;
 
   const previousCitizenIdRef = useRef<string | null>(null);
   useEffect(() => {
@@ -117,6 +130,17 @@ export default function App() {
     });
   };
 
+  const handleAddNewDemand = (formData: NewBudgetDemandData) => {
+    requireAuth(() => {
+      void addDemand(formData)
+        .then(({ demand, source }) => {
+          notifyWriteSource(source, `Demanda ${demand.id} registrada.`);
+          setPath(`/demandas/${encodeURIComponent(demand.id)}`);
+        })
+        .catch(notifyActionRejected);
+    });
+  };
+
   const handleAddNewPR = (formData: NewCivicPRData) => {
     requireAuth(authenticated => {
       void addPR({ ...formData, authorName: authenticated.fullName })
@@ -154,6 +178,97 @@ export default function App() {
       void commentOnIssue(issueId, content, authenticated.fullName)
         .then(source => {
           notifyWriteSource(source, 'Comentário publicado.');
+        })
+        .catch(notifyActionRejected);
+    });
+  };
+
+  const handleSupportDemand = (demandId: string) => {
+    requireAuth(() => {
+      void supportDemand(demandId)
+        .then(source => {
+          notifyWriteSource(source, 'Apoio registrado na demanda.');
+        })
+        .catch(notifyActionRejected);
+    });
+  };
+
+  const handleCommentDemand = (demandId: string, content: string) => {
+    requireAuth(authenticated => {
+      void commentOnDemand(demandId, content, authenticated.fullName)
+        .then(source => {
+          notifyWriteSource(source, 'Comentário publicado na demanda.');
+        })
+        .catch(notifyActionRejected);
+    });
+  };
+
+  const handleTransitionDemand = (
+    demandId: string,
+    transition: 'mature' | 'request-info' | 'validate-territory' | 'mark-ready',
+    reason?: string
+  ) => {
+    requireAuth(() => {
+      void transitionDemand(demandId, transition, reason)
+        .then(source => {
+          notifyWriteSource(source, 'Demanda movida na esteira.');
+        })
+        .catch(notifyActionRejected);
+    });
+  };
+
+  const handleGroupDemand = (sourceId: string, targetDemandId: string, reason: string) => {
+    requireAuth(() => {
+      void groupDemand(sourceId, targetDemandId, reason)
+        .then(source => {
+          notifyWriteSource(source, 'Demanda agrupada.');
+        })
+        .catch(notifyActionRejected);
+    });
+  };
+
+  const handleForkDemand = (
+    sourceId: string,
+    data: { title: string; description?: string; location?: string; category?: string; reason?: string }
+  ) => {
+    requireAuth(() => {
+      void forkDemand(sourceId, data)
+        .then(({ demand, source }) => {
+          notifyWriteSource(source, `Fork ${demand.id} criado.`);
+          setPath(`/demandas/${encodeURIComponent(demand.id)}`);
+        })
+        .catch(notifyActionRejected);
+    });
+  };
+
+  const handleCreateProposal = (demand: BudgetDemand, data: NewBudgetProposalData) => {
+    requireAuth(() => {
+      void createFromDemand(demand, data)
+        .then(({ proposal, source }) => {
+          notifyWriteSource(source, `Proposta ${proposal.id} criada.`);
+          setPath('/propostas');
+        })
+        .catch(notifyActionRejected);
+    });
+  };
+
+  const handleOpenOPVoting = (proposal: BudgetProposal) => {
+    requireAuth(() => {
+      void openForProposal(proposal)
+        .then(({ voting, source }) => {
+          notifyWriteSource(source, `Votação ${voting.id} aberta.`);
+          setPath('/votacoes');
+        })
+        .catch(notifyActionRejected);
+    });
+  };
+
+  const handleCastOPVote = (votingId: string, selection: VoteSelection) => {
+    requireAuth(() => {
+      void castOPVote(votingId, selection)
+        .then(receipt => {
+          addVoteReceipt(receipt);
+          notifyWriteSource(receipt.source, `Voto computado. Recibo: ${receipt.receipt}`);
         })
         .catch(notifyActionRejected);
     });
@@ -212,6 +327,22 @@ export default function App() {
     fallbackRepository;
 
   const page = (() => {
+    if (selectedDemandRouteId) {
+      return (
+        <OPDemandDetailPage
+          demand={demands.find(demand => demand.id === selectedDemandRouteId)}
+          demands={demands}
+          onBack={() => setPath('/demandas')}
+          onSupport={handleSupportDemand}
+          onComment={handleCommentDemand}
+          onTransition={handleTransitionDemand}
+          onGroup={handleGroupDemand}
+          onFork={handleForkDemand}
+          onCreateProposal={handleCreateProposal}
+        />
+      );
+    }
+
     if (selectedIssueRouteId) {
       return (
         <IssueDetailPage
@@ -277,6 +408,29 @@ export default function App() {
       );
     }
 
+    if (currentPath === '/demandas') {
+      return (
+        <div className="grid gap-6 lg:grid-cols-[1fr_360px] fade-in">
+          <OPDemandList demands={demands} onSelect={demandId => setPath(`/demandas/${encodeURIComponent(demandId)}`)} />
+          <OPDemandComposer
+            territories={territories}
+            onSubmit={handleAddNewDemand}
+          />
+        </div>
+      );
+    }
+
+    if (currentPath === '/propostas') {
+      return (
+        <OPProposalList
+          proposals={proposals}
+          votings={opVotings}
+          onOpenVoting={handleOpenOPVoting}
+          onSelectVoting={() => setPath('/votacoes')}
+        />
+      );
+    }
+
     if (currentPath === '/prs') {
       return (
         <div className="grid gap-6 lg:grid-cols-[1fr_380px] fade-in">
@@ -313,11 +467,9 @@ export default function App() {
 
     if (currentPath === '/votacoes') {
       return (
-        <VotingCenter
-          votings={votacoes}
-          prs={prs}
-          onVote={handleCastVote}
-          onSelectPR={prId => setPath(entityPath('/prs', prId))}
+        <OPVotingCenter
+          votings={opVotings}
+          onVote={handleCastOPVote}
         />
       );
     }

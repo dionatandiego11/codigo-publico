@@ -8,6 +8,9 @@ import { MOCK_REPOSITORIOS } from './mock-data';
 import {
   Citizen,
   CitizenDashboardData,
+  BudgetDemand,
+  BudgetDemandComment,
+  BudgetProposal,
   CivicPR,
   ExecutionTracker,
   InstitutionalCheck,
@@ -15,6 +18,8 @@ import {
   IssueStatus,
   LawArticle,
   NormativeDiff,
+  OPVoting,
+  OPCycle,
   PRStatus,
   PRReview,
   Release,
@@ -89,6 +94,30 @@ export async function getExecutions(): Promise<ExecutionTracker[]> {
 
 export async function getPublicStats(): Promise<PublicStats> {
   return requestJSON<PublicStats>('/public-stats');
+}
+
+export async function getOPCycles(): Promise<OPCycle[]> {
+  return requestJSON<OPCycle[]>('/op/cycles');
+}
+
+export async function getCurrentOPCycle(): Promise<OPCycle | undefined> {
+  return requestOptionalJSON<OPCycle>('/op/cycles/current');
+}
+
+export async function getOPCycleById(id: string): Promise<OPCycle | undefined> {
+  return requestOptionalJSON<OPCycle>(`/op/cycles/${routeId(id)}`);
+}
+
+export async function getOPDemands(): Promise<BudgetDemand[]> {
+  return requestJSON<BudgetDemand[]>('/op/demands');
+}
+
+export async function getOPDemandById(id: string): Promise<BudgetDemand | undefined> {
+  return requestOptionalJSON<BudgetDemand>(`/op/demands/${routeId(id)}`);
+}
+
+export async function getTerritoryOPDemands(territoryId: string): Promise<BudgetDemand[]> {
+  return requestJSON<BudgetDemand[]>(`/territories/${routeId(territoryId)}/demands`);
 }
 
 export async function getVotings(): Promise<Voting[]> {
@@ -239,6 +268,120 @@ export interface PRAllowedTransitions {
 /** Transições da máquina de estados que o cidadão autenticado pode disparar. */
 export async function getPRTransitions(prId: string): Promise<PRAllowedTransitions> {
   return requestJSON<PRAllowedTransitions>(`/prs/${routeId(prId)}/transitions`);
+}
+
+// --- Orçamento Participativo: demandas simples -------------------------------
+
+export interface CreateBudgetDemandData {
+  territoryId: string;
+  title: string;
+  description?: string;
+  location?: string;
+  category: string;
+}
+
+export async function createOPDemand(data: CreateBudgetDemandData): Promise<BudgetDemand> {
+  return postJSON<BudgetDemand>('/op/demands', data);
+}
+
+export async function supportOPDemand(id: string): Promise<BudgetDemand> {
+  return postJSON<BudgetDemand>(`/op/demands/${routeId(id)}/support`);
+}
+
+export async function createOPDemandComment(id: string, content: string): Promise<BudgetDemandComment> {
+  return postJSON<BudgetDemandComment>(`/op/demands/${routeId(id)}/comments`, { content });
+}
+
+export async function matureOPDemand(id: string, reason?: string): Promise<BudgetDemand> {
+  return postJSON<BudgetDemand>(`/op/demands/${routeId(id)}/mature`, { reason });
+}
+
+export async function requestOPDemandInfo(id: string, reason: string): Promise<BudgetDemand> {
+  return postJSON<BudgetDemand>(`/op/demands/${routeId(id)}/request-info`, { reason });
+}
+
+export async function validateOPDemandTerritory(id: string, reason?: string): Promise<BudgetDemand> {
+  return postJSON<BudgetDemand>(`/op/demands/${routeId(id)}/validate-territory`, { reason });
+}
+
+export async function markOPDemandReady(id: string, reason?: string): Promise<BudgetDemand> {
+  return postJSON<BudgetDemand>(`/op/demands/${routeId(id)}/mark-ready`, { reason });
+}
+
+export async function groupOPDemand(id: string, targetDemandId: string, reason: string): Promise<BudgetDemand> {
+  return postJSON<BudgetDemand>(`/op/demands/${routeId(id)}/group`, { targetDemandId, reason });
+}
+
+export interface ForkBudgetDemandData {
+  title: string;
+  description?: string;
+  location?: string;
+  category?: string;
+  reason?: string;
+}
+
+export async function forkOPDemand(id: string, data: ForkBudgetDemandData): Promise<BudgetDemand> {
+  return postJSON<BudgetDemand>(`/op/demands/${routeId(id)}/fork`, data);
+}
+
+// --- Orçamento Participativo: propostas --------------------------------------
+
+export async function getOPProposals(): Promise<BudgetProposal[]> {
+  return requestJSON<BudgetProposal[]>('/op/proposals');
+}
+
+export async function getOPProposalById(id: string): Promise<BudgetProposal | undefined> {
+  return requestOptionalJSON<BudgetProposal>(`/op/proposals/${routeId(id)}`);
+}
+
+export async function getTerritoryOPProposals(territoryId: string): Promise<BudgetProposal[]> {
+  return requestJSON<BudgetProposal[]>(`/territories/${routeId(territoryId)}/proposals`);
+}
+
+export interface CreateBudgetProposalData {
+  title?: string;
+  problemSummary?: string;
+  solutionScope: string;
+  estimatedCostCents: number;
+  category?: string;
+}
+
+export async function createOPProposalFromDemand(demandId: string, data: CreateBudgetProposalData): Promise<BudgetProposal> {
+  return postJSON<BudgetProposal>(`/op/demands/${routeId(demandId)}/proposal`, data);
+}
+
+// --- Orçamento Participativo: votações territoriais --------------------------
+
+export async function getOPVotings(): Promise<OPVoting[]> {
+  return requestJSON<OPVoting[]>('/op/votings');
+}
+
+export async function getOPVotingById(id: string): Promise<OPVoting | undefined> {
+  return requestOptionalJSON<OPVoting>(`/op/votings/${routeId(id)}`);
+}
+
+export async function getTerritoryOPVotings(territoryId: string): Promise<OPVoting[]> {
+  return requestJSON<OPVoting[]>(`/territories/${routeId(territoryId)}/op-votings`);
+}
+
+export async function openOPVotingForProposal(proposalId: string): Promise<OPVoting> {
+  return postJSON<OPVoting>(`/op/proposals/${routeId(proposalId)}/voting`);
+}
+
+export interface OPVotingResults extends VotingResults {}
+
+export interface CastOPVoteResponse {
+  receiptCode: string;
+  voting: OPVoting;
+  results: OPVotingResults;
+}
+
+export async function castOPVote(votingId: string, selection: VoteSelectionValue): Promise<CastOPVoteResponse> {
+  return postJSON<CastOPVoteResponse>(`/op/votings/${routeId(votingId)}/vote`, { selection });
+}
+
+export async function getOPVotingResults(votingId: string): Promise<OPVotingResults> {
+  return requestJSON<OPVotingResults>(`/op/votings/${routeId(votingId)}/results`);
 }
 
 // --- Votação ------------------------------------------------------------------

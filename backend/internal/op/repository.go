@@ -94,6 +94,14 @@ func (r *Repository) getCycle(ctx context.Context, cycleID string) (Cycle, error
 	return scanCycle(r.db.QueryRow(ctx, cycleSelectSQL+` WHERE id = $1::uuid`, cycleID))
 }
 
+func (r *Repository) getCurrentCycle(ctx context.Context) (Cycle, error) {
+	return scanCycle(r.db.QueryRow(ctx, cycleSelectSQL+`
+		WHERE phase NOT IN ('Encerrado','Cancelado')
+		ORDER BY created_at DESC
+		LIMIT 1
+	`))
+}
+
 func (r *Repository) listCycles(ctx context.Context) ([]Cycle, error) {
 	rows, err := r.db.Query(ctx, cycleSelectSQL+` ORDER BY created_at DESC`)
 	if err != nil {

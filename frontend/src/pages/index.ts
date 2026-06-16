@@ -6,8 +6,10 @@
 export { FlowHome } from './HomePage';
 export { RepositoryIndex, RepositoryWorkspace } from './RepositoryPages';
 export { IssueComposer, IssueDetailPage, IssueList } from './IssuePages';
+export { OPDemandComposer, OPDemandDetailPage, OPDemandList } from './OPDemandPages';
+export { OPProposalList } from './OPProposalPages';
 export { BranchBoard, PRDetailPage, PRList } from './PRPages';
-export { VotingCenter } from './VotingCenterPage';
+export { OPVotingCenter, VotingCenter } from './VotingCenterPage';
 export { ReleaseList } from './ReleaseListPage';
 export { ExecutionCenter } from './ExecutionCenterPage';
 export { CitizenArea } from './CitizenAreaPage';

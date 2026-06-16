@@ -7,8 +7,8 @@ import { ArrowRight } from 'lucide-react';
 import { VOTE_SELECTIONS } from '../contracts/civic';
 import type { VoteSelection } from '../hooks';
 import { VoteBar } from '../shared/civic';
-import { Badge, PageTitle, statusClass } from '../shared/ui';
-import type { CivicPR, Voting } from '../types';
+import { Badge, formatDate, PageTitle, statusClass } from '../shared/ui';
+import type { CivicPR, OPVoting, Voting } from '../types';
 
 export function VotingCenter({
   votings,
@@ -63,6 +63,75 @@ export function VotingCenter({
             </div>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+export function OPVotingCenter({
+  votings,
+  onVote
+}: {
+  votings: OPVoting[];
+  onVote: (votingId: string, selection: VoteSelection) => void;
+}) {
+  return (
+    <div className="space-y-6 fade-in">
+      <PageTitle
+        eyebrow="Orçamento Participativo"
+        title="Votações territoriais"
+        subtitle="Propostas maduras entram em votação no território antes de compor a matriz municipal do OP."
+      />
+
+      <div className="grid gap-4">
+        {votings.length === 0 && (
+          <div className="glass-panel p-8 text-center text-sm text-[var(--color-git-muted)] rounded-[20px]">
+            Nenhuma proposta do OP está em votação.
+          </div>
+        )}
+
+        {votings.map(voting => (
+          <article key={voting.id} className="glass-panel hover-glow p-5 rounded-[20px]">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge className={statusClass(voting.status)}>{voting.status}</Badge>
+              <Badge className="chip-purple">{voting.id}</Badge>
+              <Badge className="chip-blue">{voting.territoryName}</Badge>
+            </div>
+            <h2 className="mt-3 font-display text-xl font-bold text-white">{voting.title}</h2>
+            <p className="mt-2 text-sm leading-6 text-[var(--color-git-muted)]">{voting.summary}</p>
+            <p className="mt-3 font-mono text-[10px] font-bold uppercase tracking-wider text-[var(--color-git-muted)]">
+              Prazo: {formatDate(voting.deadline)}
+            </p>
+
+            <VoteBar
+              className="mt-4"
+              approve={voting.votesYes}
+              reject={voting.votesNo}
+              abstain={voting.votesAbstain}
+              quorumReached={voting.quorumReached}
+              quorumNeeded={voting.quorumNeeded}
+            />
+
+            {voting.voteReceipt ? (
+              <p className="mt-4 rounded-xl border border-[var(--color-git-border2)] bg-white/[0.03] p-3 font-mono text-[10px] text-[var(--color-git-muted)]">
+                Recibo: <span className="text-[var(--color-git-green)]">{voting.voteReceipt}</span>
+              </p>
+            ) : (
+              <div className="mt-4 grid grid-cols-3 gap-2">
+                {VOTE_SELECTIONS.map(selection => (
+                  <button
+                    key={selection}
+                    onClick={() => onVote(voting.id, selection)}
+                    disabled={voting.status !== 'Aberta'}
+                    className="btn-secondary btn-sm justify-center disabled:opacity-45"
+                  >
+                    {selection}
+                  </button>
+                ))}
+              </div>
+            )}
+          </article>
+        ))}
       </div>
     </div>
   );

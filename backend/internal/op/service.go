@@ -225,6 +225,14 @@ func (s *Service) GetCycle(ctx context.Context, cycleID string) (Cycle, error) {
 	return cycle, err
 }
 
+func (s *Service) GetCurrentCycle(ctx context.Context) (Cycle, error) {
+	cycle, err := s.repo.getCurrentCycle(ctx)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Cycle{}, web.NewError(http.StatusNotFound, "nenhum ciclo de OP ativo")
+	}
+	return cycle, err
+}
+
 // PreviewEnvelope calcula a divisão do envelope sem persistir — apoia a UI a
 // simular o efeito do regimento e dos pesos de carência antes de fixar o ciclo.
 func (s *Service) PreviewEnvelope(ctx context.Context, citizenID string, input previewEnvelopeInput) (EnvelopeSplit, error) {

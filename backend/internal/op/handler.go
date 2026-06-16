@@ -142,6 +142,16 @@ func (h *Handler) ListCycles(w http.ResponseWriter, r *http.Request) {
 	web.WriteJSON(w, http.StatusOK, cycles)
 }
 
+// GET /op/cycles/current (público)
+func (h *Handler) GetCurrentCycle(w http.ResponseWriter, r *http.Request) {
+	cycle, err := h.service.GetCurrentCycle(r.Context())
+	if err != nil {
+		web.WriteError(w, err)
+		return
+	}
+	web.WriteJSON(w, http.StatusOK, cycle)
+}
+
 // GET /op/cycles/{id} (público)
 func (h *Handler) GetCycle(w http.ResponseWriter, r *http.Request) {
 	cycle, err := h.service.GetCycle(r.Context(), chi.URLParam(r, "id"))
