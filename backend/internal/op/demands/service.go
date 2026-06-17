@@ -106,6 +106,17 @@ func (s *Service) SupportDemand(ctx context.Context, citizenID string, identifie
 		return Demand{}, err
 	}
 
+	rec, err := s.repo.demandRecord(ctx, strings.TrimSpace(identifier))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Demand{}, web.NewError(http.StatusNotFound, "demanda não encontrada")
+	}
+	if err != nil {
+		return Demand{}, err
+	}
+	if err := canSupportDemand(rec.CyclePhase, a.TerritoryID, rec.TerritoryID); err != nil {
+		return Demand{}, err
+	}
+
 	demand, err := s.repo.supportDemand(ctx, a, strings.TrimSpace(identifier))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Demand{}, web.NewError(http.StatusNotFound, "demanda não encontrada")

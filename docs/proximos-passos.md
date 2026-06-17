@@ -3,7 +3,7 @@
 Roteiro atualizado para transformar o Codigo Publico em uma infraestrutura publica
 de Orcamento Participativo municipal, partindo do estado real do codigo.
 
-Atualizado em 16/06/2026.
+Atualizado em 17/06/2026.
 
 ## Direcao Atual
 
@@ -57,16 +57,18 @@ Ja existe:
   - console de ciclo em `/admin`;
 - vinculo territorial com pedido, recurso e validacao pelo maintainer;
 - auditoria com hash encadeado e ancoragem noop/log;
-- votacao com recibo opaco e resultado agregado.
+- votacao com recibo opaco, resultado agregado e trava contra encerramento
+  antecipado;
+- apoio comunitario restrito ao territorio da demanda e a fase de Coleta.
 
 Ainda falta:
 
 - tornar o bootstrap institucional claro para abrir o primeiro ciclo em ambiente real;
 - persistir inscricao e sorteio do conselho territorial;
-- fechar a UI de resolucao da votacao territorial;
-- criar UI do filtro institucional do OP;
-- criar pagina publica de incidentes de divergencia;
-- gatear a UI por papel, territorio e fase do ciclo;
+- automatizar ou operacionalizar encerramento de votacoes vencidas;
+- lapidar o fluxo de retorno territorial depois do filtro institucional do OP;
+- aprofundar a pagina publica de incidentes de divergencia com vinculo ao detalhe da proposta;
+- completar os fluxos visiveis depois dos gates de papel, territorio e fase;
 - persistir sub-envelope territorial e filtros;
 - construir matriz OP, institucionalizacao, execucao e aprendizado no novo dominio;
 - substituir ou isolar melhor as telas legadas de issue/PR/Lei Organica.
@@ -75,15 +77,15 @@ Ainda falta:
 
 | Stage | Backend | UI | Proximo ajuste |
 |---|---|---|---|
-| 0 - Abrir e avancar ciclo | OK | Parcial | Existe `/admin`, mas falta bootstrap claro, configuracao completa em Rascunho e CTA para ator autorizado. |
+| 0 - Abrir e avancar ciclo | OK | Parcial | Existe `/admin` com criacao, configuracao em Rascunho e avanco; falta bootstrap claro e CTA quando nao ha ciclo ativo. |
 | 1 - Cadastro + vinculo territorial | OK | Parcial | Cadastro e pedido de vinculo existem; painel de validacao precisa entrar no fluxo principal de admin territorial. |
 | 2-3 - Inscricao + sorteio do conselho | Parcial | Falta | Sorteio existe como policy pura; faltam inscricoes, persistencia, endpoint, seed publica, resultado e suplentes. |
-| 4-7 - Demanda, apoio, fork, maturacao | OK | Parcial | Jornada existe, mas acoes de maintainer aparecem para qualquer usuario e precisam respeitar papel/fase. |
+| 4-7 - Demanda, apoio, fork, maturacao | OK | Parcial | Jornada existe e a UI ja bloqueia acoes por papel/fase/territorio; falta lapidar textos e refresh automatico apos mudanca de fase. |
 | 8 - Circuit breaker | Parcial | Parcial | Regra existe, mas usa envelope total enquanto sub-envelope territorial nao e persistido; UI precisa explicar retornos. |
-| 9-10 - Proposta apta e votacao | OK | Parcial | Abrir votacao e votar funcionam; UI precisa respeitar fase `Votacao` e papel autorizado. |
-| 11 - Resolucao da votacao | OK | Falta | Endpoint existe, mas falta botao/fluxo de encerramento e exibicao de `Priorizada` ou `Retornada`. |
-| 12 - Filtro institucional | OK | Falta | Backend distingue admitir, filtrar e veto politico; falta painel OP. |
-| 12b - Incidentes de divergencia | OK | Falta | Endpoint publico existe; falta pagina publica de accountability. |
+| 9-10 - Proposta apta e votacao | OK | Parcial | Abrir votacao, votar e encerrar votacao funcionam com gates de fase/papel/territorio; falta automatizar vencidas. |
+| 11 - Resolucao da votacao | OK | Parcial | Encerramento manual existe na UI; falta avaliar job automatico para votacoes vencidas. |
+| 12 - Filtro institucional | OK | Parcial | Painel OP existe no admin; falta conectar a visualizacao publica dos incidentes e lapidar fluxo de retorno ao territorio. |
+| 12b - Incidentes de divergencia | OK | Parcial | Endpoint e pagina publica existem; falta detalhe navegavel da proposta e leitura por ciclo. |
 | 13-16 - Matriz, PPA, execucao, aprendizado | Parcial | Parcial | Execucao atual ainda e do modelo legado; falta dominio OP completo. |
 
 ## Problemas Reais a Resolver Primeiro
@@ -101,17 +103,19 @@ abertura do primeiro ciclo depende de usuario com papel ou maintainership corret
   - `POST /api/v1/admin/op/cycles/{id}/cancel`.
 - [x] Tela inicial de admin para criar e avancar ciclo.
 - [ ] Criar ou documentar bootstrap de usuario `sysadmin` / Maintainer Geral.
-- [ ] Permitir configurar ciclo em Rascunho pela UI, usando endpoint de configure.
+- [x] Permitir configurar ciclo em Rascunho pela UI, usando endpoint de configure.
 - [ ] Mostrar CTA administrativo na home quando nao ha ciclo ativo e o usuario tem permissao.
 - [ ] Mostrar explicacao publica quando nao ha ciclo ativo e o usuario nao tem permissao.
 
 ### 2. Dois mundos institucionais coexistindo
 
 O modelo antigo de Lei/issue/PR ainda aparece em partes do app. O novo filtro
-institucional do OP ja existe no backend, mas nao tem UI.
+institucional do OP ja existe no backend e no painel administrativo, mas ainda
+precisa ficar melhor conectado ao retorno territorial e a visibilidade publica
+dos incidentes de divergencia.
 
-- [ ] Criar painel institucional do OP para propostas `Priorizada`.
-- [ ] Permitir tres desfechos com justificativa:
+- [x] Criar painel institucional do OP para propostas `Priorizada`.
+- [x] Permitir tres desfechos com justificativa:
   - admitir na matriz;
   - filtrar por fundamento formal;
   - registrar veto politico.
@@ -125,91 +129,103 @@ veto politico rastreavel e custoso. Hoje ele existe no backend, mas nao aparece
 para a sociedade.
 
 - [x] Backend de incidentes em `GET /api/v1/op/divergence-incidents`.
-- [ ] Criar pagina publica de incidentes de divergencia.
-- [ ] Mostrar proposta, territorio, justificativa, responsavel institucional e data.
-- [ ] Linkar a pagina a partir da home, propostas e painel institucional.
-- [ ] Corrigir auditoria do incidente para usar UUID interno em `entity_id` e `public_id` em `entity_public_id`.
+- [x] Criar pagina publica de incidentes de divergencia.
+- [x] Mostrar proposta, territorio, justificativa, responsavel institucional e data.
+- [x] Linkar a pagina a partir da home, propostas e painel institucional.
+- [x] Corrigir auditoria do incidente para usar UUID interno em `entity_id` e `public_id` em `entity_public_id`.
 
 ## Prioridade 1 - Corrigir Regras Bloqueadoras
 
 Antes de ampliar o produto, corrigir pontos que podem quebrar o rito ou gerar
 decisao invalida.
 
-- [ ] Corrigir `votingWindow` salvo como `time.Duration` no JSON do regimento:
+Status em 17/06/2026: os bloqueadores de rito foram corrigidos. O regimento do
+ciclo agora serializa janelas em dias no contrato publico/JSONB, mantendo
+`time.Duration` apenas como representacao interna do dominio.
+
+- [x] Corrigir `votingWindow` salvo como `time.Duration` no JSON do regimento:
   - hoje o SQL trata `votingWindow` como dias;
   - deve usar duracao real ou persistir janelas em dias de forma explicita.
-- [ ] Impedir apoio de cidadao fora do territorio da demanda.
-- [ ] Impedir apoio fora da fase `Coleta`, salvo regra explicita em contrario.
-- [ ] Impedir resolucao de votacao antes do prazo, ou exigir justificativa formal auditada.
-- [ ] Corrigir auditoria de `op_divergence_incident` para nao enviar `DIV-001` como UUID.
-- [ ] Criar testes para estes quatro casos.
+- [x] Impedir apoio de cidadao fora do territorio da demanda.
+- [x] Impedir apoio fora da fase `Coleta`, salvo regra explicita em contrario.
+- [x] Impedir resolucao de votacao antes do prazo, ou exigir justificativa formal auditada.
+- [x] Corrigir auditoria de `op_divergence_incident` para nao enviar `DIV-001` como UUID.
+- [x] Criar testes unitarios para apoio territorial/fase e encerramento antes do prazo.
+- [x] Criar teste/contrato para `votingWindow` depois de definir o formato final.
+- [ ] Criar teste de repository/integracao para auditoria de incidente.
 
 ## Prioridade 2 - Gatear UI por Papel, Territorio e Fase
 
 A UI deve traduzir a regra do backend, nao expor botoes que viram 403/409.
 
-- [ ] Usar `useAdminContext` nas telas de demanda, proposta e votacao.
-- [ ] Esconder ou desabilitar acoes de maintainer territorial para cidadao comum:
+- [x] Usar `useAdminContext` nas telas de demanda, proposta e votacao.
+- [x] Esconder ou desabilitar acoes de maintainer territorial para cidadao comum:
   - maturar;
   - pedir informacao;
   - validar territorialmente;
   - marcar apta;
   - agrupar;
   - criar proposta.
-- [ ] Mostrar por que a acao esta indisponivel:
+- [x] Mostrar por que a acao esta indisponivel:
   - sem permissao territorial;
   - ciclo fora da fase correta;
   - apoio minimo nao atingido;
   - demanda em estado terminal.
-- [ ] Abrir votacao apenas quando:
+- [x] Abrir votacao apenas quando:
   - proposta esta `Apta para votacao`;
   - ciclo esta em `Votacao`;
   - usuario tem instancia territorial ou geral.
-- [ ] Votar apenas para cidadao vinculado ao territorio da proposta.
+- [x] Votar apenas para cidadao vinculado ao territorio da proposta.
+- [ ] Criar refresh do ciclo/contexto apos avancos administrativos para evitar fase desatualizada na UI.
 
 ## Prioridade 3 - Fechar Votacao Territorial
 
-O voto ja existe. Falta fechar o ciclo visivel da decisao.
+O ciclo visivel da decisao territorial ja esta fechado na UI. A pendencia agora
+e reduzir operacao manual para votacoes vencidas e deixar o retorno mais claro
+para o territorio.
 
 - [x] Abrir votacao territorial.
 - [x] Computar voto individual sem expor escolha publicamente.
 - [x] Emitir recibo opaco.
 - [x] Exibir resultado agregado.
-- [ ] Adicionar `resolveOPVoting` no client do frontend.
-- [ ] Adicionar acao "Encerrar votacao" para instancia territorial/geral.
-- [ ] Exibir resultado final:
+- [x] Adicionar `resolveOPVoting` no client do frontend.
+- [x] Adicionar acao "Encerrar votacao" para instancia territorial/geral.
+- [x] Exibir resultado final:
   - quorum atingido;
   - aprovada ou rejeitada;
   - proposta `Priorizada` ou `Retornada para maturacao`.
-- [ ] Atualizar lista de propostas depois do encerramento da votacao.
+- [x] Atualizar lista de propostas depois do encerramento da votacao.
 - [ ] Avaliar job automatico para encerrar votacoes do OP vencidas.
 
 ## Prioridade 4 - Implementar Filtro Institucional do OP na UI
 
-O backend ja implementa a decisao institucional, mas a UI ainda nao.
+O backend e a UI administrativa ja implementam a decisao institucional. Falta
+dar publicidade adequada aos incidentes e amadurecer o caminho de retorno ao
+territorio quando uma proposta nao avancar.
 
 - [x] Backend `POST /api/v1/admin/op/proposals/{id}/institutional-decision`.
 - [x] Policy de classificacao:
   - admitida;
   - filtrada por fundamento formal;
   - veto politico com incidente publico.
-- [ ] Criar chamada no frontend para decisao institucional.
-- [ ] Criar painel de propostas priorizadas aguardando decisao.
-- [ ] Formular texto de interface em linguagem cidada:
+- [x] Criar chamada no frontend para decisao institucional.
+- [x] Criar painel de propostas priorizadas aguardando decisao.
+- [x] Formular texto de interface em linguagem cidada:
   - "admitir na matriz";
   - "devolver com fundamento formal";
   - "registrar divergencia institucional".
-- [ ] Validar justificativa obrigatoria na UI.
-- [ ] Mostrar retorno ao territorio quando a proposta for filtrada.
+- [x] Validar justificativa obrigatoria na UI.
+- [x] Mostrar retorno ao territorio quando a proposta for filtrada.
+- [x] Criar visao publica dedicada para incidentes gerados por veto politico.
 
 ## Prioridade 5 - Publicar Incidentes de Divergencia
 
 Sem pagina publica, o veto politico continua invisivel.
 
-- [ ] Criar `getDivergenceIncidents` no frontend.
-- [ ] Criar pagina publica de incidentes.
-- [ ] Mostrar incidentes como registro civico, nao como tela tecnica.
-- [ ] Adicionar entrada na navegacao ou home.
+- [x] Criar `getDivergenceIncidents` no frontend.
+- [x] Criar pagina publica de incidentes.
+- [x] Mostrar incidentes como registro civico, nao como tela tecnica.
+- [x] Adicionar entrada na navegacao ou home.
 - [ ] Linkar incidente ao detalhe da proposta quando existir tela de proposta detalhada.
 
 ## Prioridade 6 - Completar Circuit Breaker e Filtros
@@ -348,16 +364,11 @@ privacidade.
 
 ## Sequencia Recomendada
 
-1. Corrigir bugs bloqueadores de rito: `votingWindow`, apoio territorial, resolucao antes do prazo e auditoria de incidente.
-2. Fechar bootstrap e painel de ciclo: criar, configurar, abrir e avancar ciclo com permissao clara.
-3. Gatear a UI por papel, territorio e fase.
-4. Implementar encerramento de votacao territorial e exibicao do resultado final.
-5. Implementar filtro institucional do OP na UI.
-6. Publicar incidentes de divergencia.
-7. Persistir sub-envelope territorial, filtros e retornos do circuit breaker.
-8. Persistir inscricao e sorteio do conselho territorial.
-9. Criar matriz OP, institucionalizacao, release do ciclo, execucao e aprendizado.
-10. Preparar piloto institucional com Camara municipal.
+1. Fechar bootstrap e painel de ciclo: criar, configurar, abrir e avancar ciclo com permissao clara.
+2. Persistir sub-envelope territorial, filtros e retornos do circuit breaker.
+3. Persistir inscricao e sorteio do conselho territorial.
+4. Criar matriz OP, institucionalizacao, release do ciclo, execucao e aprendizado.
+5. Preparar piloto institucional com Camara municipal.
 
 ## Frase Guia
 

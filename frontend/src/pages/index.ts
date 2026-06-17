@@ -8,5 +8,6 @@ export { OPDemandComposer, OPDemandDetailPage, OPDemandList } from './OPDemandPa
 export { OPProposalList } from './OPProposalPages';
 export { OPVotingCenter } from './VotingCenterPage';
 export { ExecutionCenter } from './ExecutionCenterPage';
+export { DivergenceIncidentsPage } from './DivergenceIncidentsPage';
 export { CitizenArea } from './CitizenAreaPage';
 export { CycleAdminPanel } from './CycleAdminPage';

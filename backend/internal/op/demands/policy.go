@@ -87,6 +87,21 @@ func canMarkReady(status string, supports, threshold int) error {
 	return nil
 }
 
+// canSupportDemand garante que o apoio pertence ao território e à janela
+// participativa correta. Apoio é gate popular do território, não sinal municipal.
+func canSupportDemand(cyclePhase, actorTerritoryID, demandTerritoryID string) error {
+	if !op.DemandsOpen(cyclePhase) {
+		return web.NewError(http.StatusConflict, "apoios só podem ser registrados na fase Coleta do ciclo de OP")
+	}
+	if actorTerritoryID == "" {
+		return web.NewError(http.StatusForbidden, "apoiar demanda exige vínculo territorial")
+	}
+	if actorTerritoryID != demandTerritoryID {
+		return web.NewError(http.StatusForbidden, "somente cidadãos vinculados ao território da demanda podem apoiar")
+	}
+	return nil
+}
+
 // groupFacts reúne os campos de uma demanda relevantes para o agrupamento.
 type groupFacts struct {
 	ID            string

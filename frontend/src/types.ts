@@ -261,9 +261,9 @@ export interface OPRegimento {
   recallQuorumPct: number;
   equalSharePct: number;
   structuringPct: number;
-  inscriptionWindow: number;
-  maturationWindow: number;
-  votingWindow: number;
+  inscriptionWindow: number; // dias
+  maturationWindow: number; // dias
+  votingWindow: number; // dias
 }
 
 export interface OPCalendar {
@@ -388,4 +388,15 @@ export interface OPVoting {
   voteReceipt?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface OPDivergenceIncident {
+  id: string;
+  proposalId: string;
+  proposalTitle: string;
+  territoryName: string;
+  reason: string;
+  decidedByName: string;
+  decidedByRole: string;
+  createdAt: string;
 }

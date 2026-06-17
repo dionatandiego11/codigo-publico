@@ -3,18 +3,23 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useEffect, useState, type ReactNode } from 'react';
-import { CalendarDays, CheckCircle2, Loader2, Plus, ShieldCheck, XCircle } from 'lucide-react';
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { AlertTriangle, CalendarDays, CheckCircle2, Gavel, Loader2, Plus, Save, ShieldCheck, XCircle } from 'lucide-react';
 import {
   advanceOPCycle,
   cancelOPCycle,
+  configureOPCycle,
   createOPCycle,
   getOPCycles,
-  type CycleConfigData
+  type AdminContext,
+  type CycleConfigData,
+  type InstitutionalDecisionData,
+  type InstitutionalDecisionGround,
+  type InstitutionalDecisionResult
 } from '../lib/api';
 import { useToast } from '../shared/feedback/ToastContext';
 import { Badge, PageTitle, statusClass } from '../shared/ui';
-import type { OPCycle, OPCyclePhase } from '../types';
+import type { BudgetProposal, OPCycle, OPCyclePhase } from '../types';
 
 const PHASE_ORDER: OPCyclePhase[] = [
   'Rascunho',
@@ -35,7 +40,20 @@ function isTerminal(phase: OPCyclePhase): boolean {
   return phase === 'Encerrado' || phase === 'Cancelado';
 }
 
-export function CycleAdminPanel() {
+export function CycleAdminPanel({
+  adminContext,
+  proposals,
+  onDecideInstitutional,
+  onViewIncidents
+}: {
+  adminContext: AdminContext | null;
+  proposals: BudgetProposal[];
+  onDecideInstitutional: (
+    proposalId: string,
+    data: InstitutionalDecisionData
+  ) => Promise<InstitutionalDecisionResult>;
+  onViewIncidents: () => void;
+}) {
   const { pushToast } = useToast();
   const [cycles, setCycles] = useState<OPCycle[] | null>(null);
   const [busy, setBusy] = useState(false);
@@ -90,6 +108,17 @@ export function CycleAdminPanel() {
       .finally(() => setBusy(false));
   };
 
+  const handleConfigure = (cycle: OPCycle, data: CycleConfigData) => {
+    setBusy(true);
+    void configureOPCycle(cycle.id, data)
+      .then(updated => {
+        pushToast('success', `Ciclo "${updated.label}" configurado.`);
+        refresh();
+      })
+      .catch(reject)
+      .finally(() => setBusy(false));
+  };
+
   return (
     <div className="space-y-6 fade-in">
       <PageTitle
@@ -103,12 +132,24 @@ export function CycleAdminPanel() {
           <Loader2 className="h-4 w-4 animate-spin" /> Carregando ciclos…
         </div>
       ) : active ? (
-        <ActiveCycleCard cycle={active} busy={busy} onAdvance={handleAdvance} onCancel={handleCancel} />
+        <ActiveCycleCard
+          cycle={active}
+          busy={busy}
+          onAdvance={handleAdvance}
+          onCancel={handleCancel}
+          onConfigure={handleConfigure}
+        />
       ) : (
         <CreateCycleForm busy={busy} onCreate={handleCreate} />
       )}
 
       {cycles && cycles.length > 0 && <CycleHistory cycles={cycles} />}
+      <InstitutionalFilterPanel
+        adminContext={adminContext}
+        proposals={proposals}
+        onDecide={onDecideInstitutional}
+        onViewIncidents={onViewIncidents}
+      />
     </div>
   );
 }
@@ -117,12 +158,14 @@ function ActiveCycleCard({
   cycle,
   busy,
   onAdvance,
-  onCancel
+  onCancel,
+  onConfigure
 }: {
   cycle: OPCycle;
   busy: boolean;
   onAdvance: (cycle: OPCycle) => void;
   onCancel: (cycle: OPCycle, reason: string) => void;
+  onConfigure: (cycle: OPCycle, data: CycleConfigData) => void;
 }) {
   const [cancelling, setCancelling] = useState(false);
   const [reason, setReason] = useState('');
@@ -170,8 +213,16 @@ function ActiveCycleCard({
 
         {needsSchedule && (
           <p className="mt-4 rounded-xl border border-[rgba(251,191,36,0.25)] bg-[rgba(251,191,36,0.06)] p-3 text-xs text-[var(--color-git-amber)]">
-            Configure início e prazo da LOA antes de abrir o ciclo (recrie com as datas, ou o avanço será recusado).
+            Configure início e prazo da LOA antes de abrir o ciclo. Sem agenda válida, o avanço será recusado.
           </p>
+        )}
+
+        {cycle.phase === 'Rascunho' && (
+          <CycleConfigForm
+            cycle={cycle}
+            busy={busy}
+            onSubmit={data => onConfigure(cycle, data)}
+          />
         )}
 
         <div className="mt-5 flex flex-col gap-2">
@@ -290,6 +341,78 @@ function CreateCycleForm({ busy, onCreate }: { busy: boolean; onCreate: (data: C
   );
 }
 
+function CycleConfigForm({
+  cycle,
+  busy,
+  onSubmit
+}: {
+  cycle: OPCycle;
+  busy: boolean;
+  onSubmit: (data: CycleConfigData) => void;
+}) {
+  const [label, setLabel] = useState(cycle.label);
+  const [envelopeReais, setEnvelopeReais] = useState(String(cycle.envelopeTotal / 100));
+  const [startsAt, setStartsAt] = useState(toDateInput(cycle.startsAt));
+  const [loaDeadline, setLoaDeadline] = useState(toDateInput(cycle.loaDeadline));
+
+  const canSubmit = label.trim() !== '' && envelopeReais !== '' && !busy;
+
+  const submit = () => {
+    onSubmit({
+      label: label.trim(),
+      regimento: cycle.regimento,
+      envelopeTotal: Math.round(Number(envelopeReais) * 100),
+      startsAt: toISO(startsAt),
+      loaDeadline: toISO(loaDeadline)
+    });
+  };
+
+  return (
+    <div className="mt-4 rounded-xl border border-[var(--color-git-border2)] bg-white/[0.02] p-3">
+      <div className="mb-3 flex items-center gap-2">
+        <Save className="h-4 w-4 text-[var(--color-git-blue)]" />
+        <h3 className="font-display text-sm font-bold text-white">Configurar rascunho</h3>
+      </div>
+
+      <div className="space-y-3">
+        <Field label="Identificação">
+          <input value={label} onChange={event => setLabel(event.target.value)} className={inputClass} />
+        </Field>
+        <Field label="Envelope total (R$)">
+          <input
+            type="number"
+            min="0"
+            value={envelopeReais}
+            onChange={event => setEnvelopeReais(event.target.value)}
+            className={inputClass}
+          />
+        </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Início">
+            <input type="date" value={startsAt} onChange={event => setStartsAt(event.target.value)} className={inputClass} />
+          </Field>
+          <Field label="Prazo LOA">
+            <input type="date" value={loaDeadline} onChange={event => setLoaDeadline(event.target.value)} className={inputClass} />
+          </Field>
+        </div>
+      </div>
+
+      <button onClick={submit} disabled={!canSubmit} className="btn-secondary btn-sm mt-4 w-full justify-center disabled:opacity-50">
+        <Save className="h-4 w-4" />
+        Salvar configuração
+      </button>
+    </div>
+  );
+}
+
+function toISO(date: string) {
+  return date ? new Date(`${date}T00:00:00Z`).toISOString() : undefined;
+}
+
+function toDateInput(value?: string | null) {
+  return value ? value.slice(0, 10) : '';
+}
+
 function CycleHistory({ cycles }: { cycles: OPCycle[] }) {
   return (
     <div className="glass-panel rounded-[20px] p-5">
@@ -312,6 +435,229 @@ function CycleHistory({ cycles }: { cycles: OPCycle[] }) {
       </div>
     </div>
   );
+}
+
+type DecisionMode = 'admit' | 'filter' | 'veto';
+
+interface DecisionDraft {
+  mode: DecisionMode;
+  ground: InstitutionalDecisionGround;
+  reason: string;
+}
+
+const FORMAL_GROUNDS: Array<{ value: InstitutionalDecisionGround; label: string }> = [
+  { value: 'inconstitucional', label: 'Inconstitucional' },
+  { value: 'fora_da_competencia', label: 'Fora da competência municipal' },
+  { value: 'sem_fonte_de_custeio', label: 'Sem fonte de custeio' },
+  { value: 'excede_envelope', label: 'Excede o envelope do ciclo' },
+  { value: 'depende_de_outro_ente', label: 'Depende de outro ente federativo' }
+];
+
+const DEFAULT_DRAFT: DecisionDraft = { mode: 'admit', ground: '', reason: '' };
+
+function InstitutionalFilterPanel({
+  adminContext,
+  proposals,
+  onDecide,
+  onViewIncidents
+}: {
+  adminContext: AdminContext | null;
+  proposals: BudgetProposal[];
+  onDecide: (proposalId: string, data: InstitutionalDecisionData) => Promise<InstitutionalDecisionResult>;
+  onViewIncidents: () => void;
+}) {
+  const { pushToast } = useToast();
+  const [drafts, setDrafts] = useState<Record<string, DecisionDraft>>({});
+  const [busyProposalId, setBusyProposalId] = useState<string | null>(null);
+  const prioritized = proposals.filter(proposal => proposal.status === 'Priorizada');
+  const canDecide = Boolean(adminContext?.canGeneral);
+
+  const draftFor = (proposalId: string) => drafts[proposalId] ?? DEFAULT_DRAFT;
+  const patchDraft = (proposalId: string, patch: Partial<DecisionDraft>) => {
+    setDrafts(prev => ({ ...prev, [proposalId]: { ...draftFor(proposalId), ...patch } }));
+  };
+
+  const submit = (event: FormEvent, proposal: BudgetProposal) => {
+    event.preventDefault();
+    const draft = draftFor(proposal.id);
+    const reason = draft.reason.trim();
+    if (!canDecide || !reason) return;
+    if (draft.mode === 'filter' && !draft.ground) return;
+
+    const data: InstitutionalDecisionData = {
+      approve: draft.mode === 'admit',
+      ground: draft.mode === 'filter' ? draft.ground : '',
+      reason
+    };
+
+    setBusyProposalId(proposal.id);
+    void onDecide(proposal.id, data)
+      .then(result => {
+        const incident = result.incidentId ? ` Incidente ${result.incidentId} registrado.` : '';
+        pushToast(result.incidentId ? 'warning' : 'success', `${result.message}.${incident}`);
+        setDrafts(prev => {
+          const next = { ...prev };
+          delete next[proposal.id];
+          return next;
+        });
+      })
+      .catch(error => {
+        const message = error instanceof Error ? error.message : 'Falha inesperada.';
+        pushToast('error', `Filtro institucional recusado: ${message}`);
+      })
+      .finally(() => setBusyProposalId(null));
+  };
+
+  return (
+    <section className="glass-panel rounded-[20px] p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 items-start gap-3">
+          <div className="rounded-xl border border-[rgba(192,132,252,0.2)] bg-[rgba(192,132,252,0.08)] p-2">
+            <Gavel className="h-4 w-4 text-[var(--color-git-purple)]" />
+          </div>
+          <div className="min-w-0">
+            <p className="font-mono text-[9px] font-bold uppercase tracking-widest text-[var(--color-git-purple)]">
+              Filtro institucional
+            </p>
+            <h2 className="mt-1 font-display text-lg font-bold text-white">Matriz municipal do OP</h2>
+            <p className="mt-1 text-xs leading-5 text-[var(--color-git-muted)]">
+              Propostas priorizadas pela votação territorial entram aqui para cumprir o rito formal antes da matriz.
+            </p>
+          </div>
+        </div>
+        <button onClick={onViewIncidents} className="btn-secondary btn-sm shrink-0">
+          Incidentes
+        </button>
+      </div>
+
+      {!canDecide && (
+        <p className="mt-4 rounded-xl border border-[rgba(251,191,36,0.25)] bg-[rgba(251,191,36,0.06)] p-3 text-xs leading-5 text-[var(--color-git-amber)]">
+          Esta decisão exige Maintainer Geral ou papel institucional do Legislativo.
+        </p>
+      )}
+
+      <div className="mt-4 space-y-3">
+        {prioritized.length === 0 && (
+          <p className="rounded-xl border border-[var(--color-git-border)] bg-white/[0.02] p-4 text-sm leading-6 text-[var(--color-git-muted)]">
+            Nenhuma proposta priorizada aguardando filtro institucional.
+          </p>
+        )}
+
+        {prioritized.map(proposal => {
+          const draft = draftFor(proposal.id);
+          const blocked = !canDecide || !draft.reason.trim() || (draft.mode === 'filter' && !draft.ground);
+          const busy = busyProposalId === proposal.id;
+
+          return (
+            <article key={proposal.id} className="rounded-xl border border-[var(--color-git-border)] bg-white/[0.02] p-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge className="chip-purple">{proposal.id}</Badge>
+                <Badge className={statusClass(proposal.status)}>{proposal.status}</Badge>
+                <Badge className="chip-blue">{proposal.territoryName}</Badge>
+              </div>
+              <h3 className="mt-2 text-sm font-bold text-white">{proposal.title}</h3>
+              <p className="mt-1 text-sm leading-6 text-[var(--color-git-muted)]">{proposal.solutionScope}</p>
+              <p className="mt-2 font-mono text-[10px] text-[var(--color-git-muted)]">
+                {formatCurrency(proposal.estimatedCostCents)}
+              </p>
+
+              <form onSubmit={event => submit(event, proposal)} className="mt-4 space-y-3">
+                <div className="grid grid-cols-3 gap-2">
+                  <DecisionModeButton
+                    selected={draft.mode === 'admit'}
+                    onClick={() => patchDraft(proposal.id, { mode: 'admit', ground: '' })}
+                  >
+                    Admitir
+                  </DecisionModeButton>
+                  <DecisionModeButton
+                    selected={draft.mode === 'filter'}
+                    onClick={() => patchDraft(proposal.id, { mode: 'filter' })}
+                  >
+                    Devolver
+                  </DecisionModeButton>
+                  <DecisionModeButton
+                    selected={draft.mode === 'veto'}
+                    onClick={() => patchDraft(proposal.id, { mode: 'veto', ground: '' })}
+                  >
+                    Divergência
+                  </DecisionModeButton>
+                </div>
+
+                {draft.mode === 'filter' && (
+                  <select
+                    value={draft.ground}
+                    onChange={event => patchDraft(proposal.id, { ground: event.target.value as InstitutionalDecisionGround })}
+                    className={inputClass}
+                    disabled={!canDecide || busy}
+                  >
+                    <option value="">Fundamento formal</option>
+                    {FORMAL_GROUNDS.map(ground => (
+                      <option key={ground.value} value={ground.value}>{ground.label}</option>
+                    ))}
+                  </select>
+                )}
+
+                {draft.mode === 'veto' && (
+                  <p className="flex gap-2 rounded-lg border border-[rgba(248,113,113,0.18)] bg-[rgba(248,113,113,0.05)] px-3 py-2 text-xs leading-5 text-[var(--color-git-red)]">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                    Divergência institucional registra incidente público de accountability.
+                  </p>
+                )}
+
+                <textarea
+                  value={draft.reason}
+                  onChange={event => patchDraft(proposal.id, { reason: event.target.value })}
+                  placeholder="Justificativa pública obrigatória"
+                  rows={3}
+                  disabled={!canDecide || busy}
+                  className={`${inputClass} resize-none`}
+                />
+
+                <button disabled={blocked || busy} className="btn-primary btn-sm w-full justify-center disabled:opacity-45">
+                  {busy ? 'Registrando decisão…' : actionLabel(draft.mode)}
+                </button>
+              </form>
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function DecisionModeButton({
+  selected,
+  onClick,
+  children
+}: {
+  selected: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-lg border px-2 py-2 text-[11px] font-bold transition ${
+        selected
+          ? 'border-[rgba(56,189,248,0.35)] bg-[rgba(56,189,248,0.1)] text-[var(--color-git-blue)]'
+          : 'border-[var(--color-git-border2)] bg-black/10 text-[var(--color-git-muted)] hover:text-white'
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function actionLabel(mode: DecisionMode) {
+  switch (mode) {
+    case 'admit':
+      return 'Admitir na matriz';
+    case 'filter':
+      return 'Devolver com fundamento';
+    case 'veto':
+      return 'Registrar divergência';
+  }
 }
 
 const inputClass =

@@ -5,8 +5,10 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
 	"strings"
 	"time"
@@ -166,22 +168,30 @@ func (r *Repository) openVoting(ctx context.Context, a actor, proposal proposalR
 		return Voting{}, err
 	}
 
-	var quorumNeeded int
-	var deadline time.Time
+	var regimentoBytes []byte
+	var linkedCitizens int
 	if err := tx.QueryRow(ctx, `
-		SELECT
-			GREATEST(
-				1,
-				CEIL(COUNT(c.id)::numeric * COALESCE(NULLIF(oc.regimento->>'votingQuorumPct', '')::numeric, 10) / 100.0)::int
-			) AS quorum_needed,
-			NOW() + make_interval(days => COALESCE(NULLIF(oc.regimento->>'votingWindow', '')::int, 7)) AS deadline
+		SELECT oc.regimento, COUNT(c.id)::int
 		FROM op_cycles oc
 		LEFT JOIN citizens c ON c.territory_id = $1::uuid
 		WHERE oc.id = $2::uuid
 		GROUP BY oc.regimento
-	`, proposal.TerritoryID, proposal.CycleID).Scan(&quorumNeeded, &deadline); err != nil {
+	`, proposal.TerritoryID, proposal.CycleID).Scan(&regimentoBytes, &linkedCitizens); err != nil {
 		return Voting{}, err
 	}
+
+	var reg op.RegimentoLocal
+	if err := json.Unmarshal(regimentoBytes, &reg); err != nil {
+		return Voting{}, err
+	}
+	if err := reg.Validate(); err != nil {
+		return Voting{}, err
+	}
+	quorumNeeded := int(math.Ceil(float64(linkedCitizens) * float64(reg.VotingQuorumPct) / 100.0))
+	if quorumNeeded < 1 {
+		quorumNeeded = 1
+	}
+	deadline := time.Now().UTC().Add(reg.VotingWindow)
 
 	summary := proposal.ProblemSummary
 	if strings.TrimSpace(summary) == "" {
@@ -257,17 +267,18 @@ func (r *Repository) resolveVoting(ctx context.Context, a actor, identifier stri
 	defer rollback(ctx, tx)
 
 	var votingID, publicID, status, proposalID string
+	var deadline time.Time
 	var quorumNeeded, quorumReached, votesYes, votesNo int
 	if err := tx.QueryRow(ctx, `
-		SELECT id::text, public_id, status, quorum_needed, quorum_reached, votes_yes, votes_no, proposal_id::text
+		SELECT id::text, public_id, status, deadline, quorum_needed, quorum_reached, votes_yes, votes_no, proposal_id::text
 		FROM op_votings
 		WHERE id::text = $1 OR public_id = $1
 		FOR UPDATE
-	`, identifier).Scan(&votingID, &publicID, &status, &quorumNeeded, &quorumReached, &votesYes, &votesNo, &proposalID); err != nil {
+	`, identifier).Scan(&votingID, &publicID, &status, &deadline, &quorumNeeded, &quorumReached, &votesYes, &votesNo, &proposalID); err != nil {
 		return Voting{}, err
 	}
-	if status != "Aberta" {
-		return Voting{}, web.NewError(http.StatusConflict, "votação não está aberta")
+	if err := canResolveVoting(status, deadline, time.Now().UTC()); err != nil {
+		return Voting{}, err
 	}
 
 	approved := quorumReached >= quorumNeeded && votesYes > votesNo

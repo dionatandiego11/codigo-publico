@@ -78,6 +78,21 @@ func TestCanMarkReady(t *testing.T) {
 	}
 }
 
+func TestCanSupportDemand(t *testing.T) {
+	if err := canSupportDemand("Coleta", "territorio-1", "territorio-1"); err != nil {
+		t.Errorf("apoio no território durante Coleta deveria passar: %v", err)
+	}
+	if status := statusOf(t, canSupportDemand("Votação", "territorio-1", "territorio-1")); status != http.StatusConflict {
+		t.Errorf("apoio fora da Coleta deveria ser 409, foi %d", status)
+	}
+	if status := statusOf(t, canSupportDemand("Coleta", "", "territorio-1")); status != http.StatusForbidden {
+		t.Errorf("apoio sem vínculo territorial deveria ser 403, foi %d", status)
+	}
+	if status := statusOf(t, canSupportDemand("Coleta", "territorio-2", "territorio-1")); status != http.StatusForbidden {
+		t.Errorf("apoio de outro território deveria ser 403, foi %d", status)
+	}
+}
+
 func TestCanGroup(t *testing.T) {
 	base := func() (groupFacts, groupFacts) {
 		src := groupFacts{ID: "a", CycleID: "c1", TerritoryID: "t1", Status: statusReceived}

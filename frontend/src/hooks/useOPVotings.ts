@@ -8,7 +8,8 @@ import { isBusinessError } from '../api/client';
 import {
   castOPVote as apiCastOPVote,
   getOPVotings,
-  openOPVotingForProposal
+  openOPVotingForProposal,
+  resolveOPVoting as apiResolveOPVoting
 } from '../lib/api';
 import type { BudgetProposal, OPVoting } from '../types';
 import type { VoteSelection } from './shared';
@@ -112,10 +113,34 @@ export function useOPVotings() {
     }
   };
 
+  const resolveVoting = async (votingId: string): Promise<{ voting: OPVoting; source: WriteSource }> => {
+    try {
+      const voting = await apiResolveOPVoting(votingId);
+      setOPVotings(prev => prev.map(item => (item.id === votingId ? { ...item, ...voting } : item)));
+      return { voting, source: 'api' };
+    } catch (error) {
+      if (isBusinessError(error)) throw error;
+      console.warn('Falha ao encerrar votação OP pela API; aplicando encerramento local.', error);
+
+      let resolved: OPVoting | undefined;
+      setOPVotings(prev =>
+        prev.map(voting => {
+          if (voting.id !== votingId) return voting;
+          resolved = { ...voting, status: 'Encerrada', updatedAt: new Date().toISOString() };
+          return resolved;
+        })
+      );
+
+      if (!resolved) throw error;
+      return { voting: resolved, source: 'local' };
+    }
+  };
+
   return {
     opVotings,
     openForProposal,
-    castVote
+    castVote,
+    resolveVoting
   };
 }
 

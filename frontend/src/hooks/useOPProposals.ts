@@ -7,16 +7,24 @@ import { useEffect, useState } from 'react';
 import { isBusinessError } from '../api/client';
 import {
   createOPProposalFromDemand,
+  decideOPProposalInstitutional,
   getOPProposals,
-  type CreateBudgetProposalData
+  type CreateBudgetProposalData,
+  type InstitutionalDecisionData,
+  type InstitutionalDecisionResult
 } from '../lib/api';
-import type { BudgetDemand, BudgetProposal } from '../types';
+import type { BudgetDemand, BudgetProposal, BudgetProposalStatus, OPVoting } from '../types';
 import type { WriteSource } from './shared';
 
 export type NewBudgetProposalData = CreateBudgetProposalData;
 
 export function useOPProposals() {
   const [proposals, setProposals] = useState<BudgetProposal[]>([]);
+
+  const refresh = async () => {
+    const apiProposals = await getOPProposals();
+    setProposals(apiProposals);
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -51,10 +59,43 @@ export function useOPProposals() {
     }
   };
 
+  const applyVotingResolution = (voting: OPVoting) => {
+    const status: BudgetProposalStatus = votingApproved(voting) ? 'Priorizada' : 'Retornada para maturação';
+    setProposals(prev =>
+      prev.map(proposal =>
+        proposal.id === voting.proposalId
+          ? { ...proposal, status, updatedAt: voting.updatedAt }
+          : proposal
+      )
+    );
+  };
+
+  const decideInstitutional = async (
+    proposalId: string,
+    data: InstitutionalDecisionData
+  ): Promise<InstitutionalDecisionResult> => {
+    const result = await decideOPProposalInstitutional(proposalId, data);
+    setProposals(prev =>
+      prev.map(proposal =>
+        proposal.id === result.proposalId
+          ? { ...proposal, status: result.proposalStatus as BudgetProposalStatus, updatedAt: new Date().toISOString() }
+          : proposal
+      )
+    );
+    return result;
+  };
+
   return {
     proposals,
-    createFromDemand
+    createFromDemand,
+    refresh,
+    applyVotingResolution,
+    decideInstitutional
   };
+}
+
+function votingApproved(voting: OPVoting) {
+  return voting.quorumReached >= voting.quorumNeeded && voting.votesYes > voting.votesNo;
 }
 
 function buildLocalProposal(demand: BudgetDemand, data: NewBudgetProposalData): BudgetProposal {

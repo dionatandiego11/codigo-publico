@@ -18,6 +18,8 @@ import {
   IssueStatus,
   LawArticle,
   NormativeDiff,
+  OPDivergenceIncident,
+  OPRegimento,
   OPVoting,
   OPCycle,
   PRStatus,
@@ -112,6 +114,7 @@ export async function getOPCycleById(id: string): Promise<OPCycle | undefined> {
 
 export interface CycleConfigData {
   label: string;
+  regimento?: OPRegimento;
   envelopeTotal: number; // centavos
   startsAt?: string; // ISO 8601
   loaDeadline?: string; // ISO 8601
@@ -412,6 +415,39 @@ export async function createOPProposalFromDemand(demandId: string, data: CreateB
   return postJSON<BudgetProposal>(`/op/demands/${routeId(demandId)}/proposal`, data);
 }
 
+export type InstitutionalDecisionGround =
+  | ''
+  | 'inconstitucional'
+  | 'fora_da_competencia'
+  | 'sem_fonte_de_custeio'
+  | 'excede_envelope'
+  | 'depende_de_outro_ente';
+
+export interface InstitutionalDecisionData {
+  approve: boolean;
+  ground?: InstitutionalDecisionGround;
+  reason: string;
+}
+
+export interface InstitutionalDecisionResult {
+  proposalId: string;
+  proposalStatus: string;
+  outcome: 'admitida' | 'filtrada' | 'veto_politico' | string;
+  incidentId?: string;
+  message: string;
+}
+
+export async function decideOPProposalInstitutional(
+  proposalId: string,
+  data: InstitutionalDecisionData
+): Promise<InstitutionalDecisionResult> {
+  return postJSON<InstitutionalDecisionResult>(`/admin/op/proposals/${routeId(proposalId)}/institutional-decision`, data);
+}
+
+export async function getDivergenceIncidents(): Promise<OPDivergenceIncident[]> {
+  return requestJSON<OPDivergenceIncident[]>('/op/divergence-incidents');
+}
+
 // --- Orçamento Participativo: votações territoriais --------------------------
 
 export async function getOPVotings(): Promise<OPVoting[]> {
@@ -428,6 +464,10 @@ export async function getTerritoryOPVotings(territoryId: string): Promise<OPVoti
 
 export async function openOPVotingForProposal(proposalId: string): Promise<OPVoting> {
   return postJSON<OPVoting>(`/op/proposals/${routeId(proposalId)}/voting`);
+}
+
+export async function resolveOPVoting(votingId: string): Promise<OPVoting> {
+  return postJSON<OPVoting>(`/op/votings/${routeId(votingId)}/resolve`);
 }
 
 export interface OPVotingResults extends VotingResults {}

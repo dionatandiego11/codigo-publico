@@ -5,6 +5,7 @@
 package op
 
 import (
+	"encoding/json"
 	"net/http"
 	"time"
 
@@ -85,6 +86,75 @@ type RegimentoLocal struct {
 	InscriptionWindow   time.Duration `json:"inscriptionWindow"`   // janela de inscrição ao conselho
 	MaturationWindow    time.Duration `json:"maturationWindow"`    // janela de maturação
 	VotingWindow        time.Duration `json:"votingWindow"`        // janela de votação territorial
+}
+
+type regimentoLocalJSON struct {
+	CouncilSize         int   `json:"councilSize"`
+	ConsecutiveTerms    int   `json:"consecutiveTerms"`
+	SupportThresholdPct int   `json:"supportThresholdPct"`
+	VotingQuorumPct     int   `json:"votingQuorumPct"`
+	RecallQuorumPct     int   `json:"recallQuorumPct"`
+	EqualSharePct       int   `json:"equalSharePct"`
+	StructuringPct      int   `json:"structuringPct"`
+	InscriptionWindow   int64 `json:"inscriptionWindow"`
+	MaturationWindow    int64 `json:"maturationWindow"`
+	VotingWindow        int64 `json:"votingWindow"`
+}
+
+const regimentoDay = 24 * time.Hour
+
+// MarshalJSON expõe as janelas do regimento em dias. Internamente o domínio usa
+// time.Duration; no contrato público e no JSONB do banco, o número é humano e
+// estável: "10" significa 10 dias, não 10 nanossegundos.
+func (r RegimentoLocal) MarshalJSON() ([]byte, error) {
+	return json.Marshal(regimentoLocalJSON{
+		CouncilSize:         r.CouncilSize,
+		ConsecutiveTerms:    r.ConsecutiveTerms,
+		SupportThresholdPct: r.SupportThresholdPct,
+		VotingQuorumPct:     r.VotingQuorumPct,
+		RecallQuorumPct:     r.RecallQuorumPct,
+		EqualSharePct:       r.EqualSharePct,
+		StructuringPct:      r.StructuringPct,
+		InscriptionWindow:   durationDays(r.InscriptionWindow),
+		MaturationWindow:    durationDays(r.MaturationWindow),
+		VotingWindow:        durationDays(r.VotingWindow),
+	})
+}
+
+// UnmarshalJSON aceita o contrato atual em dias e também valores legados gerados
+// pelo encoding padrão de time.Duration, em nanossegundos.
+func (r *RegimentoLocal) UnmarshalJSON(data []byte) error {
+	var payload regimentoLocalJSON
+	if err := json.Unmarshal(data, &payload); err != nil {
+		return err
+	}
+
+	r.CouncilSize = payload.CouncilSize
+	r.ConsecutiveTerms = payload.ConsecutiveTerms
+	r.SupportThresholdPct = payload.SupportThresholdPct
+	r.VotingQuorumPct = payload.VotingQuorumPct
+	r.RecallQuorumPct = payload.RecallQuorumPct
+	r.EqualSharePct = payload.EqualSharePct
+	r.StructuringPct = payload.StructuringPct
+	r.InscriptionWindow = regimentoNumberToDuration(payload.InscriptionWindow)
+	r.MaturationWindow = regimentoNumberToDuration(payload.MaturationWindow)
+	r.VotingWindow = regimentoNumberToDuration(payload.VotingWindow)
+
+	return nil
+}
+
+func durationDays(d time.Duration) int64 {
+	return int64(d / regimentoDay)
+}
+
+func regimentoNumberToDuration(value int64) time.Duration {
+	if value <= 0 {
+		return 0
+	}
+	if value >= int64(regimentoDay) && value%int64(regimentoDay) == 0 {
+		return time.Duration(value)
+	}
+	return time.Duration(value) * regimentoDay
 }
 
 // DefaultRegimento devolve os defaults sugeridos (docs/PROTOCOLO-OP.md §1.2).

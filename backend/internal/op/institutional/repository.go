@@ -111,12 +111,13 @@ func (r *Repository) applyInstitutionalDecision(ctx context.Context, decider act
 			return DecisionResult{}, err
 		}
 		var incidentID string
+		var incidentPublicIDStored string
 		err = tx.QueryRow(ctx, `
 			INSERT INTO op_divergence_incidents
 				(public_id, proposal_id, cycle_id, territory_id, proposal_title, reason, decided_by, decided_by_name, decided_by_role)
 			VALUES ($1, $2::uuid, $3::uuid, $4::uuid, $5, $6, $7::uuid, $8, $9)
-			RETURNING public_id
-		`, incidentPublicID, p.ID, p.CycleID, p.TerritoryID, p.Title, reason, decider.ID, decider.Name, decider.Role).Scan(&incidentID)
+			RETURNING id::text, public_id
+		`, incidentPublicID, p.ID, p.CycleID, p.TerritoryID, p.Title, reason, decider.ID, decider.Name, decider.Role).Scan(&incidentID, &incidentPublicIDStored)
 		if err != nil {
 			return DecisionResult{}, err
 		}
@@ -125,12 +126,12 @@ func (r *Repository) applyInstitutionalDecision(ctx context.Context, decider act
 			Action:         "op.divergence.recorded",
 			EntityType:     "op_divergence_incident",
 			EntityID:       incidentID,
-			EntityPublicID: incidentID,
+			EntityPublicID: incidentPublicIDStored,
 			Metadata:       map[string]any{"proposalId": p.PublicID, "reason": reason},
 		}); err != nil {
 			return DecisionResult{}, err
 		}
-		result.IncidentID = &incidentID
+		result.IncidentID = &incidentPublicIDStored
 	}
 
 	if err := tx.Commit(ctx); err != nil {

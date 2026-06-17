@@ -4,9 +4,20 @@
  */
 
 import { useState } from 'react';
-import type { FormEvent } from 'react';
+import type { FormEvent, ReactNode } from 'react';
 import { ArrowRight, GitFork, Link2, MapPin, MessageSquare, ScrollText, ThumbsUp } from 'lucide-react';
 import type { ForkBudgetDemandData, NewBudgetDemandData, NewBudgetProposalData } from '../hooks';
+import {
+  canCreateDemand,
+  canCreateProposal,
+  canForkDemand,
+  canGroupDemand,
+  canSupportDemand,
+  canTransitionDemand,
+  type DemandTransition,
+  type OPActionContext,
+  type OPGate
+} from '../lib/op-permissions';
 import { Badge, MetricMini, NotFound, PercentBar, formatDate, statusClass } from '../shared/ui';
 import type { BudgetDemand } from '../types';
 
@@ -79,11 +90,13 @@ export function OPDemandList({
 export function OPDemandComposer({
   isAuthenticated,
   currentTerritory,
+  actionContext,
   onLogin,
   onSubmit
 }: {
   isAuthenticated: boolean;
   currentTerritory?: { id: string; name: string; zone?: string };
+  actionContext: OPActionContext;
   onLogin: () => void;
   onSubmit: (data: NewBudgetDemandData) => void;
 }) {
@@ -91,9 +104,11 @@ export function OPDemandComposer({
   const [category, setCategory] = useState(DEMAND_CATEGORIES[0]);
   const [location, setLocation] = useState('');
   const [description, setDescription] = useState('');
+  const createGate = canCreateDemand(actionContext);
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
+    if (!createGate.enabled) return;
     if (!isAuthenticated) {
       onLogin();
       return;
@@ -166,9 +181,10 @@ export function OPDemandComposer({
           className="field resize-none"
         />
 
-        <button className="btn-primary w-full" disabled={isAuthenticated && !currentTerritory}>
+        <button className="btn-primary w-full disabled:opacity-45" disabled={!createGate.enabled}>
           {isAuthenticated ? 'Registrar demanda' : 'Entrar para registrar'}
         </button>
+        <GateHint gate={createGate} />
       </div>
     </form>
   );
@@ -183,7 +199,8 @@ export function OPDemandDetailPage({
   onTransition,
   onGroup,
   onFork,
-  onCreateProposal
+  onCreateProposal,
+  actionContext
 }: {
   demand?: BudgetDemand;
   demands: BudgetDemand[];
@@ -198,6 +215,7 @@ export function OPDemandDetailPage({
   onGroup: (sourceId: string, targetDemandId: string, reason: string) => void;
   onFork: (sourceId: string, data: ForkBudgetDemandData) => void;
   onCreateProposal: (demand: BudgetDemand, data: NewBudgetProposalData) => void;
+  actionContext: OPActionContext;
 }) {
   const [comment, setComment] = useState('');
   const [groupTargetId, setGroupTargetId] = useState('');
@@ -211,6 +229,20 @@ export function OPDemandDetailPage({
   if (!demand) {
     return <NotFound title="Demanda não encontrada" onBack={onBack} />;
   }
+
+  const supportGate = canSupportDemand(actionContext, demand);
+  const groupGate = canGroupDemand(actionContext, demand);
+  const forkGate = canForkDemand(actionContext, demand);
+  const proposalGate = canCreateProposal(actionContext, demand);
+  const transitionGates: Record<DemandTransition, OPGate> = {
+    mature: canTransitionDemand(actionContext, demand, 'mature'),
+    'request-info': canTransitionDemand(actionContext, demand, 'request-info'),
+    'validate-territory': canTransitionDemand(actionContext, demand, 'validate-territory'),
+    'mark-ready': canTransitionDemand(actionContext, demand, 'mark-ready')
+  };
+  const filterGate = Object.values(transitionGates).some(gate => gate.enabled)
+    ? { enabled: true }
+    : firstDisabledGate(Object.values(transitionGates));
 
   const groupCandidates = demands.filter(item =>
     item.id !== demand.id &&
@@ -228,6 +260,7 @@ export function OPDemandDetailPage({
 
   const submitGroup = (event: FormEvent) => {
     event.preventDefault();
+    if (!groupGate.enabled) return;
     if (!groupTargetId || !groupReason.trim()) return;
     onGroup(demand.id, groupTargetId, groupReason.trim());
     setGroupTargetId('');
@@ -236,6 +269,7 @@ export function OPDemandDetailPage({
 
   const submitFork = (event: FormEvent) => {
     event.preventDefault();
+    if (!forkGate.enabled) return;
     if (!forkTitle.trim()) return;
     onFork(demand.id, {
       title: forkTitle.trim(),
@@ -251,6 +285,7 @@ export function OPDemandDetailPage({
 
   const submitProposal = (event: FormEvent) => {
     event.preventDefault();
+    if (!proposalGate.enabled) return;
     const estimatedCost = Number(proposalCost.replace(/\D/g, ''));
     if (!proposalScope.trim() || estimatedCost <= 0) return;
 
@@ -312,40 +347,34 @@ export function OPDemandDetailPage({
           </p>
         </div>
 
-        <button onClick={() => onSupport(demand.id)} className="btn-primary mt-5">
+        <button
+          onClick={() => onSupport(demand.id)}
+          disabled={!supportGate.enabled}
+          className="btn-primary mt-5 disabled:opacity-45"
+        >
           <ThumbsUp className="h-4 w-4" />
-          Apoiar demanda
+          {actionContext.isAuthenticated ? 'Apoiar demanda' : 'Entrar para apoiar'}
         </button>
+        <GateHint gate={supportGate} />
       </section>
 
       <section className="glass-panel p-5 rounded-[20px]">
         <h2 className="font-display text-lg font-bold text-white">Filtro territorial</h2>
         <div className="mt-4 grid grid-cols-2 gap-2">
-          <button
-            onClick={() => onTransition(demand.id, 'mature')}
-            className="btn-secondary btn-sm justify-center"
-          >
+          <GateButton gate={transitionGates.mature} onClick={() => onTransition(demand.id, 'mature')}>
             Maturar
-          </button>
-          <button
-            onClick={() => onTransition(demand.id, 'request-info', 'Precisa complementar informações.')}
-            className="btn-secondary btn-sm justify-center"
-          >
+          </GateButton>
+          <GateButton gate={transitionGates['request-info']} onClick={() => onTransition(demand.id, 'request-info', 'Precisa complementar informações.')}>
             Pedir info
-          </button>
-          <button
-            onClick={() => onTransition(demand.id, 'validate-territory')}
-            className="btn-secondary btn-sm justify-center"
-          >
+          </GateButton>
+          <GateButton gate={transitionGates['validate-territory']} onClick={() => onTransition(demand.id, 'validate-territory')}>
             Validar
-          </button>
-          <button
-            onClick={() => onTransition(demand.id, 'mark-ready')}
-            className="btn-primary btn-sm justify-center"
-          >
+          </GateButton>
+          <GateButton gate={transitionGates['mark-ready']} onClick={() => onTransition(demand.id, 'mark-ready')} primary>
             Apta
-          </button>
+          </GateButton>
         </div>
+        <GateHint gate={filterGate} />
       </section>
 
       <section className="glass-panel p-5 rounded-[20px]">
@@ -373,6 +402,7 @@ export function OPDemandDetailPage({
           <select
             value={groupTargetId}
             onChange={event => setGroupTargetId(event.target.value)}
+            disabled={!groupGate.enabled}
             className="field"
           >
             <option value="">Agrupar em demanda existente</option>
@@ -384,11 +414,16 @@ export function OPDemandDetailPage({
             value={groupReason}
             onChange={event => setGroupReason(event.target.value)}
             placeholder="Justificativa do agrupamento"
+            disabled={!groupGate.enabled}
             className="field"
           />
-          <button className="btn-secondary btn-sm w-full justify-center">
+          <button
+            disabled={!groupGate.enabled || !groupTargetId || !groupReason.trim()}
+            className="btn-secondary btn-sm w-full justify-center disabled:opacity-45"
+          >
             Agrupar
           </button>
+          <GateHint gate={groupGate} />
         </form>
 
         <form onSubmit={submitFork} className="mt-5 space-y-2 border-t border-[var(--color-git-border)] pt-4">
@@ -400,6 +435,7 @@ export function OPDemandDetailPage({
             value={forkTitle}
             onChange={event => setForkTitle(event.target.value)}
             placeholder="Título da alternativa"
+            disabled={!forkGate.enabled}
             className="field"
           />
           <textarea
@@ -407,17 +443,23 @@ export function OPDemandDetailPage({
             onChange={event => setForkDescription(event.target.value)}
             placeholder="Descrição da alternativa"
             rows={3}
+            disabled={!forkGate.enabled}
             className="field resize-none"
           />
           <input
             value={forkReason}
             onChange={event => setForkReason(event.target.value)}
             placeholder="Motivo do fork"
+            disabled={!forkGate.enabled}
             className="field"
           />
-          <button className="btn-primary btn-sm w-full justify-center">
-            Criar fork
+          <button
+            disabled={!forkGate.enabled || !forkTitle.trim()}
+            className="btn-primary btn-sm w-full justify-center disabled:opacity-45"
+          >
+            {actionContext.isAuthenticated ? 'Criar fork' : 'Entrar e criar fork'}
           </button>
+          <GateHint gate={forkGate} />
         </form>
       </section>
 
@@ -432,6 +474,7 @@ export function OPDemandDetailPage({
             onChange={event => setProposalScope(event.target.value)}
             placeholder="Escopo da solução possível"
             rows={4}
+            disabled={!proposalGate.enabled}
             className="field resize-none"
           />
           <input
@@ -439,11 +482,16 @@ export function OPDemandDetailPage({
             onChange={event => setProposalCost(event.target.value)}
             placeholder="Custo estimado em reais"
             inputMode="numeric"
+            disabled={!proposalGate.enabled}
             className="field"
           />
-          <button className="btn-primary btn-sm w-full justify-center">
+          <button
+            disabled={!proposalGate.enabled || !proposalScope.trim() || Number(proposalCost.replace(/\D/g, '')) <= 0}
+            className="btn-primary btn-sm w-full justify-center disabled:opacity-45"
+          >
             Criar proposta apta
           </button>
+          <GateHint gate={proposalGate} />
         </form>
       </section>
 
@@ -473,6 +521,42 @@ export function OPDemandDetailPage({
         </form>
       </section>
     </div>
+  );
+}
+
+function GateButton({
+  gate,
+  onClick,
+  primary = false,
+  children
+}: {
+  gate: OPGate;
+  onClick: () => void;
+  primary?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={!gate.enabled}
+      title={gate.reason}
+      className={`${primary ? 'btn-primary' : 'btn-secondary'} btn-sm justify-center disabled:opacity-45`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function firstDisabledGate(gates: OPGate[]): OPGate {
+  return gates.find(gate => !gate.enabled) ?? { enabled: true };
+}
+
+function GateHint({ gate }: { gate: OPGate }) {
+  if (gate.enabled || !gate.reason) return null;
+  return (
+    <p className="mt-2 rounded-lg border border-[rgba(251,191,36,0.18)] bg-[rgba(251,191,36,0.05)] px-3 py-2 text-xs leading-5 text-[var(--color-git-amber)]">
+      {gate.reason}
+    </p>
   );
 }
 

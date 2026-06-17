@@ -1,6 +1,7 @@
 package op
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"testing"
@@ -33,6 +34,88 @@ func TestCarenciaShareComplementsEqual(t *testing.T) {
 	r := DefaultRegimento()
 	if r.EqualSharePct+r.CarenciaSharePct() != 100 {
 		t.Errorf("piso + carência = %d, esperava 100", r.EqualSharePct+r.CarenciaSharePct())
+	}
+}
+
+func TestRegimentoJSONUsesDays(t *testing.T) {
+	payload, err := json.Marshal(DefaultRegimento())
+	if err != nil {
+		t.Fatalf("marshal do regimento default falhou: %v", err)
+	}
+
+	var got map[string]int64
+	if err := json.Unmarshal(payload, &got); err != nil {
+		t.Fatalf("unmarshal do payload gerado falhou: %v", err)
+	}
+
+	if got["inscriptionWindow"] != 15 {
+		t.Errorf("inscriptionWindow = %d, esperava 15 dias", got["inscriptionWindow"])
+	}
+	if got["maturationWindow"] != 30 {
+		t.Errorf("maturationWindow = %d, esperava 30 dias", got["maturationWindow"])
+	}
+	if got["votingWindow"] != 10 {
+		t.Errorf("votingWindow = %d, esperava 10 dias", got["votingWindow"])
+	}
+}
+
+func TestRegimentoJSONUnmarshalDays(t *testing.T) {
+	data := []byte(`{
+		"councilSize":5,
+		"consecutiveTerms":1,
+		"supportThresholdPct":3,
+		"votingQuorumPct":10,
+		"recallQuorumPct":25,
+		"equalSharePct":50,
+		"structuringPct":20,
+		"inscriptionWindow":15,
+		"maturationWindow":30,
+		"votingWindow":10
+	}`)
+
+	var reg RegimentoLocal
+	if err := json.Unmarshal(data, &reg); err != nil {
+		t.Fatalf("unmarshal do regimento em dias falhou: %v", err)
+	}
+
+	if reg.InscriptionWindow != 15*24*time.Hour {
+		t.Errorf("inscriptionWindow = %s, esperava 15 dias", reg.InscriptionWindow)
+	}
+	if reg.MaturationWindow != 30*24*time.Hour {
+		t.Errorf("maturationWindow = %s, esperava 30 dias", reg.MaturationWindow)
+	}
+	if reg.VotingWindow != 10*24*time.Hour {
+		t.Errorf("votingWindow = %s, esperava 10 dias", reg.VotingWindow)
+	}
+}
+
+func TestRegimentoJSONUnmarshalLegacyDurationNanoseconds(t *testing.T) {
+	data := []byte(`{
+		"councilSize":5,
+		"consecutiveTerms":1,
+		"supportThresholdPct":3,
+		"votingQuorumPct":10,
+		"recallQuorumPct":25,
+		"equalSharePct":50,
+		"structuringPct":20,
+		"inscriptionWindow":1296000000000000,
+		"maturationWindow":2592000000000000,
+		"votingWindow":864000000000000
+	}`)
+
+	var reg RegimentoLocal
+	if err := json.Unmarshal(data, &reg); err != nil {
+		t.Fatalf("unmarshal do regimento legado falhou: %v", err)
+	}
+
+	if reg.InscriptionWindow != 15*24*time.Hour {
+		t.Errorf("inscriptionWindow legado = %s, esperava 15 dias", reg.InscriptionWindow)
+	}
+	if reg.MaturationWindow != 30*24*time.Hour {
+		t.Errorf("maturationWindow legado = %s, esperava 30 dias", reg.MaturationWindow)
+	}
+	if reg.VotingWindow != 10*24*time.Hour {
+		t.Errorf("votingWindow legado = %s, esperava 10 dias", reg.VotingWindow)
 	}
 }
 

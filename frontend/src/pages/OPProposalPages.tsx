@@ -4,6 +4,7 @@
  */
 
 import { Vote } from 'lucide-react';
+import { canOpenVoting, type OPActionContext } from '../lib/op-permissions';
 import { Badge, formatDate, statusClass } from '../shared/ui';
 import type { BudgetProposal, OPVoting } from '../types';
 
@@ -11,20 +12,31 @@ export function OPProposalList({
   proposals,
   votings = [],
   onOpenVoting,
-  onSelectVoting
+  onSelectVoting,
+  onViewIncidents,
+  actionContext
 }: {
   proposals: BudgetProposal[];
   votings?: OPVoting[];
   onOpenVoting?: (proposal: BudgetProposal) => void;
   onSelectVoting?: (votingId: string) => void;
+  onViewIncidents?: () => void;
+  actionContext: OPActionContext;
 }) {
   return (
     <div className="glass-panel rounded-[20px] overflow-hidden">
-      <div className="border-b border-[var(--color-git-border)] bg-[rgba(255,255,255,0.02)] p-4">
-        <p className="font-mono text-[9px] font-bold uppercase tracking-widest text-[var(--color-git-blue)]">
-          Propostas do OP
-        </p>
-        <h2 className="mt-1 font-display text-lg font-bold text-white">Aptas para votação</h2>
+      <div className="flex items-start justify-between gap-3 border-b border-[var(--color-git-border)] bg-[rgba(255,255,255,0.02)] p-4">
+        <div className="min-w-0">
+          <p className="font-mono text-[9px] font-bold uppercase tracking-widest text-[var(--color-git-blue)]">
+            Propostas do OP
+          </p>
+          <h2 className="mt-1 font-display text-lg font-bold text-white">Propostas territoriais</h2>
+        </div>
+        {onViewIncidents && (
+          <button onClick={onViewIncidents} className="btn-secondary btn-sm shrink-0">
+            Incidentes
+          </button>
+        )}
       </div>
 
       <div className="divide-y divide-[var(--color-git-border)]">
@@ -36,6 +48,7 @@ export function OPProposalList({
 
         {proposals.map(proposal => {
           const voting = votings.find(item => item.proposalId === proposal.id);
+          const openGate = canOpenVoting(actionContext, proposal);
 
           return (
             <article key={proposal.id} className="p-4">
@@ -59,10 +72,22 @@ export function OPProposalList({
                   </button>
                 ) : (
                   proposal.status === 'Apta para votação' && onOpenVoting && (
-                    <button onClick={() => onOpenVoting(proposal)} className="btn-primary btn-sm">
-                      <Vote className="h-4 w-4" />
-                      Abrir votação
-                    </button>
+                    <div className="text-right">
+                      <button
+                        onClick={() => onOpenVoting(proposal)}
+                        disabled={!openGate.enabled}
+                        title={openGate.reason}
+                        className="btn-primary btn-sm disabled:opacity-45"
+                      >
+                        <Vote className="h-4 w-4" />
+                        Abrir votação
+                      </button>
+                      {!openGate.enabled && openGate.reason && (
+                        <p className="mt-2 max-w-48 text-right text-[10px] leading-4 text-[var(--color-git-amber)]">
+                          {openGate.reason}
+                        </p>
+                      )}
+                    </div>
                   )
                 )}
               </div>

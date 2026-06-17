@@ -18,3 +18,5 @@ export { useOPProposals } from './useOPProposals';
 export type { NewBudgetProposalData } from './useOPProposals';
 export { useOPVotings } from './useOPVotings';
 export type { OPVoteReceipt } from './useOPVotings';
+export { useDivergenceIncidents } from './useDivergenceIncidents';
+export type { DivergenceIncidentsStatus } from './useDivergenceIncidents';

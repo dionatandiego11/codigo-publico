@@ -7,11 +7,12 @@ import { useEffect, useRef } from 'react';
 import { ShieldAlert } from 'lucide-react';
 import { AuthModal, useAuth } from './auth';
 import { useBrowserRouter } from './app/useBrowserRouter';
-import { useOPDemands, useOPProposals, useOPVotings, usePublicData } from './hooks';
+import { useAdminContext, useOPCycle, useOPDemands, useOPProposals, useOPVotings, usePublicData } from './hooks';
 import type { NewBudgetDemandData, NewBudgetProposalData, VoteSelection, WriteSource } from './hooks';
 import {
   CitizenArea,
   CycleAdminPanel,
+  DivergenceIncidentsPage,
   ExecutionCenter,
   FlowHome,
   OPDemandComposer,
@@ -24,6 +25,7 @@ import { Navbar, BottomNav } from './shared/layout';
 import { useToast } from './shared/feedback/ToastContext';
 import { motion, AnimatePresence } from 'motion/react';
 import type { BudgetDemand, BudgetProposal } from './types';
+import type { OPActionContext } from './lib/op-permissions';
 
 export default function App() {
   const { currentPath, setPath } = useBrowserRouter();
@@ -31,10 +33,18 @@ export default function App() {
   const { pushToast } = useToast();
 
   const { trackers, territories, userProfile, addVoteReceipt } = usePublicData({ isAuthenticated, citizen });
+  const { currentCycle } = useOPCycle();
+  const { adminContext } = useAdminContext(isAuthenticated);
 
   const { demands, addDemand, supportDemand, commentOnDemand, transitionDemand, groupDemand, forkDemand } = useOPDemands();
-  const { proposals, createFromDemand } = useOPProposals();
-  const { opVotings, openForProposal, castVote: castOPVote } = useOPVotings();
+  const {
+    proposals,
+    createFromDemand,
+    refresh: refreshProposals,
+    applyVotingResolution,
+    decideInstitutional
+  } = useOPProposals();
+  const { opVotings, openForProposal, castVote: castOPVote, resolveVoting: resolveOPVoting } = useOPVotings();
 
   const selectedDemandRouteId = currentPath.startsWith('/demandas/')
     ? decodeURIComponent(currentPath.slice('/demandas/'.length))
@@ -160,6 +170,23 @@ export default function App() {
     });
   };
 
+  const handleResolveOPVoting = (votingId: string) => {
+    requireAuth(() => {
+      void resolveOPVoting(votingId)
+        .then(({ voting, source }) => {
+          if (source === 'api') {
+            void refreshProposals().catch(error => {
+              console.warn('Não foi possível atualizar propostas após encerramento da votação.', error);
+            });
+          } else {
+            applyVotingResolution(voting);
+          }
+          notifyWriteSource(source, `Votação ${voting.id} encerrada.`);
+        })
+        .catch(notifyActionRejected);
+    });
+  };
+
   const citizenTerritoryId = isAuthenticated ? citizen?.territoryId ?? userProfile.territoryId : undefined;
   const citizenTerritoryName = isAuthenticated ? citizen?.territoryName ?? userProfile.territoryName : undefined;
   const citizenTerritory = citizenTerritoryId || citizenTerritoryName
@@ -172,6 +199,13 @@ export default function App() {
         name: citizenTerritoryName ?? citizenTerritoryId ?? ''
       }
     : undefined;
+  const opActionContext: OPActionContext = {
+    isAuthenticated,
+    cyclePhase: currentCycle?.phase,
+    citizenTerritoryId,
+    citizenTerritoryName,
+    adminContext
+  };
 
   const page = (() => {
     if (selectedDemandRouteId) {
@@ -186,6 +220,7 @@ export default function App() {
           onGroup={handleGroupDemand}
           onFork={handleForkDemand}
           onCreateProposal={handleCreateProposal}
+          actionContext={opActionContext}
         />
       );
     }
@@ -201,6 +236,7 @@ export default function App() {
           <OPDemandComposer
             isAuthenticated={isAuthenticated}
             currentTerritory={citizenTerritory}
+            actionContext={opActionContext}
             onLogin={openAuthModal}
             onSubmit={handleAddNewDemand}
           />
@@ -215,16 +251,29 @@ export default function App() {
           votings={opVotings}
           onOpenVoting={handleOpenOPVoting}
           onSelectVoting={() => setPath('/votacoes')}
+          onViewIncidents={() => setPath('/incidentes')}
+          actionContext={opActionContext}
         />
       );
     }
 
     if (currentPath === '/votacoes') {
-      return <OPVotingCenter votings={opVotings} onVote={handleCastOPVote} />;
+      return (
+        <OPVotingCenter
+          votings={opVotings}
+          onVote={handleCastOPVote}
+          onResolve={handleResolveOPVoting}
+          actionContext={opActionContext}
+        />
+      );
     }
 
     if (currentPath === '/fiscalizacao') {
       return <ExecutionCenter trackers={trackers} />;
+    }
+
+    if (currentPath === '/incidentes') {
+      return <DivergenceIncidentsPage onGoProposals={() => setPath('/propostas')} />;
     }
 
     if (currentPath === '/minha-area') {
@@ -255,7 +304,14 @@ export default function App() {
         );
       }
 
-      return <CycleAdminPanel />;
+      return (
+        <CycleAdminPanel
+          adminContext={adminContext}
+          proposals={proposals}
+          onDecideInstitutional={decideInstitutional}
+          onViewIncidents={() => setPath('/incidentes')}
+        />
+      );
     }
 
     return <FlowHome setPath={setPath} />;
