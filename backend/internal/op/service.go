@@ -230,6 +230,15 @@ func (s *Service) GetCycle(ctx context.Context, cycleID string) (Cycle, error) {
 	return cycle, err
 }
 
+func (s *Service) ListTerritoryEnvelopes(ctx context.Context, cycleID string) ([]CycleTerritoryEnvelope, error) {
+	cycle, err := s.GetCycle(ctx, cycleID)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.repo.listTerritoryEnvelopes(ctx, cycle.ID)
+}
+
 func (s *Service) GetCurrentCycle(ctx context.Context) (Cycle, error) {
 	cycle, err := s.repo.getCurrentCycle(ctx)
 	if errors.Is(err, pgx.ErrNoRows) {

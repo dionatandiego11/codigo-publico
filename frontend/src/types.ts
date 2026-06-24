@@ -287,6 +287,16 @@ export interface OPCycle {
   updatedAt: string;
 }
 
+export interface OPCycleTerritoryEnvelope {
+  territoryId: string;
+  territoryName: string;
+  carenciaWeight: number;
+  equal: number;
+  carencia: number;
+  total: number;
+  updatedAt: string;
+}
+
 export type BudgetDemandStatus =
   | 'Recebida'
   | 'Engajamento inicial'
@@ -398,5 +408,43 @@ export interface OPDivergenceIncident {
   reason: string;
   decidedByName: string;
   decidedByRole: string;
+  createdAt: string;
+}
+
+export interface BudgetFilter {
+  id: string;
+  cycleId: string;
+  territoryId: string;
+  territoryName: string;
+  demandId: string;
+  demandTitle: string;
+  proposalId?: string;
+  verdict: string;
+  message: string;
+  returnPath: string;
+  estimatedCostCents: number;
+  availableCents: number;
+  actorName: string;
+  actorRole: string;
+  status: string;
+  appealNote?: string;
+  appealId?: string;
+  appealStatus?: string;
+  appealDecisionReason?: string;
+  appealDecidedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BudgetFilterAppeal {
+  id: string;
+  filterId: string;
+  territoryId: string;
+  territoryName: string;
+  citizenName: string;
+  reason: string;
+  status: string;
+  decisionReason?: string;
+  decidedAt?: string;
   createdAt: string;
 }

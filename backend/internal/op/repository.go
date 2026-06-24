@@ -146,6 +146,10 @@ func (r *Repository) createCycle(ctx context.Context, creator actor, label strin
 		return Cycle{}, err
 	}
 
+	if _, err := r.replaceTerritoryEnvelopes(ctx, tx, id, reg, envelope); err != nil {
+		return Cycle{}, err
+	}
+
 	if err := audit.Insert(ctx, tx, institutionalAuditActor(creator), audit.Event{
 		Action:         "op_cycle.created",
 		EntityType:     "op_cycle",
@@ -194,6 +198,10 @@ func (r *Repository) configureCycle(ctx context.Context, editor actor, cycleID, 
 		return Cycle{}, err
 	}
 
+	if _, err := r.replaceTerritoryEnvelopes(ctx, tx, cycleID, reg, envelope); err != nil {
+		return Cycle{}, err
+	}
+
 	if err := audit.Insert(ctx, tx, institutionalAuditActor(editor), audit.Event{
 		Action:         "op_cycle.configured",
 		EntityType:     "op_cycle",
@@ -209,6 +217,114 @@ func (r *Repository) configureCycle(ctx context.Context, editor actor, cycleID, 
 	}
 
 	return r.getCycle(ctx, cycleID)
+}
+
+func (r *Repository) listTerritoryEnvelopes(ctx context.Context, cycleID string) ([]CycleTerritoryEnvelope, error) {
+	rows, err := r.db.Query(ctx, `
+		SELECT
+			e.territory_id::text,
+			t.name,
+			e.carencia_weight,
+			e.equal_cents,
+			e.carencia_cents,
+			e.total_cents,
+			e.updated_at
+		FROM op_territory_envelopes e
+		JOIN territories t ON t.id = e.territory_id
+		WHERE e.cycle_id = $1::uuid
+		ORDER BY t.name
+	`, cycleID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	list := make([]CycleTerritoryEnvelope, 0)
+	for rows.Next() {
+		var item CycleTerritoryEnvelope
+		var updatedAt time.Time
+		if err := rows.Scan(
+			&item.TerritoryID,
+			&item.TerritoryName,
+			&item.CarenciaWeight,
+			&item.Equal,
+			&item.Carencia,
+			&item.Total,
+			&updatedAt,
+		); err != nil {
+			return nil, err
+		}
+		item.UpdatedAt = updatedAt.UTC().Format(time.RFC3339)
+		list = append(list, item)
+	}
+
+	return list, rows.Err()
+}
+
+func (r *Repository) replaceTerritoryEnvelopes(ctx context.Context, tx pgx.Tx, cycleID string, reg RegimentoLocal, envelope int64) (EnvelopeSplit, error) {
+	if _, err := tx.Exec(ctx, `DELETE FROM op_territory_envelopes WHERE cycle_id = $1::uuid`, cycleID); err != nil {
+		return EnvelopeSplit{}, err
+	}
+
+	if envelope <= 0 {
+		return EnvelopeSplit{Total: envelope}, nil
+	}
+
+	territories, err := territoryWeights(ctx, tx)
+	if err != nil {
+		return EnvelopeSplit{}, err
+	}
+
+	split, err := SplitEnvelope(envelope, reg, territories)
+	if err != nil {
+		return EnvelopeSplit{}, err
+	}
+
+	weights := make(map[string]int64, len(territories))
+	for _, territory := range territories {
+		weights[territory.TerritoryID] = territory.CarenciaWeight
+	}
+
+	for _, territory := range split.Territories {
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO op_territory_envelopes (
+				cycle_id,
+				territory_id,
+				carencia_weight,
+				equal_cents,
+				carencia_cents,
+				total_cents
+			)
+			VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6)
+		`, cycleID, territory.TerritoryID, weights[territory.TerritoryID], territory.Equal, territory.Carencia, territory.Total); err != nil {
+			return EnvelopeSplit{}, err
+		}
+	}
+
+	return split, nil
+}
+
+func territoryWeights(ctx context.Context, tx pgx.Tx) ([]TerritoryWeight, error) {
+	rows, err := tx.Query(ctx, `
+		SELECT id::text, 0::bigint AS carencia_weight
+		FROM territories
+		ORDER BY name
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	list := make([]TerritoryWeight, 0)
+	for rows.Next() {
+		var item TerritoryWeight
+		if err := rows.Scan(&item.TerritoryID, &item.CarenciaWeight); err != nil {
+			return nil, err
+		}
+		list = append(list, item)
+	}
+
+	return list, rows.Err()
 }
 
 // transitionPhase aplica uma mudança de fase já validada pela política, com lock

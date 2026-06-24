@@ -10,6 +10,7 @@ import { useBrowserRouter } from './app/useBrowserRouter';
 import { useAdminContext, useOPCycle, useOPDemands, useOPProposals, useOPVotings, usePublicData } from './hooks';
 import type { NewBudgetDemandData, NewBudgetProposalData, VoteSelection, WriteSource } from './hooks';
 import {
+  BudgetFiltersPage,
   CitizenArea,
   CycleAdminPanel,
   DivergenceIncidentsPage,
@@ -73,7 +74,24 @@ export default function App() {
   // nenhuma mudança local foi aplicada.
   const notifyActionRejected = (error: unknown) => {
     const message = error instanceof Error ? error.message : 'Falha inesperada.';
-    pushToast('error', `Ação recusada pela plataforma: ${message}`);
+    pushToast('error', rejectionGuidance(message));
+  };
+
+  const rejectionGuidance = (message: string) => {
+    const normalized = message.toLowerCase();
+    if (normalized.includes('envelope')) {
+      return `Circuit breaker: ${message}. Caminho: fasear a proposta ou levar para ciclo plurianual.`;
+    }
+    if (normalized.includes('competência municipal')) {
+      return `Circuit breaker: ${message}. Caminho: registrar como reivindicação externa.`;
+    }
+    if (normalized.includes('fonte de custeio') || normalized.includes('outro ente')) {
+      return `Circuit breaker: ${message}. Caminho: pactuar fonte ou ente responsável antes de prosseguir.`;
+    }
+    if (normalized.includes('constitucional') || normalized.includes('legal')) {
+      return `Circuit breaker: ${message}. Caminho: reformular a proposta.`;
+    }
+    return `Ação recusada pela plataforma: ${message}`;
   };
 
   const handleAddNewDemand = (formData: NewBudgetDemandData) => {
@@ -213,6 +231,8 @@ export default function App() {
         <OPDemandDetailPage
           demand={demands.find(demand => demand.id === selectedDemandRouteId)}
           demands={demands}
+          proposals={proposals}
+          votings={opVotings}
           onBack={() => setPath('/demandas')}
           onSupport={handleSupportDemand}
           onComment={handleCommentDemand}
@@ -220,6 +240,9 @@ export default function App() {
           onGroup={handleGroupDemand}
           onFork={handleForkDemand}
           onCreateProposal={handleCreateProposal}
+          onViewProposals={() => setPath('/propostas')}
+          onViewVotings={() => setPath('/votacoes')}
+          onViewFilters={() => setPath('/filtros')}
           actionContext={opActionContext}
         />
       );
@@ -276,6 +299,10 @@ export default function App() {
       return <DivergenceIncidentsPage onGoProposals={() => setPath('/propostas')} />;
     }
 
+    if (currentPath === '/filtros') {
+      return <BudgetFiltersPage onGoDemands={() => setPath('/demandas')} />;
+    }
+
     if (currentPath === '/minha-area') {
       return (
         <CitizenArea
@@ -309,6 +336,7 @@ export default function App() {
           adminContext={adminContext}
           proposals={proposals}
           onDecideInstitutional={decideInstitutional}
+          onViewFilters={() => setPath('/filtros')}
           onViewIncidents={() => setPath('/incidentes')}
         />
       );

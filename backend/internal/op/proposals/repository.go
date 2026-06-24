@@ -98,12 +98,19 @@ func (r *Repository) demandRecord(ctx context.Context, identifier string) (deman
 	return rec, err
 }
 
-// cycleEnvelope devolve o envelope total do ciclo (centavos) — teto contra o
-// qual o circuit breaker afere o custo da proposta enquanto o sub-envelope
-// territorial não é persistido.
-func (r *Repository) cycleEnvelope(ctx context.Context, cycleID string) (int64, error) {
+// territoryEnvelope devolve o sub-envelope congelado do território no ciclo. Se
+// ainda não existir (ciclo antigo ou envelope não configurado), retorna 0 para a
+// policy pular a dimensão orçamentária em vez de reprovar por dado ausente.
+func (r *Repository) territoryEnvelope(ctx context.Context, cycleID, territoryID string) (int64, error) {
 	var total int64
-	err := r.db.QueryRow(ctx, `SELECT envelope_total FROM op_cycles WHERE id = $1::uuid`, cycleID).Scan(&total)
+	err := r.db.QueryRow(ctx, `
+		SELECT total_cents
+		FROM op_territory_envelopes
+		WHERE cycle_id = $1::uuid AND territory_id = $2::uuid
+	`, cycleID, territoryID).Scan(&total)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return 0, nil
+	}
 	return total, err
 }
 
@@ -221,6 +228,65 @@ func (r *Repository) createProposal(ctx context.Context, a actor, demand demandR
 	return r.getProposal(ctx, publicID)
 }
 
+func (r *Repository) recordBudgetFilter(ctx context.Context, a actor, demand demandRecord, input createProposalInput, result op.BreakerResult, availableCents int64) error {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer rollback(ctx, tx)
+
+	publicID, err := nextBudgetFilterPublicID(ctx, tx)
+	if err != nil {
+		return err
+	}
+
+	var filterID string
+	err = tx.QueryRow(ctx, `
+		INSERT INTO budget_filters (
+			public_id,
+			cycle_id,
+			territory_id,
+			demand_id,
+			verdict,
+			message,
+			return_path,
+			estimated_cost_cents,
+			available_cents,
+			actor_citizen_id,
+			actor_name,
+			actor_role
+		)
+		VALUES ($1, $2::uuid, $3::uuid, $4::uuid, $5, $6, $7, $8, $9, $10::uuid, $11, $12)
+		RETURNING id::text
+	`, publicID, demand.CycleID, demand.TerritoryID, demand.ID, string(result.Verdict), result.Message, result.ReturnPath, input.EstimatedCostCents, availableCents, a.ID, a.Name, a.Role).Scan(&filterID)
+	if err != nil {
+		return err
+	}
+
+	if err := audit.Insert(ctx, tx, audit.Actor{
+		ID:   a.ID,
+		Name: a.Name,
+		Role: a.Role,
+		Type: op.AuditActorType(a.Role),
+	}, audit.Event{
+		Action:         "op.budget_filter.recorded",
+		EntityType:     "budget_filter",
+		EntityID:       filterID,
+		EntityPublicID: publicID,
+		Metadata: map[string]any{
+			"demandId":           demand.PublicID,
+			"verdict":            string(result.Verdict),
+			"returnPath":         result.ReturnPath,
+			"estimatedCostCents": input.EstimatedCostCents,
+			"availableCents":     availableCents,
+		},
+	}); err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
 func scanProposalRows(rows pgx.Rows) ([]Proposal, error) {
 	proposals := make([]Proposal, 0)
 	for rows.Next() {
@@ -282,6 +348,23 @@ func nextProposalPublicID(ctx context.Context, tx pgx.Tx) (string, error) {
 	}
 
 	return fmt.Sprintf("P-%03d", nextNumber), nil
+}
+
+func nextBudgetFilterPublicID(ctx context.Context, tx pgx.Tx) (string, error) {
+	if _, err := tx.Exec(ctx, "SELECT pg_advisory_xact_lock($1)", int64(2026061701)); err != nil {
+		return "", err
+	}
+
+	var nextNumber int
+	if err := tx.QueryRow(ctx, `
+		SELECT COALESCE(MAX(substring(public_id from 4)::int), 0) + 1
+		FROM budget_filters
+		WHERE public_id ~ '^BF-[0-9]+$'
+	`).Scan(&nextNumber); err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("BF-%03d", nextNumber), nil
 }
 
 func rollback(ctx context.Context, tx pgx.Tx) {

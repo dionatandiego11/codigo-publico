@@ -36,9 +36,10 @@ type ProposalFacts struct {
 
 // BreakerResult é o desfecho do filtro: o veredito, se passa e a mensagem pública.
 type BreakerResult struct {
-	Verdict BreakerVerdict
-	Passes  bool
-	Message string
+	Verdict    BreakerVerdict
+	Passes     bool
+	Message    string
+	ReturnPath string
 }
 
 // EvaluateCircuitBreaker aplica o filtro em ordem de fundamentalidade:
@@ -48,22 +49,26 @@ type BreakerResult struct {
 func EvaluateCircuitBreaker(f ProposalFacts) BreakerResult {
 	if !f.Legal {
 		return BreakerResult{BreakerIllegal, false,
-			"proposta incompatível com regra constitucional ou legal; bloqueada, mas pode ser reformulada"}
+			"proposta incompatível com regra constitucional ou legal; bloqueada, mas pode ser reformulada",
+			"reformular"}
 	}
 	if !f.MunicipalCompetence {
 		return BreakerResult{BreakerOutOfCompetence, false,
-			"fora da competência municipal; pode ser encaminhada como reivindicação externa a outro ente"}
+			"fora da competência municipal; pode ser encaminhada como reivindicação externa a outro ente",
+			"reivindicacao_externa"}
 	}
 	if !f.HasFundingSource {
 		return BreakerResult{BreakerDependsOnOther, false,
-			"depende de outro ente federativo ou de fonte de custeio; cabe pactuação antes de prosseguir"}
+			"depende de outro ente federativo ou de fonte de custeio; cabe pactuação antes de prosseguir",
+			"pactuacao"}
 	}
 	if f.AvailableCents > 0 && f.EstimatedCostCents > f.AvailableCents {
 		return BreakerResult{BreakerExceedsEnvelope, false,
-			"custo excede o envelope disponível do território; divida em fases ou leve a ciclo plurianual"}
+			"custo excede o envelope disponível do território; divida em fases ou leve a ciclo plurianual",
+			"fasear"}
 	}
 
-	return BreakerResult{BreakerPass, true, "proposta admissível"}
+	return BreakerResult{BreakerPass, true, "proposta admissível", "prosseguir"}
 }
 
 // AdmitProposal converte o desfecho do breaker em erro de admissão (422) quando a

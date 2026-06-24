@@ -11,6 +11,7 @@ import {
   configureOPCycle,
   createOPCycle,
   getOPCycles,
+  getOPCycleTerritoryEnvelopes,
   type AdminContext,
   type CycleConfigData,
   type InstitutionalDecisionData,
@@ -19,7 +20,7 @@ import {
 } from '../lib/api';
 import { useToast } from '../shared/feedback/ToastContext';
 import { Badge, PageTitle, statusClass } from '../shared/ui';
-import type { BudgetProposal, OPCycle, OPCyclePhase } from '../types';
+import type { BudgetProposal, OPCycle, OPCyclePhase, OPCycleTerritoryEnvelope } from '../types';
 
 const PHASE_ORDER: OPCyclePhase[] = [
   'Rascunho',
@@ -44,6 +45,7 @@ export function CycleAdminPanel({
   adminContext,
   proposals,
   onDecideInstitutional,
+  onViewFilters,
   onViewIncidents
 }: {
   adminContext: AdminContext | null;
@@ -52,6 +54,7 @@ export function CycleAdminPanel({
     proposalId: string,
     data: InstitutionalDecisionData
   ) => Promise<InstitutionalDecisionResult>;
+  onViewFilters: () => void;
   onViewIncidents: () => void;
 }) {
   const { pushToast } = useToast();
@@ -148,6 +151,7 @@ export function CycleAdminPanel({
         adminContext={adminContext}
         proposals={proposals}
         onDecide={onDecideInstitutional}
+        onViewFilters={onViewFilters}
         onViewIncidents={onViewIncidents}
       />
     </div>
@@ -224,6 +228,8 @@ function ActiveCycleCard({
             onSubmit={data => onConfigure(cycle, data)}
           />
         )}
+
+        <TerritoryEnvelopeBreakdown cycleId={cycle.id} refreshKey={cycle.updatedAt} />
 
         <div className="mt-5 flex flex-col gap-2">
           {next && (
@@ -413,6 +419,69 @@ function toDateInput(value?: string | null) {
   return value ? value.slice(0, 10) : '';
 }
 
+function TerritoryEnvelopeBreakdown({ cycleId, refreshKey }: { cycleId: string; refreshKey: string }) {
+  const [envelopes, setEnvelopes] = useState<OPCycleTerritoryEnvelope[] | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    setEnvelopes(null);
+
+    getOPCycleTerritoryEnvelopes(cycleId)
+      .then(items => {
+        if (mounted) setEnvelopes(items);
+      })
+      .catch(error => {
+        console.warn('Não foi possível carregar sub-envelopes territoriais.', error);
+        if (mounted) setEnvelopes([]);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [cycleId, refreshKey]);
+
+  return (
+    <section className="mt-4 rounded-xl border border-[var(--color-git-border2)] bg-white/[0.02] p-3">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="font-mono text-[9px] font-bold uppercase tracking-widest text-[var(--color-git-green)]">
+            Sub-envelope territorial
+          </p>
+          <h3 className="mt-1 text-sm font-bold text-white">Divisão congelada do ciclo</h3>
+        </div>
+        {envelopes === null && <Loader2 className="h-4 w-4 animate-spin text-[var(--color-git-muted)]" />}
+      </div>
+
+      {envelopes !== null && envelopes.length === 0 ? (
+        <p className="text-xs leading-5 text-[var(--color-git-muted)]">
+          Configure um envelope positivo para gerar a divisão territorial.
+        </p>
+      ) : (
+        <div className="space-y-2">
+          {(envelopes ?? []).map(envelope => (
+            <div
+              key={envelope.territoryId}
+              className="rounded-lg border border-[var(--color-git-border)] bg-black/10 p-3"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <p className="truncate text-sm font-bold text-white">{envelope.territoryName}</p>
+                <p className="shrink-0 font-mono text-xs font-bold text-[var(--color-git-green)]">
+                  {formatCurrency(envelope.total)}
+                </p>
+              </div>
+              <div className="mt-2 grid grid-cols-3 gap-2 text-[10px] text-[var(--color-git-muted)]">
+                <span>Piso {formatCurrency(envelope.equal)}</span>
+                <span>Carência {formatCurrency(envelope.carencia)}</span>
+                <span>Peso {envelope.carenciaWeight}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
 function CycleHistory({ cycles }: { cycles: OPCycle[] }) {
   return (
     <div className="glass-panel rounded-[20px] p-5">
@@ -459,11 +528,13 @@ function InstitutionalFilterPanel({
   adminContext,
   proposals,
   onDecide,
+  onViewFilters,
   onViewIncidents
 }: {
   adminContext: AdminContext | null;
   proposals: BudgetProposal[];
   onDecide: (proposalId: string, data: InstitutionalDecisionData) => Promise<InstitutionalDecisionResult>;
+  onViewFilters: () => void;
   onViewIncidents: () => void;
 }) {
   const { pushToast } = useToast();
@@ -525,9 +596,14 @@ function InstitutionalFilterPanel({
             </p>
           </div>
         </div>
-        <button onClick={onViewIncidents} className="btn-secondary btn-sm shrink-0">
-          Incidentes
-        </button>
+        <div className="flex shrink-0 flex-col gap-2">
+          <button onClick={onViewFilters} className="btn-secondary btn-sm">
+            Filtros
+          </button>
+          <button onClick={onViewIncidents} className="btn-secondary btn-sm">
+            Incidentes
+          </button>
+        </div>
       </div>
 
       {!canDecide && (

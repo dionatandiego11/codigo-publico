@@ -8,6 +8,8 @@ import { MOCK_REPOSITORIOS } from './mock-data';
 import {
   Citizen,
   CitizenDashboardData,
+  BudgetFilter,
+  BudgetFilterAppeal,
   BudgetDemand,
   BudgetDemandComment,
   BudgetProposal,
@@ -20,6 +22,7 @@ import {
   NormativeDiff,
   OPDivergenceIncident,
   OPRegimento,
+  OPCycleTerritoryEnvelope,
   OPVoting,
   OPCycle,
   PRStatus,
@@ -108,6 +111,10 @@ export async function getCurrentOPCycle(): Promise<OPCycle | undefined> {
 
 export async function getOPCycleById(id: string): Promise<OPCycle | undefined> {
   return requestOptionalJSON<OPCycle>(`/op/cycles/${routeId(id)}`);
+}
+
+export async function getOPCycleTerritoryEnvelopes(id: string): Promise<OPCycleTerritoryEnvelope[]> {
+  return requestJSON<OPCycleTerritoryEnvelope[]>(`/op/cycles/${routeId(id)}/territory-envelopes`);
 }
 
 // --- OP: administração do ciclo (instância geral) ----------------------------
@@ -446,6 +453,37 @@ export async function decideOPProposalInstitutional(
 
 export async function getDivergenceIncidents(): Promise<OPDivergenceIncident[]> {
   return requestJSON<OPDivergenceIncident[]>('/op/divergence-incidents');
+}
+
+export interface BudgetFilterQuery {
+  cycleId?: string;
+  territoryId?: string;
+  demandId?: string;
+}
+
+export async function getBudgetFilters(query: BudgetFilterQuery = {}): Promise<BudgetFilter[]> {
+  const params = new URLSearchParams();
+  if (query.cycleId) params.set('cycleId', query.cycleId);
+  if (query.territoryId) params.set('territoryId', query.territoryId);
+  if (query.demandId) params.set('demandId', query.demandId);
+  const suffix = params.toString() ? `?${params.toString()}` : '';
+  return requestJSON<BudgetFilter[]>(`/op/budget-filters${suffix}`);
+}
+
+export async function appealBudgetFilter(filterId: string, reason: string): Promise<BudgetFilterAppeal> {
+  return postJSON<BudgetFilterAppeal>(`/op/budget-filters/${routeId(filterId)}/appeal`, { reason });
+}
+
+export interface BudgetFilterAppealDecisionData {
+  approve: boolean;
+  reason: string;
+}
+
+export async function decideBudgetFilterAppeal(
+  appealId: string,
+  data: BudgetFilterAppealDecisionData
+): Promise<BudgetFilterAppeal> {
+  return postJSON<BudgetFilterAppeal>(`/admin/op/budget-filter-appeals/${routeId(appealId)}/decision`, data);
 }
 
 // --- Orçamento Participativo: votações territoriais --------------------------

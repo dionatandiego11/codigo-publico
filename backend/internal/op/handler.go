@@ -161,3 +161,13 @@ func (h *Handler) GetCycle(w http.ResponseWriter, r *http.Request) {
 	}
 	web.WriteJSON(w, http.StatusOK, cycle)
 }
+
+// GET /op/cycles/{id}/territory-envelopes (público)
+func (h *Handler) ListTerritoryEnvelopes(w http.ResponseWriter, r *http.Request) {
+	envelopes, err := h.service.ListTerritoryEnvelopes(r.Context(), chi.URLParam(r, "id"))
+	if err != nil {
+		web.WriteError(w, err)
+		return
+	}
+	web.WriteJSON(w, http.StatusOK, envelopes)
+}

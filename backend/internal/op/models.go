@@ -48,6 +48,18 @@ type Cycle struct {
 	UpdatedAt     string         `json:"updatedAt"`
 }
 
+// CycleTerritoryEnvelope é a visão pública do sub-envelope territorial congelado
+// no ciclo. Valores em centavos.
+type CycleTerritoryEnvelope struct {
+	TerritoryID    string `json:"territoryId"`
+	TerritoryName  string `json:"territoryName"`
+	CarenciaWeight int64  `json:"carenciaWeight"`
+	Equal          int64  `json:"equal"`
+	Carencia       int64  `json:"carencia"`
+	Total          int64  `json:"total"`
+	UpdatedAt      string `json:"updatedAt"`
+}
+
 // ── Requests ──────────────────────────────────────────────────────────────────
 
 type createCycleInput struct {

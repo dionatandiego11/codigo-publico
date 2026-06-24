@@ -81,7 +81,7 @@ Ainda falta:
 | 1 - Cadastro + vinculo territorial | OK | Parcial | Cadastro e pedido de vinculo existem; painel de validacao precisa entrar no fluxo principal de admin territorial. |
 | 2-3 - Inscricao + sorteio do conselho | Parcial | Falta | Sorteio existe como policy pura; faltam inscricoes, persistencia, endpoint, seed publica, resultado e suplentes. |
 | 4-7 - Demanda, apoio, fork, maturacao | OK | Parcial | Jornada existe e a UI ja bloqueia acoes por papel/fase/territorio; falta lapidar textos e refresh automatico apos mudanca de fase. |
-| 8 - Circuit breaker | Parcial | Parcial | Regra existe, mas usa envelope total enquanto sub-envelope territorial nao e persistido; UI precisa explicar retornos. |
+| 8 - Circuit breaker | Parcial | Parcial | Regra usa sub-envelope territorial persistido, registra filtros, tem pagina historica, recurso territorial e decisao da instancia geral; falta notificar melhor o retorno na demanda. |
 | 9-10 - Proposta apta e votacao | OK | Parcial | Abrir votacao, votar e encerrar votacao funcionam com gates de fase/papel/territorio; falta automatizar vencidas. |
 | 11 - Resolucao da votacao | OK | Parcial | Encerramento manual existe na UI; falta avaliar job automatico para votacoes vencidas. |
 | 12 - Filtro institucional | OK | Parcial | Painel OP existe no admin; falta conectar a visualizacao publica dos incidentes e lapidar fluxo de retorno ao territorio. |
@@ -234,21 +234,25 @@ O circuit breaker existe como regra, mas ainda nao tem persistencia completa nem
 interface de retorno.
 
 - [x] Policy de admissibilidade juridico-orcamentaria.
-- [ ] Persistir sub-envelope territorial por ciclo.
-- [ ] Avaliar custo contra sub-envelope do territorio, nao envelope municipal total.
-- [ ] Criar `budget_filters` ou equivalente para registrar:
+- [x] Persistir sub-envelope territorial por ciclo.
+- [x] Avaliar custo contra sub-envelope do territorio, nao envelope municipal total.
+- [x] Criar `budget_filters` ou equivalente para registrar:
   - fundamento;
   - justificativa;
   - ator;
   - retorno da esteira;
   - possibilidade de recurso.
-- [ ] Mostrar na UI o caminho de retorno:
+- [x] Mostrar na UI o caminho de retorno imediato quando a acao e recusada:
   - complementar informacao;
   - fasear;
   - fork;
   - ciclo plurianual;
   - reivindicacao externa.
-- [ ] Traduzir erro 422 em orientacao pratica, nao apenas toast tecnico.
+- [x] Traduzir erro 422 em orientacao pratica, nao apenas toast tecnico.
+- [x] Criar pagina historica dos filtros aplicados, por ciclo/territorio/demanda.
+- [x] Implementar recurso ou contestacao do filtro quando o territorio discordar.
+- [x] Implementar decisao do recurso pela instancia geral, com justificativa e retorno operacional.
+- [ ] Criar notificacao/realce na demanda quando um recurso for deferido ou indeferido.
 
 ## Prioridade 7 - Persistir Sorteio Civico e Conselho Territorial
 

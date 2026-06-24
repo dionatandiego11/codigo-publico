@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { ArrowRight, CalendarDays, GitBranch, GitPullRequest, MapPin, ShieldAlert, UserPlus, Vote } from 'lucide-react';
+import { ArrowRight, CalendarDays, Filter, GitBranch, GitPullRequest, MapPin, ShieldAlert, UserPlus, Vote } from 'lucide-react';
 import { useAuth } from '../auth';
 import { useOPCycle } from '../hooks';
 import type { OPCycle } from '../types';
@@ -58,8 +58,8 @@ export function FlowHome({ setPath }: FlowHomeProps) {
               <div className="space-y-2">
                 <QuickAction
                   icon={MapPin}
-                  label="Registrar demanda"
-                  description="Problema simples do seu território"
+                  label="Abrir esteira"
+                  description="Registrar e acompanhar demandas"
                   onClick={() => setPath('/demandas')}
                   color="blue"
                 />
@@ -87,13 +87,22 @@ export function FlowHome({ setPath }: FlowHomeProps) {
                 Ver minha área
                 <ArrowRight className="h-3.5 w-3.5" />
               </button>
-              <button
-                onClick={() => setPath('/incidentes')}
-                className="mt-2 w-full inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold text-[var(--color-git-muted)] transition hover:text-white"
-              >
-                <ShieldAlert className="h-3.5 w-3.5" />
-                Ver divergências institucionais
-              </button>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => setPath('/filtros')}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl px-2 py-2 text-xs font-semibold text-[var(--color-git-muted)] transition hover:text-white"
+                >
+                  <Filter className="h-3.5 w-3.5" />
+                  Filtros
+                </button>
+                <button
+                  onClick={() => setPath('/incidentes')}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl px-2 py-2 text-xs font-semibold text-[var(--color-git-muted)] transition hover:text-white"
+                >
+                  <ShieldAlert className="h-3.5 w-3.5" />
+                  Divergências
+                </button>
+              </div>
             </div>
           </div>
         ) : (
@@ -118,7 +127,7 @@ export function FlowHome({ setPath }: FlowHomeProps) {
 
               {/* Descrição */}
               <p className="text-sm leading-6 text-[var(--color-git-muted)] text-center mb-6">
-                Abra demandas do seu território, acompanhe a maturação das propostas, vote nas prioridades e fiscalize a execução do orçamento participativo.
+                Abra demandas do seu território, acompanhe a esteira das propostas, vote nas prioridades e fiscalize a execução do orçamento participativo.
               </p>
 
               <CycleCard cycle={currentCycle} status={status} />
@@ -126,7 +135,7 @@ export function FlowHome({ setPath }: FlowHomeProps) {
               {/* Features resumidas */}
               <div className="space-y-2.5 mb-7">
                 <Feature label="Um conselho territorial colegiado organiza cada território" />
-                <Feature label="Demandas simples ganham maturidade antes da votação" />
+                <Feature label="Demandas simples caminham por uma esteira pública antes da votação" />
                 <Feature label="Envelope público separa piso territorial e carência" />
                 <Feature label="Execução aprovada vira item fiscalizável" />
               </div>
@@ -153,15 +162,24 @@ export function FlowHome({ setPath }: FlowHomeProps) {
                 onClick={() => setPath('/demandas')}
                 className="mt-4 w-full text-center text-xs text-[var(--color-git-muted)] hover:text-[var(--color-git-text2)] transition underline-offset-2 hover:underline"
               >
-                Explorar demandas sem criar conta
+                Explorar a esteira sem criar conta
               </button>
-              <button
-                onClick={() => setPath('/incidentes')}
-                className="mt-3 w-full inline-flex items-center justify-center gap-2 text-xs font-semibold text-[var(--color-git-muted)] transition hover:text-[var(--color-git-text2)]"
-              >
-                <ShieldAlert className="h-3.5 w-3.5" />
-                Ver divergências institucionais
-              </button>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => setPath('/filtros')}
+                  className="inline-flex items-center justify-center gap-2 text-xs font-semibold text-[var(--color-git-muted)] transition hover:text-[var(--color-git-text2)]"
+                >
+                  <Filter className="h-3.5 w-3.5" />
+                  Filtros
+                </button>
+                <button
+                  onClick={() => setPath('/incidentes')}
+                  className="inline-flex items-center justify-center gap-2 text-xs font-semibold text-[var(--color-git-muted)] transition hover:text-[var(--color-git-text2)]"
+                >
+                  <ShieldAlert className="h-3.5 w-3.5" />
+                  Divergências
+                </button>
+              </div>
             </div>
           </div>
         )}

@@ -80,22 +80,24 @@ func (s *Service) CreateProposalFromDemand(ctx context.Context, citizenID string
 	}
 
 	// Circuit breaker jurídico-orçamentário (PROTOCOLO-OP §13): a proposta só é
-	// admitida se passar no filtro. Por ora aferimos a dimensão orçamentária
-	// contra o envelope do ciclo (teto municipal); o sub-envelope territorial e
-	// as afirmações de competência/legalidade/custeio entram quando a etapa de
-	// filtro com carência persistida existir (lacunas.md).
-	budget, err := s.repo.cycleEnvelope(ctx, demand.CycleID)
+	// admitida se passar no filtro. A dimensão orçamentária é aferida contra o
+	// sub-envelope congelado do território no ciclo.
+	budget, err := s.repo.territoryEnvelope(ctx, demand.CycleID, demand.TerritoryID)
 	if err != nil {
 		return Proposal{}, err
 	}
-	if err := op.AdmitProposal(op.ProposalFacts{
+	breaker := op.EvaluateCircuitBreaker(op.ProposalFacts{
 		EstimatedCostCents:  input.EstimatedCostCents,
 		AvailableCents:      budget,
 		MunicipalCompetence: true,
 		Legal:               true,
 		HasFundingSource:    true,
-	}); err != nil {
-		return Proposal{}, err
+	})
+	if !breaker.Passes {
+		if err := s.repo.recordBudgetFilter(ctx, a, demand, input, breaker, budget); err != nil {
+			return Proposal{}, err
+		}
+		return Proposal{}, web.NewError(http.StatusUnprocessableEntity, breaker.Message)
 	}
 
 	return s.repo.createProposal(ctx, a, demand, input)

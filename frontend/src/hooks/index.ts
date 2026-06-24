@@ -20,3 +20,5 @@ export { useOPVotings } from './useOPVotings';
 export type { OPVoteReceipt } from './useOPVotings';
 export { useDivergenceIncidents } from './useDivergenceIncidents';
 export type { DivergenceIncidentsStatus } from './useDivergenceIncidents';
+export { useBudgetFilters } from './useBudgetFilters';
+export type { BudgetFiltersStatus } from './useBudgetFilters';

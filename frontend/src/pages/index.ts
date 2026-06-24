@@ -4,6 +4,7 @@
  */
 
 export { FlowHome } from './HomePage';
+export { BudgetFiltersPage } from './BudgetFiltersPage';
 export { OPDemandComposer, OPDemandDetailPage, OPDemandList } from './OPDemandPages';
 export { OPProposalList } from './OPProposalPages';
 export { OPVotingCenter } from './VotingCenterPage';

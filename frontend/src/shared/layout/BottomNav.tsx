@@ -7,7 +7,7 @@ function cn(...classes: (string | undefined | null | false)[]) {
 
 const navItems = [
   { to: '/',         icon: Home,      label: 'Início',       match: (path: string) => path === '/' || path === '' },
-  { to: '/demandas', icon: MapPin, label: 'Demandas',     match: (path: string) => path.startsWith('/demandas') },
+  { to: '/demandas', icon: MapPin, label: 'Esteira',     match: (path: string) => path.startsWith('/demandas') },
   { to: '/propostas', icon: ScrollText, label: 'Propostas', match: (path: string) => path.startsWith('/propostas') },
   { to: '/votacoes',  icon: Vote,     label: 'Votações',     match: (path: string) => path.startsWith('/votacoes') },
   { to: '/minha-area',     icon: User,     label: 'Cidadão',      match: (path: string) => path.startsWith('/minha-area') },

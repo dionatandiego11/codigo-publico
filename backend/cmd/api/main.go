@@ -20,6 +20,7 @@ import (
 	appmiddleware "codigo-publico/backend/internal/middleware"
 	"codigo-publico/backend/internal/op"
 	opdemands "codigo-publico/backend/internal/op/demands"
+	opfilters "codigo-publico/backend/internal/op/filters"
 	opinstitutional "codigo-publico/backend/internal/op/institutional"
 	opproposals "codigo-publico/backend/internal/op/proposals"
 	opvotings "codigo-publico/backend/internal/op/votings"
@@ -66,6 +67,7 @@ func main() {
 	territorialHandler := territorial.NewHandler(dbPool)
 	opHandler := op.NewHandler(dbPool)
 	opDemandHandler := opdemands.NewHandler(dbPool)
+	opFilterHandler := opfilters.NewHandler(dbPool)
 	opProposalHandler := opproposals.NewHandler(dbPool)
 	opVotingHandler := opvotings.NewHandler(dbPool)
 	opInstitutionalHandler := opinstitutional.NewHandler(dbPool)
@@ -132,6 +134,8 @@ func main() {
 			r.Post("/op/proposals/{id}/voting", opVotingHandler.OpenVoting)
 			r.Post("/op/votings/{id}/vote", opVotingHandler.CastVote)
 			r.Post("/op/votings/{id}/resolve", opVotingHandler.ResolveVoting)
+			r.Post("/op/budget-filters/{id}/appeal", opFilterHandler.AppealFilter)
+			r.Post("/admin/op/budget-filter-appeals/{id}/decision", opFilterHandler.DecideAppeal)
 			r.Post("/admin/op/proposals/{id}/institutional-decision", opInstitutionalHandler.DecideInstitutional)
 
 			// Integridade da auditoria (ancoragem exige papel administrativo)
@@ -148,6 +152,7 @@ func main() {
 		r.Get("/op/cycles", opHandler.ListCycles)
 		r.Get("/op/cycles/current", opHandler.GetCurrentCycle)
 		r.Get("/op/cycles/{id}", opHandler.GetCycle)
+		r.Get("/op/cycles/{id}/territory-envelopes", opHandler.ListTerritoryEnvelopes)
 		r.Get("/op/demands", opDemandHandler.ListDemands)
 		r.Get("/op/demands/{id}", opDemandHandler.GetDemand)
 		r.Get("/territories/{id}/demands", opDemandHandler.ListDemandsByTerritory)
@@ -159,6 +164,7 @@ func main() {
 		r.Get("/op/votings/{id}/results", opVotingHandler.GetResults)
 		r.Get("/territories/{id}/op-votings", opVotingHandler.ListVotingsByTerritory)
 		r.Get("/op/divergence-incidents", opInstitutionalHandler.ListIncidents)
+		r.Get("/op/budget-filters", opFilterHandler.ListFilters)
 
 		r.Get("/audit/head", auditHandler.GetChainHead)
 		r.Get("/audit/anchors", auditHandler.ListAnchors)
