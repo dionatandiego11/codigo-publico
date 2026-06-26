@@ -3,18 +3,20 @@ import {
   CheckSquare, Play, AlertTriangle, CheckCircle, Info, 
   ArrowRight, ShieldCheck, MapPin, Sparkles, AlertCircle 
 } from 'lucide-react';
-import { Demanda, Territorio } from '../types';
+import { Demanda, Territorio } from '../../shared/domain/types';
 
 interface ExecutionSectionProps {
   demandas: Demanda[];
   territorios: Territorio[];
   onSetStatusExecucao: (demandaId: string, status: Demanda['statusExecucao'], justificativa?: string) => void;
+  canEditStatus: boolean;
 }
 
 export default function ExecutionSection({
   demandas,
   territorios,
-  onSetStatusExecucao
+  onSetStatusExecucao,
+  canEditStatus
 }: ExecutionSectionProps) {
   const [selectedDemandaId, setSelectedDemandaId] = useState<string | null>(null);
   const [novoStatus, setNovoStatus] = useState<Demanda['statusExecucao']>('planejamento');
@@ -130,17 +132,23 @@ export default function ExecutionSection({
                       </div>
                     )}
 
-                    <button
-                      id={`btn-mudar-estado-${demanda.id}`}
-                      onClick={() => {
-                        setSelectedDemandaId(demanda.id);
-                        setNovoStatus(demanda.statusExecucao || 'planejamento');
-                        setJustificativaFrustrado(demanda.justificativaFrustrado || '');
-                      }}
-                      className="w-full text-center py-1 bg-slate-50 hover:bg-[#3B82F6] hover:text-white border border-[#1A1A1B] rounded-none text-[10px] font-mono font-bold uppercase tracking-wider transition-colors"
-                    >
-                      Mudar Estado Técnico
-                    </button>
+                    {canEditStatus ? (
+                      <button
+                        id={`btn-mudar-estado-${demanda.id}`}
+                        onClick={() => {
+                          setSelectedDemandaId(demanda.id);
+                          setNovoStatus(demanda.statusExecucao || 'planejamento');
+                          setJustificativaFrustrado(demanda.justificativaFrustrado || '');
+                        }}
+                        className="w-full text-center py-1 bg-slate-50 hover:bg-[#3B82F6] hover:text-white border border-[#1A1A1B] rounded-none text-[10px] font-mono font-bold uppercase tracking-wider transition-colors"
+                      >
+                        Mudar Estado Técnico
+                      </button>
+                    ) : (
+                      <div className="border border-slate-200 bg-slate-50 px-2 py-1 text-center font-mono text-[9px] font-bold uppercase tracking-wider text-slate-500">
+                        Acompanhamento público
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -150,7 +158,7 @@ export default function ExecutionSection({
       </div>
 
       {/* Editor Modal / Container for Execution Status */}
-      {selectedDemandaId && (
+      {canEditStatus && selectedDemandaId && (
         (() => {
           const selectedDemanda = approvedDemandas.find(d => d.id === selectedDemandaId);
           return (

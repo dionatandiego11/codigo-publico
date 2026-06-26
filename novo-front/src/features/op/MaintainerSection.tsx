@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Settings, Coins, Users, Calendar, TrendingUp, Info, ShieldAlert, Check } from 'lucide-react';
-import { CycleConfig, Territorio } from '../types';
+import { CycleConfig, Territorio } from '../../shared/domain/types';
 
 interface MaintainerSectionProps {
   cycle: CycleConfig;

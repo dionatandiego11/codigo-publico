@@ -1,4 +1,4 @@
-import { Territorio, CycleConfig, Demanda, AuditEvent, ConselhoCandidato } from './types';
+import { Territorio, CycleConfig, Demanda, AuditEvent, ConselhoCandidato } from '../shared/domain/types';
 
 export const INITIAL_CYCLE: CycleConfig = {
   id: 'ciclo-2026',

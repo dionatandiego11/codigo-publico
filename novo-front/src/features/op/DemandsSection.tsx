@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { 
   GitFork, Merge, CheckCircle, XCircle, MessageSquare, 
-  Heart, Lock, Copy, PlusCircle, ArrowRight, Coins, 
+  Heart, PlusCircle, ArrowRight, Coins, 
   TrendingUp, User, MapPin, Calendar, HelpCircle, Info, Shield
 } from 'lucide-react';
-import { Territorio, CycleConfig, Demanda, Comment } from '../types';
+import { Territorio, CycleConfig, Demanda, Comment } from '../../shared/domain/types';
 
 interface DemandsSectionProps {
   territorios: Territorio[];
@@ -14,7 +14,6 @@ interface DemandsSectionProps {
   onApoiar: (demandaId: string) => void;
   onAddComentario: (demandaId: string, texto: string) => void;
   onForkDemanda: (demandaId: string, novoTitulo: string, novaDescricao: string) => void;
-  onVote: (demandaId: string) => string; // returns recipe hash
 }
 
 export default function DemandsSection({
@@ -24,8 +23,7 @@ export default function DemandsSection({
   onAddDemanda,
   onApoiar,
   onAddComentario,
-  onForkDemanda,
-  onVote
+  onForkDemanda
 }: DemandsSectionProps) {
   const [selectedTerritorioId, setSelectedTerritorioId] = useState<string>(territorios[0]?.id || '');
   
@@ -42,11 +40,6 @@ export default function DemandsSection({
   // Comment state
   const [comentariosInputs, setComentariosInputs] = useState<Record<string, string>>({});
 
-  // Secret ballot state
-  const [votedReceipt, setVotedReceipt] = useState<string | null>(null);
-  const [votingDemandaId, setVotingDemandaId] = useState<string | null>(null);
-  const [isCastingVote, setIsCastingVote] = useState(false);
-  const [copiedReceipt, setCopiedReceipt] = useState(false);
   const [fusionSubmitted, setFusionSubmitted] = useState(false);
 
   useEffect(() => {
@@ -89,25 +82,6 @@ export default function DemandsSection({
     setComentariosInputs(prev => ({ ...prev, [demandaId]: '' }));
   };
 
-  const triggerVoting = (demandaId: string) => {
-    setVotingDemandaId(demandaId);
-    setIsCastingVote(true);
-    setVotedReceipt(null);
-    setCopiedReceipt(false);
-
-    setTimeout(() => {
-      const receipt = onVote(demandaId);
-      setVotedReceipt(receipt);
-      setIsCastingVote(false);
-    }, 1800);
-  };
-
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedReceipt(true);
-    setTimeout(() => setCopiedReceipt(false), 2000);
-  };
-
   return (
     <div className="space-y-8" id="demands-section">
       
@@ -124,11 +98,7 @@ export default function DemandsSection({
             <button
               key={t.id}
               id={`btn-territorio-${t.id}`}
-              onClick={() => {
-                setSelectedTerritorioId(t.id);
-                setVotedReceipt(null);
-                setVotingDemandaId(null);
-              }}
+              onClick={() => setSelectedTerritorioId(t.id)}
               className={`px-4 py-2 text-xs font-mono font-bold uppercase tracking-wider transition-all border ${
                 selectedTerritorioId === t.id
                   ? 'bg-[#1A1A1B] text-white border-[#1A1A1B]'
@@ -473,17 +443,6 @@ export default function DemandsSection({
                           Ramificar (Criar Fork)
                         </button>
 
-                        {/* Secret Ballot button - if passed both gates */}
-                        {demanda.passouProtocolar && demanda.passouPopular && !demanda.divergente && !isLegislativeVetoed && (
-                          <button
-                            id={`btn-votar-${demanda.id}`}
-                            onClick={() => triggerVoting(demanda.id)}
-                            className="flex items-center gap-1.5 px-4 py-1.5 rounded-none border-2 border-[#1A1A1B] text-xs font-bold font-mono text-white bg-[#1A1A1B] hover:bg-[#3B82F6] hover:border-[#3B82F6] shadow-[2px_2px_0px_0px_#1A1A1B] hover:shadow-none transition-all"
-                          >
-                            <Lock className="h-3.5 w-3.5 text-[#10B981]" />
-                            Urna Municipal: Votar
-                          </button>
-                        )}
                       </div>
 
                       {/* Visual Git Tree Diagram if it is a fork or has been forked */}
@@ -605,65 +564,8 @@ export default function DemandsSection({
           )}
         </div>
 
-        {/* Right side panel: Voting result & Duplicates Check (Unificação) */}
+        {/* Right side panel: Duplicates Check (Unificação) */}
         <div className="space-y-6">
-          {/* Secret ballot drawer / active state indicator */}
-          <div className="bg-white rounded-none border-2 border-[#1A1A1B] p-6 shadow-[4px_4px_0px_0px_#1A1A1B]">
-            <h3 className="font-mono font-bold uppercase tracking-wider text-slate-900 text-xs mb-3 flex items-center gap-2 border-b border-slate-200 pb-1.5">
-              <Lock className="h-4 w-4 text-emerald-600" /> Cabine de Voto Sigiloso
-            </h3>
-
-            {isCastingVote ? (
-              <div className="py-6 text-center space-y-3 font-mono" id="voting-casting-loader">
-                <div className="animate-spin h-8 w-8 border-4 border-[#1A1A1B] border-t-[#3B82F6] rounded-none mx-auto"></div>
-                <p className="text-[10px] font-bold text-slate-700 animate-pulse">
-                  CRIPTOGRAFANDO VOTO...
-                </p>
-                <p className="text-[9px] text-slate-400 px-4 leading-normal">
-                  A urna eletrônica de Código Público está gerando provas de zero conhecimento para resguardar sua escolha.
-                </p>
-              </div>
-            ) : votedReceipt ? (
-              <div className="bg-[#10B981]/5 border-2 border-[#10B981] rounded-none p-4 space-y-3 animate-fade-in" id="receipt-container">
-                <div className="flex items-center gap-1.5 text-xs text-[#065F46] font-bold font-mono uppercase tracking-wider">
-                  <CheckCircle className="h-4 w-4 text-[#10B981]" />
-                  Voto Computado!
-                </div>
-                <p className="text-xs text-slate-600 leading-relaxed font-sans">
-                  Geramos o seu **Comprovante de seu voto (Recibo Opaco)**. Ele prova matematicamente na cadeia pública que seu voto foi computado, mas não revela em qual proposta você votou para manter o sigilo absoluto.
-                </p>
-                
-                <div className="bg-slate-900 p-2.5 rounded-none border border-slate-800 font-mono text-[9px] text-[#10B981] break-all select-all flex items-start justify-between gap-1">
-                  <span>{votedReceipt}</span>
-                  <button 
-                    onClick={() => copyToClipboard(votedReceipt)}
-                    className="p-1 hover:bg-slate-800 rounded-none text-slate-400 hover:text-white transition-colors"
-                    title="Copiar Recibo"
-                    id="btn-copy-receipt"
-                  >
-                    <Copy className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-                
-                {copiedReceipt && (
-                  <p className="text-[9px] text-emerald-700 font-bold font-mono text-right">✓ Recibo copiado!</p>
-                )}
-
-                <p className="text-[9px] text-slate-400 font-mono italic">
-                  Guarde esse código e pesquise-o na aba "Cadeia de Auditoria" para confirmar a integridade.
-                </p>
-              </div>
-            ) : (
-              <div className="text-center py-6 text-slate-500 space-y-2">
-                <Info className="h-8 w-8 text-slate-300 mx-auto" />
-                <p className="text-xs font-bold font-mono uppercase tracking-wider text-slate-700">Urna Eletrônica Pronta</p>
-                <p className="text-[11px] text-slate-500 px-2 leading-relaxed">
-                  Quando uma proposta de {selectedTerritorio?.nome} passar pela "Checagem Básica" e pelo "Apoio da Comunidade", o botão de voto aparecerá no card.
-                </p>
-              </div>
-            )}
-          </div>
-
           {/* Merge Sugestion Panel (Unificação de Demandas Parecidas) */}
           <div className="bg-indigo-50/40 border-2 border-[#1A1A1B] rounded-none p-5 shadow-[4px_4px_0px_0px_#1A1A1B] space-y-3">
             <h3 className="font-bold text-indigo-900 text-xs uppercase font-mono tracking-wider flex items-center gap-1.5 border-b border-indigo-200 pb-1.5">

@@ -3,7 +3,7 @@ import {
   Layers, Users, Sparkles, Check, CheckCircle, Upload, 
   HelpCircle, Shuffle, ShieldCheck, ArrowRight, UserPlus
 } from 'lucide-react';
-import { ConselhoCandidato, CycleConfig } from '../types';
+import { ConselhoCandidato, CycleConfig } from '../../shared/domain/types';
 
 interface CouncilSectionProps {
   candidatos: ConselhoCandidato[];

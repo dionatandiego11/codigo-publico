@@ -3,7 +3,7 @@ import {
   Landmark, ShieldAlert, FileText, CheckCircle, XCircle, 
   Scale, MessageSquare, Calendar, AlertTriangle, ArrowRight, Gavel 
 } from 'lucide-react';
-import { Demanda, Territorio } from '../types';
+import { Demanda, Territorio } from '../../shared/domain/types';
 
 interface InstitutionalSectionProps {
   demandas: Demanda[];

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Shield, Search, CheckCircle, Database, Calendar, Lock, AlertCircle, RefreshCw } from 'lucide-react';
-import { AuditEvent } from '../types';
+import { AuditEvent } from '../../shared/domain/types';
 
 interface AuditorySectionProps {
   auditTrail: AuditEvent[];

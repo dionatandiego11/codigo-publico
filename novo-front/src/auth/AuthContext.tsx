@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { api, tokenStorage } from "../services/api";
+import { api, tokenStorage } from "../shared/api/client";
 
 export interface Citizen {
   id: string;

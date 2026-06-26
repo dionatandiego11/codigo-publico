@@ -2,5 +2,5 @@
   "name": "Código Público",
   "description": "Plataforma de orçamento participativo municipal com governança baseada no rito do código aberto.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": []
 }

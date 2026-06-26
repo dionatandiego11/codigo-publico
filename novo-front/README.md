@@ -1,20 +1,27 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# Código Público Front
 
-# Run and deploy your AI Studio app
+Front-end React/Vite para a plataforma Código Público. A aplicação consome a API Go em `/api/v1` e mantém dados locais de demonstração como fallback quando o backend não está disponível.
 
-This contains everything you need to run your app locally.
+## Estrutura
 
-View your app in AI Studio: https://ai.studio/apps/802a1530-8fdf-47c8-a23e-aaeaefe84a7b
+- `src/app`: shell visual, cabeçalho e navegação principal.
+- `src/auth`: sessão, login e persistência do token.
+- `src/features`: módulos de domínio da experiência, como orçamento participativo, conselho, auditoria e execução.
+- `src/shared`: infraestrutura reutilizável, cliente HTTP e tipos de domínio.
+- `src/demo`: massa inicial usada como fallback local.
 
-## Run Locally
+## Rodando localmente
 
-**Prerequisites:**  Node.js
-
-
-1. Install dependencies:
+1. Instale as dependências:
    `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
+2. Configure a API:
+   `cp .env.example .env`
+3. Ajuste `VITE_API_URL` se o backend estiver em outra porta.
+4. Inicie o front:
    `npm run dev`
+
+## Scripts
+
+- `npm run dev`: inicia o Vite em `http://localhost:3000`.
+- `npm run lint`: valida TypeScript sem emitir arquivos.
+- `npm run build`: gera a versão de produção em `dist`.
