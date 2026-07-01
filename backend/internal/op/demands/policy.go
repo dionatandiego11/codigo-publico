@@ -87,16 +87,16 @@ func canMarkReady(status string, supports, threshold int) error {
 	return nil
 }
 
-// canSupportDemand garante que o apoio pertence ao território e à janela
-// participativa correta. Apoio é gate popular do território, não sinal municipal.
-func canSupportDemand(cyclePhase, actorTerritoryID, demandTerritoryID string) error {
+// canSupportDemand garante que o apoio pertence à competência deliberativa e à
+// janela participativa correta. Demandas municipais aceitam qualquer vínculo.
+func canSupportDemand(cyclePhase, actorTerritoryID, demandTerritoryID string, municipalScope bool) error {
 	if !op.DemandsOpen(cyclePhase) {
 		return web.NewError(http.StatusConflict, "apoios só podem ser registrados na fase Coleta do ciclo de OP")
 	}
 	if actorTerritoryID == "" {
 		return web.NewError(http.StatusForbidden, "apoiar demanda exige vínculo territorial")
 	}
-	if actorTerritoryID != demandTerritoryID {
+	if !municipalScope && actorTerritoryID != demandTerritoryID {
 		return web.NewError(http.StatusForbidden, "somente cidadãos vinculados ao território da demanda podem apoiar")
 	}
 	return nil
@@ -104,21 +104,23 @@ func canSupportDemand(cyclePhase, actorTerritoryID, demandTerritoryID string) er
 
 // groupFacts reúne os campos de uma demanda relevantes para o agrupamento.
 type groupFacts struct {
-	ID            string
-	CycleID       string
-	TerritoryID   string
-	Status        string
-	GroupedIntoID string
+	ID             string
+	CycleID        string
+	TerritoryID    string
+	MunicipalScope bool
+	Status         string
+	GroupedIntoID  string
 }
 
 // groupFactsOf extrai de um demandRecord os fatos relevantes ao agrupamento.
 func groupFactsOf(r demandRecord) groupFacts {
 	return groupFacts{
-		ID:            r.ID,
-		CycleID:       r.CycleID,
-		TerritoryID:   r.TerritoryID,
-		Status:        r.Status,
-		GroupedIntoID: r.GroupedIntoID,
+		ID:             r.ID,
+		CycleID:        r.CycleID,
+		TerritoryID:    r.TerritoryID,
+		MunicipalScope: r.Category == "Escopo municipal",
+		Status:         r.Status,
+		GroupedIntoID:  r.GroupedIntoID,
 	}
 }
 
@@ -138,7 +140,7 @@ func canGroup(source, target groupFacts) error {
 	if source.CycleID != target.CycleID {
 		return web.NewError(http.StatusConflict, "só é possível agrupar demandas do mesmo ciclo")
 	}
-	if source.TerritoryID != target.TerritoryID {
+	if source.TerritoryID != target.TerritoryID && !(source.MunicipalScope && target.MunicipalScope) {
 		return web.NewError(http.StatusConflict, "agrupamento entre territórios ainda não está habilitado")
 	}
 	if target.GroupedIntoID != "" || target.Status == statusGrouped {

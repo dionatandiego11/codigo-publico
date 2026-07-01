@@ -27,14 +27,30 @@ export interface Comment {
   data: string;
 }
 
+export interface DemandEvent {
+  id: string;
+  demandId: string;
+  actorId?: string;
+  actorType: 'citizen' | 'management' | 'admin' | 'system';
+  type: string;
+  fromState?: string;
+  toState?: string;
+  visibility: 'public' | 'internal' | 'audit_only';
+  payload: Record<string, any>;
+  createdAt: string;
+}
+
 export interface Demanda {
   id: string;
   titulo: string;
   descricao: string;
+  status?: string;
   territorioId: string;
+  escopoVotacao?: 'territorial' | 'municipal';
   dataCriacao: string;
   apoiosCount: number;
   apoiosNecessarios: number;
+  votosCount?: number;
   passouProtocolar: boolean;
   passouPopular: boolean;
   criteriaProtocolar: {
@@ -43,8 +59,10 @@ export interface Demanda {
     interessePublico: boolean;
   };
   comentarios: Comment[];
+  events?: DemandEvent[];
   forkId?: string; // se for fork de outra demanda
   parentTitulo?: string;
+  agrupadaEmId?: string;
   admissibilidadeMarcar?: 'admissivel' | 'inadmissivel' | 'pendente';
   justificativaInadmissibilidade?: string;
   divergente?: boolean;
@@ -69,4 +87,42 @@ export interface ConselhoCandidato {
   bairro: string;
   comprovado: boolean;
   sorteado: boolean;
+}
+
+export interface RankingItem {
+  id: string;
+  cycleId: string;
+  territoryId: string;
+  territoryName: string;
+  demandId: string;
+  proposalId: string;
+  votingId: string;
+  proposalTitle: string;
+  position: number;
+  votesYes: number;
+  votesNo: number;
+  votesAbstain: number;
+  totalVotes: number;
+  approvalPct: number;
+  quorumReached: boolean;
+  approved: boolean;
+  status: 'Computado' | 'Incluído na matriz' | 'Em execução' | 'Concluído' | 'Frustrado';
+  frustrationReason?: string;
+}
+
+export interface OPVoting {
+  id: string;
+  proposalId: string;
+  territoryId: string;
+  territoryName: string;
+  title: string;
+  summary: string;
+  deadline: string;
+  quorumNeeded: number;
+  quorumReached: number;
+  votesYes: number;
+  votesNo: number;
+  votesAbstain: number;
+  status: 'Aberta' | 'Encerrada' | 'Cancelada';
+  scope?: string;
 }

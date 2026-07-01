@@ -3,8 +3,10 @@ package demands
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"math"
+	"strings"
 	"time"
 
 	"codigo-publico/backend/internal/audit"
@@ -82,7 +84,8 @@ const demandSelectSQL = `
 			CEIL(COUNT(c.id)::numeric * COALESCE(NULLIF(oc.regimento->>'supportThresholdPct', '')::numeric, 3) / 100.0)::int
 		) AS support_threshold
 		FROM citizens c
-		WHERE c.territory_id = d.territory_id
+		WHERE (d.category = 'Escopo municipal' AND c.territory_id IS NOT NULL)
+		   OR c.territory_id = d.territory_id
 	) st ON TRUE
 `
 
@@ -163,6 +166,10 @@ func (r *Repository) getDemand(ctx context.Context, identifier string) (Demand, 
 		return Demand{}, "", err
 	}
 	demand.Links, err = r.linksByDemandID(ctx, internalID)
+	if err != nil {
+		return Demand{}, "", err
+	}
+	demand.Events, err = r.eventsByDemandID(ctx, internalID)
 	if err != nil {
 		return Demand{}, "", err
 	}
@@ -284,6 +291,11 @@ func (r *Repository) forkDemand(ctx context.Context, a actor, source demandRecor
 		return Demand{}, err
 	}
 
+	initialSupports := 0
+	if input.Category == "Escopo municipal" || a.TerritoryID == source.TerritoryID {
+		initialSupports = 1
+	}
+
 	var forkID string
 	err = tx.QueryRow(ctx, `
 		INSERT INTO budget_demands (
@@ -300,18 +312,20 @@ func (r *Repository) forkDemand(ctx context.Context, a actor, source demandRecor
 			supports_count,
 			forked_from_demand_id
 		)
-		VALUES ($1, $2::uuid, $3::uuid, $4, $5, $6, $7, $8::uuid, $9, 'Recebida', 1, $10::uuid)
+		VALUES ($1, $2::uuid, $3::uuid, $4, $5, $6, $7, $8::uuid, $9, 'Recebida', $10, $11::uuid)
 		RETURNING id::text
-	`, publicID, source.CycleID, source.TerritoryID, input.Title, input.Description, input.Location, input.Category, a.ID, a.Name, source.ID).Scan(&forkID)
+	`, publicID, source.CycleID, source.TerritoryID, input.Title, input.Description, input.Location, input.Category, a.ID, a.Name, initialSupports, source.ID).Scan(&forkID)
 	if err != nil {
 		return Demand{}, err
 	}
 
-	if _, err := tx.Exec(ctx, `
-		INSERT INTO budget_demand_supports (demand_id, citizen_id)
-		VALUES ($1::uuid, $2::uuid)
-	`, forkID, a.ID); err != nil {
-		return Demand{}, err
+	if initialSupports == 1 {
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO budget_demand_supports (demand_id, citizen_id)
+			VALUES ($1::uuid, $2::uuid)
+		`, forkID, a.ID); err != nil {
+			return Demand{}, err
+		}
 	}
 
 	if _, err := tx.Exec(ctx, `
@@ -349,6 +363,11 @@ func (r *Repository) createDemand(ctx context.Context, a actor, cycle currentCyc
 		return Demand{}, err
 	}
 
+	initialSupports := 0
+	if input.Category == "Escopo municipal" || a.TerritoryID == territory.ID {
+		initialSupports = 1
+	}
+
 	var internalID string
 	err = tx.QueryRow(ctx, `
 		INSERT INTO budget_demands (
@@ -364,18 +383,20 @@ func (r *Repository) createDemand(ctx context.Context, a actor, cycle currentCyc
 			status,
 			supports_count
 		)
-		VALUES ($1, $2::uuid, $3::uuid, $4, $5, $6, $7, $8::uuid, $9, 'Recebida', 1)
+		VALUES ($1, $2::uuid, $3::uuid, $4, $5, $6, $7, $8::uuid, $9, 'Recebida', $10)
 		RETURNING id::text
-	`, publicID, cycle.ID, territory.ID, input.Title, input.Description, input.Location, input.Category, a.ID, a.Name).Scan(&internalID)
+	`, publicID, cycle.ID, territory.ID, input.Title, input.Description, input.Location, input.Category, a.ID, a.Name, initialSupports).Scan(&internalID)
 	if err != nil {
 		return Demand{}, err
 	}
 
-	if _, err := tx.Exec(ctx, `
-		INSERT INTO budget_demand_supports (demand_id, citizen_id)
-		VALUES ($1::uuid, $2::uuid)
-	`, internalID, a.ID); err != nil {
-		return Demand{}, err
+	if initialSupports == 1 {
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO budget_demand_supports (demand_id, citizen_id)
+			VALUES ($1::uuid, $2::uuid)
+		`, internalID, a.ID); err != nil {
+			return Demand{}, err
+		}
 	}
 
 	if err := insertAudit(ctx, tx, a, "op.demand.created", internalID, publicID, map[string]any{
@@ -383,6 +404,14 @@ func (r *Repository) createDemand(ctx context.Context, a actor, cycle currentCyc
 		"territoryId": territory.Slug,
 		"title":       input.Title,
 		"category":    input.Category,
+	}); err != nil {
+		return Demand{}, err
+	}
+
+	if err := r.insertDemandEvent(ctx, tx, internalID, &a.ID, getActorType(a.Role), "demand_created", nil, pointerToString("Recebida"), "public", map[string]any{
+		"title":       input.Title,
+		"category":    input.Category,
+		"territoryId": territory.ID,
 	}); err != nil {
 		return Demand{}, err
 	}
@@ -429,6 +458,10 @@ func (r *Repository) supportDemand(ctx context.Context, a actor, identifier stri
 		if err := insertAudit(ctx, tx, a, "op.demand.supported", internalID, demand.ID, nil); err != nil {
 			return Demand{}, err
 		}
+
+		if err := r.insertDemandEvent(ctx, tx, internalID, &a.ID, getActorType(a.Role), "support_added", nil, nil, "audit_only", nil); err != nil {
+			return Demand{}, err
+		}
 	}
 
 	if err := tx.Commit(ctx); err != nil {
@@ -439,7 +472,7 @@ func (r *Repository) supportDemand(ctx context.Context, a actor, identifier stri
 	return updated, err
 }
 
-func (r *Repository) transitionDemandStatus(ctx context.Context, a actor, rec demandRecord, newStatus string, action string, reason string) (Demand, error) {
+func (r *Repository) transitionDemandStatus(ctx context.Context, a actor, rec demandRecord, newStatus string, action string, reason string, eventPayload map[string]any) (Demand, error) {
 	tx, err := r.db.Begin(ctx)
 	if err != nil {
 		return Demand{}, err
@@ -469,6 +502,39 @@ func (r *Repository) transitionDemandStatus(ctx context.Context, a actor, rec de
 		"toStatus":   newStatus,
 		"reason":     reason,
 	}); err != nil {
+		return Demand{}, err
+	}
+
+	eventType := action
+	if val, ok := map[string]string{
+		"op.demand.maturation_started":      "analysis_started",
+		"op.demand.info_requested":          "info_requested",
+		"op.demand.territory_validated":     "territory_validated",
+		"op.demand.ready_for_prioritization": "viability_approved",
+		"op.demand.rejected":                "viability_rejected",
+	}[action]; ok {
+		eventType = val
+	}
+
+	payload := make(map[string]any)
+	if eventPayload != nil {
+		for k, v := range eventPayload {
+			payload[k] = v
+		}
+	}
+	if reason != "" {
+		payload["reason"] = reason
+	}
+
+	if eventType == "viability_approved" {
+		votingScope := "territorio"
+		if rec.Category == "Escopo municipal" {
+			votingScope = "municipio"
+		}
+		payload["voting_scope"] = votingScope
+	}
+
+	if err := r.insertDemandEvent(ctx, tx, rec.ID, &a.ID, getActorType(a.Role), eventType, pointerToString(currentStatus), pointerToString(newStatus), "public", payload); err != nil {
 		return Demand{}, err
 	}
 
@@ -505,6 +571,17 @@ func (r *Repository) createComment(ctx context.Context, a actor, identifier stri
 
 	if err := insertAudit(ctx, tx, a, "op.demand.comment.created", internalID, demand.ID, map[string]any{
 		"commentId": comment.ID,
+	}); err != nil {
+		return DemandComment{}, err
+	}
+
+	excerpt := comment.Content
+	if len(excerpt) > 100 {
+		excerpt = excerpt[:97] + "..."
+	}
+	if err := r.insertDemandEvent(ctx, tx, internalID, &a.ID, getActorType(a.Role), "comment_added", nil, nil, "public", map[string]any{
+		"commentId": comment.ID,
+		"excerpt":   excerpt,
 	}); err != nil {
 		return DemandComment{}, err
 	}
@@ -724,4 +801,90 @@ func supportProgressPercent(supports int, threshold int) float64 {
 	}
 
 	return math.Round(percent*100) / 100
+}
+
+func getActorType(role string) string {
+	role = strings.ToLower(strings.TrimSpace(role))
+	switch role {
+	case "sysadmin", "admin":
+		return "admin"
+	case "institutional_admin", "legislative_admin", "vereador", "mesa_diretora":
+		return "management"
+	case "citizen":
+		return "citizen"
+	default:
+		return "system"
+	}
+}
+
+func (r *Repository) insertDemandEvent(ctx context.Context, tx pgx.Tx, demandID string, actorID *string, actorType string, eventType string, fromState *string, toState *string, visibility string, payload map[string]any) error {
+	if payload == nil {
+		payload = map[string]any{}
+	}
+
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal event payload: %w", err)
+	}
+
+	_, err = tx.Exec(ctx, `
+		INSERT INTO demand_events (demand_id, actor_id, actor_type, event_type, from_state, to_state, visibility, payload)
+		VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7, $8::jsonb)
+	`, demandID, actorID, actorType, eventType, fromState, toState, visibility, jsonPayload)
+	return err
+}
+
+func (r *Repository) eventsByDemandID(ctx context.Context, demandID string) ([]DemandEvent, error) {
+	rows, err := r.db.Query(ctx, `
+		SELECT id::text, demand_id::text, actor_id::text, actor_type, event_type, from_state, to_state, visibility, payload, created_at
+		FROM demand_events
+		WHERE demand_id = $1::uuid AND visibility = 'public'
+		ORDER BY created_at ASC, id ASC
+	`, demandID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	events := make([]DemandEvent, 0)
+	for rows.Next() {
+		var e DemandEvent
+		var actorID sql.NullString
+		var fromState sql.NullString
+		var toState sql.NullString
+		var jsonPayload []byte
+
+		err := rows.Scan(
+			&e.ID, &e.DemandID, &actorID, &e.ActorType, &e.Type,
+			&fromState, &toState, &e.Visibility, &jsonPayload, &e.CreatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		if actorID.Valid {
+			e.ActorID = &actorID.String
+		}
+		if fromState.Valid {
+			e.FromState = &fromState.String
+		}
+		if toState.Valid {
+			e.ToState = &toState.String
+		}
+
+		e.Payload = make(map[string]any)
+		if len(jsonPayload) > 0 {
+			if err := json.Unmarshal(jsonPayload, &e.Payload); err != nil {
+				e.Payload = make(map[string]any)
+			}
+		}
+
+		events = append(events, e)
+	}
+
+	return events, nil
+}
+
+func pointerToString(s string) *string {
+	return &s
 }

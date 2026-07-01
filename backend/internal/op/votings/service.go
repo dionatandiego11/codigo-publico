@@ -12,16 +12,44 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+// ResolvedVotingData é o payload passado ao callback OnResolve com os dados
+// necessários para computar o ranking.
+type ResolvedVotingData struct {
+	CitizenID      string
+	VotingID       string
+	VotingPublicID string
+	CycleID        string
+	TerritoryID    string
+	TerritoryName  string
+	ProposalID     string
+	ProposalTitle  string
+	VotesYes       int
+	VotesNo        int
+	VotesAbstain   int
+	QuorumNeeded   int
+	QuorumReached  int
+}
+
 // proposalReadyForVoting é o status (vocabulário de proposta) que habilita abrir
 // a votação. A FASE do ciclo, ao contrário, vem da fonte canônica via op.VotingOpen.
 const proposalReadyForVoting = "Apta para votação"
 
+// OnResolveFunc é o tipo do callback chamado quando uma votação é encerrada.
+type OnResolveFunc func(ctx context.Context, data ResolvedVotingData)
+
 type Service struct {
-	repo *Repository
+	repo      *Repository
+	onResolve OnResolveFunc
 }
 
 func NewService(repo *Repository) *Service {
 	return &Service{repo: repo}
+}
+
+// SetOnResolve registra um callback que será chamado após o encerramento de
+// uma votação. Usado pelo módulo de ranking.
+func (s *Service) SetOnResolve(fn OnResolveFunc) {
+	s.onResolve = fn
 }
 
 func (s *Service) ListVotings(ctx context.Context) ([]Voting, error) {
@@ -83,6 +111,7 @@ func (s *Service) OpenVoting(ctx context.Context, citizenID string, proposalID s
 
 // ResolveVoting encerra a votação e resolve a proposta. Ato da instância que
 // conduz o território (territorial/geral) ou institucional.
+// Após encerrar, chama o callback OnResolve para que o ranking seja computado.
 func (s *Service) ResolveVoting(ctx context.Context, citizenID string, votingID string) (Voting, error) {
 	a, err := s.requireActor(ctx, citizenID)
 	if err != nil {
@@ -107,7 +136,29 @@ func (s *Service) ResolveVoting(ctx context.Context, citizenID string, votingID 
 		}
 	}
 
-	return s.repo.resolveVoting(ctx, a, voting.ID)
+	resolutionData, err := s.repo.rankingResolutionData(ctx, voting.ID)
+	if err != nil {
+		return Voting{}, err
+	}
+
+	resolved, err := s.repo.resolveVoting(ctx, a, voting.ID)
+	if err != nil {
+		return Voting{}, err
+	}
+
+	// Callback para computar ranking automaticamente.
+	if s.onResolve != nil {
+		resolutionData.CitizenID = citizenID
+		resolutionData.VotesYes = resolved.VotesYes
+		resolutionData.VotesNo = resolved.VotesNo
+		resolutionData.VotesAbstain = resolved.VotesAbstain
+		resolutionData.QuorumNeeded = resolved.QuorumNeeded
+		resolutionData.QuorumReached = resolved.QuorumReached
+		// Ranking é best-effort: falha no ranking não desfaz a votação.
+		s.onResolve(ctx, resolutionData)
+	}
+
+	return resolved, nil
 }
 
 func (s *Service) CastVote(ctx context.Context, citizenID string, votingID string, input voteRequest) (voteResponse, error) {

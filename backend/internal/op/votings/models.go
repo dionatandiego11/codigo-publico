@@ -17,6 +17,7 @@ type proposalRecord struct {
 	ProblemSummary string
 	SolutionScope  string
 	Status         string
+	DemandID       string
 }
 
 type Voting struct {
@@ -27,6 +28,7 @@ type Voting struct {
 	TerritoryName string `json:"territoryName"`
 	Title         string `json:"title"`
 	Summary       string `json:"summary"`
+	Scope         string `json:"scope"`
 	Deadline      string `json:"deadline"`
 	QuorumNeeded  int    `json:"quorumNeeded"`
 	QuorumReached int    `json:"quorumReached"`

@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
-import { api, tokenStorage } from "../shared/api/client";
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import { api, tokenStorage } from '../shared/api/client';
 
 export interface Citizen {
   id: string;
@@ -9,9 +9,24 @@ export interface Citizen {
   role?: string;
 }
 
+export interface AdminContext {
+  citizenId: string;
+  fullName: string;
+  role: string;
+  roleLabel: string;
+  levels: Array<'technical' | 'general' | 'territorial'>;
+  canTechnical: boolean;
+  canGeneral: boolean;
+  canTerritorial: boolean;
+  canManageAllTerritories: boolean;
+  registeredTerritoryId?: string;
+  registeredTerritoryName?: string;
+}
+
 interface AuthContextType {
   token: string | null;
   user: Citizen | null;
+  adminContext: AdminContext | null;
   login: (cpf: string, password?: string, birthDate?: string) => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
@@ -23,26 +38,32 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [token, setToken] = useState<string | null>(tokenStorage.get());
   const [user, setUser] = useState<Citizen | null>(null);
+  const [adminContext, setAdminContext] = useState<AdminContext | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     if (token) {
       tokenStorage.set(token);
-      fetchMe();
+      void fetchSession();
     } else {
       tokenStorage.clear();
       setUser(null);
+      setAdminContext(null);
       setIsLoading(false);
     }
   }, [token]);
 
-  const fetchMe = async () => {
+  const fetchSession = async () => {
     try {
-      // The backend /me endpoint might return just the citizen data directly or nested.
-      const data = await api.get<Citizen>("/me");
-      setUser(data);
+      const citizen = await api.get<Citizen>('/me');
+      setUser(citizen);
+      try {
+        setAdminContext(await api.get<AdminContext>('/me/admin-context'));
+      } catch {
+        setAdminContext(null);
+      }
     } catch (error) {
-      console.error("Failed to fetch user:", error);
+      console.error('Não foi possível carregar a sessão:', error);
       logout();
     } finally {
       setIsLoading(false);
@@ -50,11 +71,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const login = async (cpf: string, password?: string, birthDate?: string) => {
-    const payload: any = { cpf: cpf.replace(/\D/g, "") };
+    const payload: Record<string, string> = { cpf: cpf.replace(/\D/g, '') };
     if (password) payload.password = password;
     if (birthDate) payload.birthDate = birthDate;
 
-    const data = await api.post<{ token: string; citizen: Citizen }>("/auth/login", payload);
+    const data = await api.post<{ token: string; citizen: Citizen }>('/auth/login', payload);
     setUser(data.citizen);
     setToken(data.token);
   };
@@ -64,7 +85,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ token, user, login, logout, isAuthenticated: !!token, isLoading }}>
+    <AuthContext.Provider value={{ token, user, adminContext, login, logout, isAuthenticated: Boolean(token), isLoading }}>
       {children}
     </AuthContext.Provider>
   );
@@ -72,8 +93,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
+  if (!context) throw new Error('useAuth must be used within an AuthProvider');
   return context;
 }

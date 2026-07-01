@@ -1,5 +1,7 @@
 package demands
 
+import "time"
+
 type actor struct {
 	ID          string
 	Name        string
@@ -23,6 +25,19 @@ type DemandLink struct {
 	CreatedAt    string `json:"createdAt"`
 }
 
+type DemandEvent struct {
+	ID         string         `json:"id"`
+	DemandID   string         `json:"demandId"`
+	ActorID    *string        `json:"actorId,omitempty"`
+	ActorType  string         `json:"actorType"`
+	Type       string         `json:"type"`
+	FromState  *string        `json:"fromState,omitempty"`
+	ToState    *string        `json:"toState,omitempty"`
+	Visibility string         `json:"visibility"`
+	Payload    map[string]any `json:"payload"`
+	CreatedAt  time.Time      `json:"createdAt"`
+}
+
 type Demand struct {
 	ID                     string          `json:"id"`
 	CycleID                string          `json:"cycleId"`
@@ -42,6 +57,7 @@ type Demand struct {
 	ForkedFromDemandID     *string         `json:"forkedFromDemandId,omitempty"`
 	Links                  []DemandLink    `json:"links"`
 	Comments               []DemandComment `json:"comments"`
+	Events                 []DemandEvent   `json:"events,omitempty"`
 	CreatedAt              string          `json:"createdAt"`
 	UpdatedAt              string          `json:"updatedAt"`
 }
@@ -74,3 +90,4 @@ type forkDemandInput struct {
 	Category    string `json:"category"`
 	Reason      string `json:"reason"`
 }
+

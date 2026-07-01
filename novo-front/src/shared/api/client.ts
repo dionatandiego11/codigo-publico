@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080/api/v1";
+const API_URL = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8082/api/v1`;
 const TOKEN_STORAGE_KEY = "codigo-publico.auth.token";
 
 export class ApiError extends Error {

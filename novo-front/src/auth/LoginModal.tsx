@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { X } from 'lucide-react';
 import { useAuth } from './AuthContext';
 
 interface LoginModalProps {
@@ -22,29 +23,30 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
     try {
       await login(cpf, password);
       onClose();
-    } catch (err: any) {
-      setError(err.message || 'Erro ao fazer login');
+    } catch (err) {
+      setError((err as Error).message || 'Erro ao fazer login');
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4">
+      <div className="w-full max-w-sm border border-slate-200 bg-white shadow-xl">
         <div className="p-6">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold text-slate-800">Login Cidadão</h2>
-            <button onClick={onClose} className="text-slate-500 hover:text-slate-700">
-              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
+          <div className="mb-6 flex items-start justify-between gap-4">
+            <div>
+              <h2 className="font-display text-xl font-bold text-slate-950">Entrar</h2>
+              <p className="mt-1 text-sm text-slate-500">Use sua conta do Código Público.</p>
+            </div>
+            <button onClick={onClose} className="grid h-9 w-9 place-items-center border border-slate-300 text-slate-500 hover:bg-slate-100" title="Fechar">
+              <X className="h-4 w-4" />
             </button>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
-              <div className="p-3 bg-red-50 text-red-700 rounded-md text-sm">
+              <div className="border-l-4 border-red-500 bg-red-50 p-3 text-sm text-red-700">
                 {error}
               </div>
             )}
@@ -56,7 +58,7 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
                 required 
                 value={cpf} 
                 onChange={e => setCpf(e.target.value)} 
-                className="w-full border-slate-300 rounded-md shadow-sm p-2 border focus:ring-emerald-500 focus:border-emerald-500" 
+                className="h-11 w-full border border-slate-300 px-3 text-sm outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600"
                 placeholder="123.456.789-00" 
               />
             </div>
@@ -68,14 +70,14 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
                 required 
                 value={password} 
                 onChange={e => setPassword(e.target.value)} 
-                className="w-full border-slate-300 rounded-md shadow-sm p-2 border focus:ring-emerald-500 focus:border-emerald-500" 
+                className="h-11 w-full border border-slate-300 px-3 text-sm outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600"
               />
             </div>
 
             <button 
               type="submit" 
               disabled={isLoading}
-              className="w-full bg-emerald-600 text-white font-medium py-2 px-4 rounded-md hover:bg-emerald-700 disabled:opacity-50"
+              className="h-11 w-full bg-emerald-700 px-4 text-sm font-semibold text-white hover:bg-emerald-800 disabled:opacity-50"
             >
               {isLoading ? 'Entrando...' : 'Entrar'}
             </button>

@@ -92,9 +92,7 @@ func (s *Service) CreateDemand(ctx context.Context, citizenID string, input crea
 		if err != nil {
 			return Demand{}, err
 		}
-		if requestedTerritory.ID != territory.ID {
-			return Demand{}, web.NewError(http.StatusForbidden, "demanda territorial só pode ser criada no território do cidadão autenticado")
-		}
+		territory = requestedTerritory
 	}
 
 	return s.repo.createDemand(ctx, a, cycle, territory, input)
@@ -113,7 +111,7 @@ func (s *Service) SupportDemand(ctx context.Context, citizenID string, identifie
 	if err != nil {
 		return Demand{}, err
 	}
-	if err := canSupportDemand(rec.CyclePhase, a.TerritoryID, rec.TerritoryID); err != nil {
+	if err := canSupportDemand(rec.CyclePhase, a.TerritoryID, rec.TerritoryID, rec.Category == "Escopo municipal"); err != nil {
 		return Demand{}, err
 	}
 
@@ -183,7 +181,7 @@ func (s *Service) MarkReady(ctx context.Context, citizenID string, identifier st
 		return Demand{}, err
 	}
 
-	return s.repo.transitionDemandStatus(ctx, a, rec, statusReadyPrioritization, "op.demand.ready_for_prioritization", strings.TrimSpace(input.Reason))
+	return s.repo.transitionDemandStatus(ctx, a, rec, statusReadyPrioritization, "op.demand.ready_for_prioritization", strings.TrimSpace(input.Reason), nil)
 }
 
 func (s *Service) GroupDemand(ctx context.Context, citizenID string, identifier string, input groupDemandInput) (Demand, error) {
@@ -269,7 +267,7 @@ func (s *Service) transitionWithAuthority(ctx context.Context, citizenID string,
 		return Demand{}, err
 	}
 
-	return s.repo.transitionDemandStatus(ctx, a, rec, spec.NewStatus, spec.Action, spec.Reason)
+	return s.repo.transitionDemandStatus(ctx, a, rec, spec.NewStatus, spec.Action, spec.Reason, nil)
 }
 
 func (s *Service) requireDemandAuthority(ctx context.Context, citizenID string, identifier string) (actor, demandRecord, error) {
@@ -328,4 +326,54 @@ func normalizeForkInput(input forkDemandInput, source demandRecord) forkDemandIn
 	}
 
 	return input
+}
+
+type rejectDemandInput struct {
+	Category string `json:"category"`
+	Reason   string `json:"reason"`
+}
+
+type approveDemandInput struct {
+	Reason string `json:"reason"`
+}
+
+func (s *Service) RejectDemand(ctx context.Context, citizenID string, identifier string, input rejectDemandInput) (Demand, error) {
+	input.Category = strings.TrimSpace(input.Category)
+	input.Reason = strings.TrimSpace(input.Reason)
+
+	if input.Category == "" {
+		return Demand{}, web.NewError(http.StatusBadRequest, "category é obrigatório para rejeição")
+	}
+	if input.Reason == "" {
+		return Demand{}, web.NewError(http.StatusBadRequest, "reason é obrigatório para rejeição")
+	}
+
+	a, rec, err := s.requireDemandAuthority(ctx, citizenID, identifier)
+	if err != nil {
+		return Demand{}, err
+	}
+
+	if terminalDemandStatus(rec.Status) {
+		return Demand{}, web.NewError(http.StatusConflict, "demanda em estado terminal não pode ser rejeitada")
+	}
+
+	payload := map[string]any{
+		"category": input.Category,
+		"reason":   input.Reason,
+	}
+
+	return s.repo.transitionDemandStatus(ctx, a, rec, statusArchived, "op.demand.rejected", input.Reason, payload)
+}
+
+func (s *Service) ApproveDemand(ctx context.Context, citizenID string, identifier string, input approveDemandInput) (Demand, error) {
+	a, rec, err := s.requireDemandAuthority(ctx, citizenID, identifier)
+	if err != nil {
+		return Demand{}, err
+	}
+
+	if err := canMarkReady(rec.Status, rec.Supports, rec.SupportThreshold); err != nil {
+		return Demand{}, err
+	}
+
+	return s.repo.transitionDemandStatus(ctx, a, rec, statusReadyPrioritization, "op.demand.ready_for_prioritization", strings.TrimSpace(input.Reason), nil)
 }

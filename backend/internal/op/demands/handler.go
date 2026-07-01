@@ -233,3 +233,41 @@ func (h *Handler) ForkDemand(w http.ResponseWriter, r *http.Request) {
 
 	web.WriteJSON(w, http.StatusCreated, demand)
 }
+
+func (h *Handler) RejectDemand(w http.ResponseWriter, r *http.Request) {
+	id, ok := citizenID(w, r)
+	if !ok {
+		return
+	}
+	input, ok := decodeBody[rejectDemandInput](w, r)
+	if !ok {
+		return
+	}
+
+	demand, err := h.service.RejectDemand(r.Context(), id, chi.URLParam(r, "id"), input)
+	if err != nil {
+		web.WriteError(w, err)
+		return
+	}
+
+	web.WriteJSON(w, http.StatusOK, demand)
+}
+
+func (h *Handler) ApproveDemand(w http.ResponseWriter, r *http.Request) {
+	id, ok := citizenID(w, r)
+	if !ok {
+		return
+	}
+	input, ok := decodeBody[approveDemandInput](w, r)
+	if !ok {
+		return
+	}
+
+	demand, err := h.service.ApproveDemand(r.Context(), id, chi.URLParam(r, "id"), input)
+	if err != nil {
+		web.WriteError(w, err)
+		return
+	}
+
+	web.WriteJSON(w, http.StatusOK, demand)
+}

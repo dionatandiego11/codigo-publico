@@ -3,6 +3,7 @@ package op
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -12,12 +13,31 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+// RankingComputer é a interface que o módulo de ranking expõe para computar
+// itens a partir de votações resolvidas. Evita importação circular.
+type RankingComputer interface {
+	ComputeFromVoting(ctx context.Context, citizenID string, votingID, votingPublicID, cycleID, territoryID, territoryName, proposalID, proposalTitle string, votesYes, votesNo, votesAbstain, quorumNeeded, quorumReached int) error
+}
+
 type Service struct {
-	repo *Repository
+	repo           *Repository
+	rankingCompute func(ctx context.Context, citizenID string, data VotingResolutionData) error
+	logger         *slog.Logger
 }
 
 func NewService(repo *Repository) *Service {
-	return &Service{repo: repo}
+	return &Service{repo: repo, logger: slog.Default()}
+}
+
+// SetRankingComputer registra a função de callback para computar ranking items
+// após o fechamento em lote de votações no AdvanceCycle.
+func (s *Service) SetRankingComputer(fn func(ctx context.Context, citizenID string, data VotingResolutionData) error) {
+	s.rankingCompute = fn
+}
+
+// SetLogger define o logger do service.
+func (s *Service) SetLogger(l *slog.Logger) {
+	s.logger = l
 }
 
 func (s *Service) requireActor(ctx context.Context, citizenID string) (actor, error) {
@@ -190,7 +210,26 @@ func (s *Service) AdvanceCycle(ctx context.Context, citizenID, cycleID string, i
 		}
 	}
 
-	return s.repo.transitionPhase(ctx, requester, cycleID, current.Phase, next, "op_cycle.advanced", "")
+	cycle, resolutions, err := s.repo.transitionPhase(ctx, requester, cycleID, current.Phase, next, "op_cycle.advanced", "")
+	if err != nil {
+		return Cycle{}, err
+	}
+
+	// Após commit: computar ranking para cada votação resolvida (best-effort).
+	if len(resolutions) > 0 && s.rankingCompute != nil {
+		for _, res := range resolutions {
+			if err := s.rankingCompute(ctx, requester.ID, res); err != nil {
+				s.logger.Warn("ranking computation failed in batch advance", "error", err, "votingId", res.VotingPublicID)
+			}
+		}
+
+		// Gerar snapshot congelado do resultado do ciclo.
+		if err := s.repo.snapshotCycleResult(ctx, cycleID); err != nil {
+			s.logger.Warn("cycle result snapshot failed", "error", err, "cycleId", cycleID)
+		}
+	}
+
+	return cycle, nil
 }
 
 func (s *Service) CancelCycle(ctx context.Context, citizenID, cycleID string, input cancelCycleInput) (Cycle, error) {
@@ -215,7 +254,8 @@ func (s *Service) CancelCycle(ctx context.Context, citizenID, cycleID string, in
 		return Cycle{}, err
 	}
 
-	return s.repo.transitionPhase(ctx, requester, cycleID, current.Phase, CyclePhaseCanceled, "op_cycle.canceled", reason)
+	cycle, _, err := s.repo.transitionPhase(ctx, requester, cycleID, current.Phase, CyclePhaseCanceled, "op_cycle.canceled", reason)
+	return cycle, err
 }
 
 func (s *Service) ListCycles(ctx context.Context) ([]Cycle, error) {
@@ -260,4 +300,29 @@ func (s *Service) PreviewEnvelope(ctx context.Context, citizenID string, input p
 	}
 
 	return SplitEnvelope(input.Total, reg, input.Territories)
+}
+
+// GetCycleResults retorna o resultado congelado (snapshot) de um ciclo.
+// Se o snapshot não existir ainda, retorna um resultado vazio com frozen=false.
+func (s *Service) GetCycleResults(ctx context.Context, cycleID string) (*CycleResultSnapshot, error) {
+	cycle, err := s.GetCycle(ctx, cycleID)
+	if err != nil {
+		return nil, err
+	}
+
+	snapshot, err := s.repo.getCycleResultSnapshot(ctx, cycle.ID)
+	if err != nil {
+		return nil, err
+	}
+	if snapshot != nil {
+		return snapshot, nil
+	}
+
+	// Sem snapshot congelado: retorna resultado vazio.
+	return &CycleResultSnapshot{
+		CycleID:    cycle.ID,
+		CycleLabel: cycle.Label,
+		Frozen:     false,
+		Items:      []CycleResultItem{},
+	}, nil
 }

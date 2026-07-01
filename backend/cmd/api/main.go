@@ -23,6 +23,7 @@ import (
 	opfilters "codigo-publico/backend/internal/op/filters"
 	opinstitutional "codigo-publico/backend/internal/op/institutional"
 	opproposals "codigo-publico/backend/internal/op/proposals"
+	opranking "codigo-publico/backend/internal/op/ranking"
 	opvotings "codigo-publico/backend/internal/op/votings"
 	publicapi "codigo-publico/backend/internal/public"
 	appredis "codigo-publico/backend/internal/redis"
@@ -71,7 +72,36 @@ func main() {
 	opProposalHandler := opproposals.NewHandler(dbPool)
 	opVotingHandler := opvotings.NewHandler(dbPool)
 	opInstitutionalHandler := opinstitutional.NewHandler(dbPool)
+	opRankingHandler := opranking.NewHandler(dbPool)
 	auditHandler := audit.NewHandler(dbPool, blockchain.FromMode(cfg.AnchorMode, logger))
+
+	// Wiring: quando uma votação OP é encerrada, o ranking é computado automaticamente.
+	opVotingHandler.ServiceRef().SetOnResolve(func(ctx context.Context, data opvotings.ResolvedVotingData) {
+		v := opranking.ResolvedVoting(
+			data.VotingID, data.VotingPublicID,
+			data.CycleID, data.TerritoryID, data.TerritoryName,
+			data.ProposalID, data.ProposalTitle,
+			data.VotesYes, data.VotesNo, data.VotesAbstain,
+			data.QuorumNeeded, data.QuorumReached,
+		)
+		if _, err := opRankingHandler.ServiceRef().ComputeFromVoting(ctx, data.CitizenID, v); err != nil {
+			logger.Warn("ranking computation failed after voting resolve", "error", err, "votingId", data.VotingPublicID)
+		}
+	})
+
+	// Wiring: quando o ciclo avança com votações em lote, o ranking é computado para cada.
+	opHandler.ServiceRef().SetLogger(logger)
+	opHandler.ServiceRef().SetRankingComputer(func(ctx context.Context, citizenID string, data op.VotingResolutionData) error {
+		v := opranking.ResolvedVoting(
+			data.VotingID, data.VotingPublicID,
+			data.CycleID, data.TerritoryID, data.TerritoryName,
+			data.ProposalID, data.ProposalTitle,
+			data.VotesYes, data.VotesNo, data.VotesAbstain,
+			data.QuorumNeeded, data.QuorumReached,
+		)
+		_, err := opRankingHandler.ServiceRef().ComputeFromVoting(ctx, citizenID, v)
+		return err
+	})
 
 	router.Route("/api/v1", func(r chi.Router) {
 		r.Get("/health", healthHandler.Check)
@@ -121,6 +151,14 @@ func main() {
 			r.Post("/admin/op/cycles/{id}/advance", opHandler.AdvanceCycle)
 			r.Post("/admin/op/cycles/{id}/cancel", opHandler.CancelCycle)
 			r.Post("/admin/op/envelope/preview", opHandler.PreviewEnvelope)
+
+			// Gestão Macro e Usuários (Admin)
+			r.Get("/admin/users", adminHandler.ListUsers)
+			r.Post("/admin/users", adminHandler.CreateUser)
+			r.Put("/admin/users/{id}/role", adminHandler.UpdateUserRole)
+			r.Post("/admin/territories", territorialHandler.CreateTerritory)
+			r.Put("/admin/territories/{id}", territorialHandler.UpdateTerritory)
+
 			r.Post("/op/demands", opDemandHandler.CreateDemand)
 			r.Post("/op/demands/{id}/support", opDemandHandler.SupportDemand)
 			r.Post("/op/demands/{id}/comments", opDemandHandler.CreateComment)
@@ -130,6 +168,8 @@ func main() {
 			r.Post("/op/demands/{id}/mark-ready", opDemandHandler.MarkReady)
 			r.Post("/op/demands/{id}/group", opDemandHandler.GroupDemand)
 			r.Post("/op/demands/{id}/fork", opDemandHandler.ForkDemand)
+			r.Post("/op/demands/{id}/reject", opDemandHandler.RejectDemand)
+			r.Post("/op/demands/{id}/approve", opDemandHandler.ApproveDemand)
 			r.Post("/op/demands/{id}/proposal", opProposalHandler.CreateProposalFromDemand)
 			r.Post("/op/proposals/{id}/voting", opVotingHandler.OpenVoting)
 			r.Post("/op/votings/{id}/vote", opVotingHandler.CastVote)
@@ -137,6 +177,7 @@ func main() {
 			r.Post("/op/budget-filters/{id}/appeal", opFilterHandler.AppealFilter)
 			r.Post("/admin/op/budget-filter-appeals/{id}/decision", opFilterHandler.DecideAppeal)
 			r.Post("/admin/op/proposals/{id}/institutional-decision", opInstitutionalHandler.DecideInstitutional)
+			r.Post("/admin/op/ranking/{id}/status", opRankingHandler.UpdateStatus)
 
 			// Integridade da auditoria (ancoragem exige papel administrativo)
 			r.Post("/admin/audit/anchor", auditHandler.CreateAnchor)
@@ -165,6 +206,8 @@ func main() {
 		r.Get("/territories/{id}/op-votings", opVotingHandler.ListVotingsByTerritory)
 		r.Get("/op/divergence-incidents", opInstitutionalHandler.ListIncidents)
 		r.Get("/op/budget-filters", opFilterHandler.ListFilters)
+		r.Get("/op/cycles/{id}/ranking", opRankingHandler.ListRanking)
+		r.Get("/op/cycles/{id}/results", opHandler.GetCycleResults)
 
 		r.Get("/audit/head", auditHandler.GetChainHead)
 		r.Get("/audit/anchors", auditHandler.ListAnchors)

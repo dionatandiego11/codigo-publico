@@ -1,641 +1,540 @@
-import React, { useEffect, useState } from 'react';
-import { 
-  GitFork, Merge, CheckCircle, XCircle, MessageSquare, 
-  Heart, PlusCircle, ArrowRight, Coins, 
-  TrendingUp, User, MapPin, Calendar, HelpCircle, Info, Shield
+import {
+  Building2,
+  ChevronDown,
+  Clock3,
+  Heart,
+  Link2,
+  MapPin,
+  MessageCircle,
+  Plus,
+  Search,
+  Send,
+  X,
+  Info,
 } from 'lucide-react';
-import { Territorio, CycleConfig, Demanda, Comment } from '../../shared/domain/types';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import type { CycleConfig, Demanda, Territorio, DemandEvent } from '../../shared/domain/types';
+
+export function formatDemandEvent(event: DemandEvent) {
+  switch (event.type) {
+    case 'demand_created':
+      return {
+        title: 'Sugestão enviada para a comunidade 📝',
+        description: 'A ideia foi registrada por um morador. Agora ela precisa de apoios para seguir adiante!',
+      };
+
+    case 'analysis_started':
+      return {
+        title: 'Estudo de viabilidade iniciado 🔍',
+        description: 'Os técnicos da prefeitura estão analisando os custos e a viabilidade legal desta sugestão.',
+      };
+
+    case 'info_requested':
+      return {
+        title: 'Prefeitura solicitou mais detalhes 💡',
+        description: event.payload?.reason || 'Para prosseguir com o estudo, a prefeitura pediu mais informações sobre esta sugestão.',
+      };
+
+    case 'territory_validated':
+      return {
+        title: 'Validada localmente pelo conselho de moradores ✅',
+        description: 'Os representantes do bairro confirmaram que esta sugestão é necessária e correta para o território.',
+      };
+
+    case 'viability_approved':
+      const scope = event.payload?.voting_scope === 'municipio' ? 'municipal' : 'territorial';
+      return {
+        title: 'Sinal verde! Pronta para votação 🚀',
+        description: `A sugestão passou na análise técnica e orçamentária. Ela disputará a votação popular no escopo ${scope}.`,
+      };
+
+    case 'voting_opened':
+      return {
+        title: 'Votação popular aberta! 🗳️',
+        description: 'Esta proposta está na cédula. Registre seu voto para que ela vire realidade!',
+      };
+
+    case 'viability_rejected':
+      const cat = event.payload?.category ? `[Motivo: ${event.payload.category}] ` : '';
+      return {
+        title: 'Ideia arquivada nesta rodada 📁',
+        description: `${cat}${event.payload?.reason || 'Esta sugestão não pôde seguir adiante devido a restrições técnicas ou financeiras.'}`,
+      };
+
+    case 'demand_approved':
+      return {
+        title: 'Aprovada pela comunidade! 🎉',
+        description: 'A proposta obteve a votação necessária e o quórum mínimo. Agora a prefeitura fará o planejamento da obra!',
+      };
+
+    case 'demand_not_approved':
+      return {
+        title: 'Fica salva na memória cívica 🏛️',
+        description: 'A proposta não reuniu votos suficientes desta vez. Ela fica guardada na memória para inspirar futuros ciclos.',
+      };
+
+    case 'comment_added':
+      return {
+        title: 'Novo comentário no debate público 💬',
+        description: event.payload?.excerpt || 'Um vizinho deixou um comentário ou sugestão de melhoria.',
+      };
+
+    default:
+      return {
+        title: 'Atualização registrada 📌',
+        description: 'Houve uma movimentação no andamento desta demanda.',
+      };
+  }
+}
+
+type DemandScope = 'territorial' | 'municipal';
+type DemandFilter = 'todas' | 'maturacao' | 'analise' | 'decididas';
 
 interface DemandsSectionProps {
   territorios: Territorio[];
   demandas: Demanda[];
   cycle: CycleConfig;
-  onAddDemanda: (titulo: string, descricao: string, territorioId: string) => void;
+  userTerritoryId?: string;
+  onAddDemanda: (titulo: string, descricao: string, territorioId: string, scope: DemandScope) => void;
   onApoiar: (demandaId: string) => void;
   onAddComentario: (demandaId: string, texto: string) => void;
   onForkDemanda: (demandaId: string, novoTitulo: string, novaDescricao: string) => void;
 }
 
+function demandStage(demanda: Demanda) {
+  if (demanda.agrupadaEmId || demanda.status === 'Agrupada') return { label: 'Unida a outra sugestão', tone: 'slate' };
+  if (demanda.admissibilidadeMarcar === 'inadmissivel') return { label: 'Não viável para este ciclo', tone: 'red' };
+  if (demanda.statusExecucao || ['Em execução', 'Concluída'].includes(demanda.status || '')) return { label: 'Acompanhando Obra', tone: 'amber' };
+  if (demanda.admissibilidadeMarcar === 'admissivel') return { label: 'Pronta para votação', tone: 'green' };
+  if (demanda.passouPopular || ['Validada territorialmente', 'Apta para priorização'].includes(demanda.status || '')) return { label: 'Em análise pela prefeitura', tone: 'blue' };
+  return { label: 'Coletando apoios', tone: 'purple' };
+}
+
+const toneClasses: Record<string, string> = {
+  slate: 'bg-slate-100 text-slate-700',
+  red: 'bg-red-100 text-red-800',
+  amber: 'bg-amber-100 text-amber-800',
+  green: 'bg-emerald-100 text-emerald-800',
+  blue: 'bg-blue-100 text-blue-800',
+  purple: 'bg-purple-100 text-purple-800',
+};
+
 export default function DemandsSection({
   territorios,
   demandas,
   cycle,
+  userTerritoryId,
   onAddDemanda,
   onApoiar,
   onAddComentario,
-  onForkDemanda
+  onForkDemanda,
 }: DemandsSectionProps) {
-  const [selectedTerritorioId, setSelectedTerritorioId] = useState<string>(territorios[0]?.id || '');
-  
-  // Form states
-  const [novoTitulo, setNovoTitulo] = useState('');
-  const [novaDescricao, setNovaDescricao] = useState('');
-  const [showNovoForm, setShowNovoForm] = useState(false);
-
-  // Fork states
-  const [forkingDemandaId, setForkingDemandaId] = useState<string | null>(null);
-  const [forkTitulo, setForkTitulo] = useState('');
-  const [forkDescricao, setForkDescricao] = useState('');
-
-  // Comment state
-  const [comentariosInputs, setComentariosInputs] = useState<Record<string, string>>({});
-
-  const [fusionSubmitted, setFusionSubmitted] = useState(false);
+  const initialTerritory = territorios.find(t => t.id === userTerritoryId)?.id || territorios[0]?.id || '';
+  const [selectedTerritoryId, setSelectedTerritoryId] = useState(initialTerritory);
+  const [filter, setFilter] = useState<DemandFilter>('todas');
+  const [query, setQuery] = useState('');
+  const [showForm, setShowForm] = useState(false);
+  const [scope, setScope] = useState<DemandScope>('territorial');
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [relatedId, setRelatedId] = useState<string | null>(null);
+  const [relatedTitle, setRelatedTitle] = useState('');
+  const [relatedDescription, setRelatedDescription] = useState('');
+  const [commentInputs, setCommentInputs] = useState<Record<string, string>>({});
+  const [demandTabs, setDemandTabs] = useState<Record<string, 'timeline' | 'comments'>>({});
 
   useEffect(() => {
-    if (territorios.length === 0) return;
-    const selectedStillExists = territorios.some(t => t.id === selectedTerritorioId);
-    if (!selectedTerritorioId || !selectedStillExists) {
-      setSelectedTerritorioId(territorios[0].id);
+    if (!territorios.some(t => t.id === selectedTerritoryId)) {
+      setSelectedTerritoryId(territorios[0]?.id || '');
     }
-  }, [selectedTerritorioId, territorios]);
+  }, [selectedTerritoryId, territorios]);
 
-  const selectedTerritorio = territorios.find(t => t.id === selectedTerritorioId);
-  const filteredDemandas = demandas.filter(d => d.territorioId === selectedTerritorioId);
+  const visibleDemands = useMemo(() => demandas.filter(demanda => {
+    const isMunicipal = demanda.escopoVotacao === 'municipal';
+    const inTerritory = selectedTerritoryId === 'todos' || demanda.territorioId === selectedTerritoryId || isMunicipal;
+    const textMatches = `${demanda.titulo} ${demanda.descricao}`.toLowerCase().includes(query.trim().toLowerCase());
+    const stage = demandStage(demanda).label;
+    const filterMatches = filter === 'todas'
+      || (filter === 'maturacao' && stage === 'Em maturação')
+      || (filter === 'analise' && ['Em análise', 'Apta para votação'].includes(stage))
+      || (filter === 'decididas' && ['Não aprovada', 'Em acompanhamento'].includes(stage));
+    return inTerritory && textMatches && filterMatches;
+  }), [demandas, filter, query, selectedTerritoryId]);
 
-  const formatCurrency = (val: number) => {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(val);
+  const territoryName = (id: string) => territorios.find(t => t.id === id)?.nome || 'Território não informado';
+
+  const submitDemand = (event: FormEvent) => {
+    event.preventDefault();
+    if (!title.trim() || !description.trim() || !selectedTerritoryId) return;
+    const objectTerritory = selectedTerritoryId === 'todos' ? territorios[0]?.id : selectedTerritoryId;
+    if (!objectTerritory) return;
+    onAddDemanda(title.trim(), description.trim(), objectTerritory, scope);
+    setTitle('');
+    setDescription('');
+    setScope('territorial');
+    setShowForm(false);
   };
 
-  const handleSubmitDemanda = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!novoTitulo.trim() || !novaDescricao.trim()) return;
-    onAddDemanda(novoTitulo, novaDescricao, selectedTerritorioId);
-    setNovoTitulo('');
-    setNovaDescricao('');
-    setShowNovoForm(false);
+  const submitRelated = (event: FormEvent, demandId: string) => {
+    event.preventDefault();
+    if (!relatedTitle.trim() || !relatedDescription.trim()) return;
+    onForkDemanda(demandId, relatedTitle.trim(), relatedDescription.trim());
+    setRelatedId(null);
+    setRelatedTitle('');
+    setRelatedDescription('');
   };
 
-  const handleForkSubmit = (e: React.FormEvent, parentId: string) => {
-    e.preventDefault();
-    if (!forkTitulo.trim() || !forkDescricao.trim()) return;
-    onForkDemanda(parentId, forkTitulo, forkDescricao);
-    setForkTitulo('');
-    setForkDescricao('');
-    setForkingDemandaId(null);
-  };
-
-  const handleAddCommentSubmit = (demandaId: string) => {
-    const text = comentariosInputs[demandaId];
-    if (!text || !text.trim()) return;
-    onAddComentario(demandaId, text);
-    setComentariosInputs(prev => ({ ...prev, [demandaId]: '' }));
+  const submitComment = (demandId: string) => {
+    const text = commentInputs[demandId]?.trim();
+    if (!text) return;
+    onAddComentario(demandId, text);
+    setCommentInputs(current => ({ ...current, [demandId]: '' }));
   };
 
   return (
-    <div className="space-y-8" id="demands-section">
-      
-      {/* 1. Territory Selector & Budget Breakdown */}
-      <div className="bg-white rounded-none border-2 border-[#1A1A1B] p-6 shadow-[4px_4px_0px_0px_#1A1A1B]">
-        <h2 className="text-base font-black uppercase tracking-tight text-slate-900 mb-4 flex items-center gap-2 font-display">
-          <MapPin className="h-5 w-5 text-[#3B82F6]" id="map-pin-icon" />
-          Selecione seu Território para Participar
-        </h2>
-        
-        {/* Horizontal tabs of Territories */}
-        <div className="flex flex-wrap gap-2 pb-3 mb-6 border-b border-[#1A1A1B]">
-          {territorios.map((t) => (
-            <button
-              key={t.id}
-              id={`btn-territorio-${t.id}`}
-              onClick={() => setSelectedTerritorioId(t.id)}
-              className={`px-4 py-2 text-xs font-mono font-bold uppercase tracking-wider transition-all border ${
-                selectedTerritorioId === t.id
-                  ? 'bg-[#1A1A1B] text-white border-[#1A1A1B]'
-                  : 'bg-slate-100 text-[#1A1A1B] border-slate-300 hover:border-[#1A1A1B] hover:bg-slate-200'
-              }`}
-            >
-              {t.nome}
-            </button>
-          ))}
+    <div className="space-y-6" id="demands-section">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <span className="text-sm font-semibold text-emerald-700">Escuta contínua</span>
+          <h1 className="mt-1 font-display text-2xl font-bold text-slate-950">Demandas públicas</h1>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+            Problemas e necessidades enviados pela população. Demandas parecidas podem ser relacionadas ou agrupadas sem perder seu histórico.
+          </p>
         </div>
-
-        {/* Sub-envelope layout */}
-        {selectedTerritorio && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch" id="budget-breakdown">
-            {/* Box 1: Quanto dinheiro sobrou para o seu bairro */}
-            <div className="bg-[#3B82F6]/5 rounded-none border-2 border-[#1A1A1B] p-5 md:col-span-2 flex flex-col justify-between">
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[10px] font-mono uppercase tracking-wider text-[#3B82F6] font-bold flex items-center gap-1">
-                    <Coins className="h-4 w-4" /> Sub-envelope Orçamentário
-                  </span>
-                  <span className="text-[9px] font-mono bg-blue-100 text-blue-800 px-2 py-0.5 rounded-none border border-blue-200 font-bold uppercase">
-                    Fórmula Local Regimental
-                  </span>
-                </div>
-                <h3 className="text-base font-serif italic font-black text-slate-900 mb-1">
-                  Quanto dinheiro sobrou para o seu bairro
-                </h3>
-                <p className="text-xs text-slate-600 mb-4 leading-relaxed">
-                  O orçamento total disponível para o território é o resultado da soma de um piso igual para todas as vilas mais uma quantia proporcional calculada com base na carência estrutural e tamanho populacional do local.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-3 gap-3 pt-3 border-t border-[#1A1A1B]/15">
-                <div>
-                  <span className="text-[9px] font-mono uppercase font-bold text-slate-500 block">Piso Garantido</span>
-                  <span className="text-xs sm:text-sm font-bold text-slate-800 font-mono">{formatCurrency(selectedTerritorio.pisoIgual)}</span>
-                </div>
-                <div>
-                  <span className="text-[9px] font-mono uppercase font-bold text-slate-500 block">Parcela Carência</span>
-                  <span className="text-xs sm:text-sm font-bold text-slate-800 font-mono">+{formatCurrency(selectedTerritorio.parcelaCarencia)}</span>
-                </div>
-                <div className="bg-[#3B82F6]/10 rounded-none border border-[#3B82F6]/30 p-1.5 px-2.5 text-right">
-                  <span className="text-[9px] font-mono uppercase font-bold text-[#3B82F6] block">TOTAL VILA</span>
-                  <span className="text-sm sm:text-base font-extrabold text-[#1A1A1B] font-mono">{formatCurrency(selectedTerritorio.totalOrcamento)}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Box 2: Vulnerabilidade / Carência */}
-            <div className="bg-[#F59E0B]/5 rounded-none border-2 border-[#1A1A1B] p-5 flex flex-col justify-between">
-              <div>
-                <span className="text-[10px] font-mono uppercase tracking-wider text-amber-700 font-bold flex items-center gap-1 mb-2">
-                  <TrendingUp className="h-4 w-4" /> Bairros com mais necessidade
-                </span>
-                <h3 className="text-base font-serif italic font-black text-slate-900 mb-1">
-                  Índice de Carência
-                </h3>
-                <p className="text-xs text-slate-600 leading-relaxed mb-4 font-sans">
-                  Define o percentual de prioridade territorial. Áreas com menos infraestrutura recebem uma fatia maior dos recursos.
-                </p>
-              </div>
-
-              <div>
-                <div className="flex justify-between items-center text-xs mb-1">
-                  <span className="text-slate-600 font-medium font-sans">Fator de carência local:</span>
-                  <span className="font-bold text-amber-700 font-mono">{(selectedTerritorio.indiceCarencia * 10).toFixed(1)} / 10.0</span>
-                </div>
-                <div className="w-full bg-slate-200 h-4 rounded-none overflow-hidden border border-[#1A1A1B]">
-                  <div 
-                    className="bg-[#F59E0B] h-full" 
-                    style={{ width: `${selectedTerritorio.indiceCarencia * 100}%` }}
-                  ></div>
-                </div>
-                <span className="text-[9px] font-mono text-slate-400 mt-1.5 block">População vinculada registrada: {selectedTerritorio.populacao} cidadãos</span>
-              </div>
+        {userTerritoryId ? (
+          <button
+            onClick={() => setShowForm(true)}
+            className="inline-flex h-10 shrink-0 items-center justify-center gap-2 bg-emerald-700 px-4 text-sm font-semibold text-white hover:bg-emerald-800 animate-fade-in"
+          >
+            <Plus className="h-4 w-4" />
+            Criar demanda
+          </button>
+        ) : (
+          <div className="flex max-w-md items-start gap-2.5 border border-amber-200 bg-amber-50/70 p-3 text-amber-900 rounded text-left">
+            <Info className="h-4.5 w-4.5 text-amber-700 shrink-0 mt-0.5" />
+            <div>
+              <strong className="block text-xs font-bold text-amber-900">Abertura de demandas bloqueada</strong>
+              <p className="mt-0.5 text-[11px] text-amber-800 leading-normal">
+                Exige-se vínculo territorial homologado (morador, trabalhador ou estudante). Vá para <a href="/usuario" onClick={(e) => { e.preventDefault(); window.history.pushState({}, '', '/usuario'); window.dispatchEvent(new PopStateEvent('popstate')); }} className="underline font-bold text-emerald-800 hover:text-emerald-950">Minha Área</a> para se identificar ou solicitar vínculo.
+              </p>
             </div>
           </div>
         )}
-      </div>
+      </header>
 
-      {/* 2. Main content: Propose and Vote */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
-        {/* Left/Middle: Demands list */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className="flex items-center justify-between border-b-2 border-[#1A1A1B] pb-3">
-            <h2 className="text-xl font-serif italic font-black text-slate-900">
-              Demandas Ativas ({filteredDemandas.length})
-            </h2>
-            <button
-              id="btn-abrir-nova-demanda"
-              onClick={() => setShowNovoForm(!showNovoForm)}
-              className="flex items-center gap-1.5 px-4 py-2 bg-[#1A1A1B] text-white rounded-none border-2 border-[#1A1A1B] text-xs font-bold uppercase tracking-wider hover:bg-[#3B82F6] hover:border-[#3B82F6] transition-colors shadow-[2px_2px_0px_0px_#1A1A1B] hover:shadow-none"
-            >
-              <PlusCircle className="h-4 w-4" />
-              Sugerir Ideia Simples
+      {showForm && (
+        <section className="border border-emerald-300 bg-white p-5 sm:p-6" aria-label="Nova demanda">
+          <div className="mb-5 flex items-center justify-between gap-4">
+            <div>
+              <h2 className="font-display text-lg font-bold text-slate-950">Compartilhe sua sugestão</h2>
+              <p className="mt-1 text-sm text-slate-500">Descreva o que o bairro precisa para que a comunidade possa apoiar.</p>
+            </div>
+            <button onClick={() => setShowForm(false)} className="grid h-9 w-9 place-items-center border border-slate-300 text-slate-500 hover:bg-slate-100" title="Fechar">
+              <X className="h-4 w-4" />
             </button>
           </div>
 
-          {/* New demand form */}
-          {showNovoForm && (
-            <div className="bg-white rounded-none border-2 border-[#1A1A1B] p-6 shadow-[4px_4px_0px_0px_#1A1A1B] animate-fade-in" id="form-nova-demanda">
-              <div className="flex items-center justify-between mb-4 border-b border-[#1A1A1B] pb-2">
-                <h3 className="font-bold text-slate-900 font-mono text-xs uppercase tracking-wider">Cadastrar uma ideia básica</h3>
-                <button 
-                  onClick={() => setShowNovoForm(false)} 
-                  className="text-xs text-red-600 hover:underline font-mono uppercase font-bold"
-                >
-                  [Cancelar]
-                </button>
-              </div>
-              <form onSubmit={handleSubmitDemanda} className="space-y-4">
-                <div>
-                  <label className="block text-[10px] font-mono font-bold text-slate-700 uppercase mb-1">Título em linguagem direta e natural</label>
-                  <input
-                    type="text"
-                    id="input-titulo"
-                    placeholder="Exemplo: Falta de médico pediatra no PSF"
-                    value={novoTitulo}
-                    onChange={(e) => setNovoTitulo(e.target.value)}
-                    className="w-full p-2.5 rounded-none border border-slate-300 font-mono text-xs focus:outline-none focus:border-[#1A1A1B] focus:ring-1 focus:ring-[#1A1A1B] bg-slate-50"
-                    required
-                  />
-                  <p className="text-[10px] text-slate-500 mt-1">Evite termos técnicos. Fale como se estivesse explicando o problema ao seu vizinho.</p>
-                </div>
-                <div>
-                  <label className="block text-[10px] font-mono font-bold text-slate-700 uppercase mb-1">O que precisa ser resolvido? (Descrição Livre)</label>
-                  <textarea
-                    id="input-descricao"
-                    rows={3}
-                    placeholder="Conte o que está acontecendo e como isso afeta as famílias do bairro."
-                    value={novaDescricao}
-                    onChange={(e) => setNovaDescricao(e.target.value)}
-                    className="w-full p-2.5 rounded-none border border-slate-300 text-xs focus:outline-none focus:border-[#1A1A1B] focus:ring-1 focus:ring-[#1A1A1B] bg-slate-50"
-                    required
-                  ></textarea>
-                </div>
-                <button
-                  type="submit"
-                  id="btn-enviar-demanda"
-                  className="w-full py-2.5 bg-[#3B82F6] text-white border-2 border-[#1A1A1B] font-mono text-xs font-bold uppercase tracking-wider hover:bg-blue-600 transition-colors shadow-[2px_2px_0px_0px_#1A1A1B]"
-                >
-                  Publicar Proposta na Comunidade
-                </button>
-              </form>
+          <form onSubmit={submitDemand} className="grid gap-5 lg:grid-cols-2">
+            <div className="space-y-4">
+              <label className="block text-sm font-semibold text-slate-700">
+                O que o seu bairro está precisando?
+                <input
+                  value={title}
+                  onChange={event => setTitle(event.target.value)}
+                  placeholder="Ex.: Iluminação na Praça Central ou Asfalto na Rua X"
+                  className="mt-1.5 w-full border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600"
+                  required
+                />
+              </label>
+              <label className="block text-sm font-semibold text-slate-700">
+                Explique melhor a sua ideia
+                <textarea
+                  value={description}
+                  onChange={event => setDescription(event.target.value)}
+                  placeholder="Conte para seus vizinhos o local exato, qual o problema hoje e de que forma essa melhoria vai ajudar o dia a dia da comunidade."
+                  rows={5}
+                  className="mt-1.5 w-full resize-none border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600"
+                  required
+                />
+              </label>
             </div>
-          )}
 
-          {/* List of demands */}
-          {filteredDemandas.length === 0 ? (
-            <div className="bg-slate-50 rounded-none border-2 border-dashed border-slate-300 py-12 px-6 text-center text-slate-500">
-              <HelpCircle className="h-10 w-10 text-slate-300 mx-auto mb-2" />
-              <p className="text-sm font-bold font-mono">Nenhuma demanda ativa neste território ainda.</p>
-              <p className="text-xs text-slate-400 mt-1">Seja o primeiro a enviar uma ideia básica clicando no botão acima!</p>
-            </div>
-          ) : (
-            <div className="space-y-6" id="demands-list">
-              {filteredDemandas.map((demanda) => {
-                const isCouncilApproved = demanda.admissibilidadeMarcar === 'admissivel';
-                const isLegislativeVetoed = demanda.admissibilidadeMarcar === 'inadmissivel';
-                const showForkForm = forkingDemandaId === demanda.id;
-
-                return (
-                  <div 
-                    key={demanda.id} 
-                    id={`demanda-card-${demanda.id}`}
-                    className={`bg-white rounded-none border-2 transition-all p-6 shadow-[4px_4px_0px_0px_#1A1A1B] flex flex-col justify-between ${
-                      demanda.divergente 
-                        ? 'border-red-300 ring-1 ring-red-100 bg-red-50/10' 
-                        : isLegislativeVetoed
-                        ? 'border-amber-200 bg-amber-50/5'
-                        : 'border-slate-200 hover:border-slate-300'
-                    }`}
-                  >
-                    {/* Header: Title, tags, Fork origin */}
-                    <div>
-                      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-                        <div className="flex flex-wrap gap-1.5">
-                          {/* Actor Badge: Protocolar */}
-                          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-none text-[9px] font-mono font-bold uppercase tracking-wider border ${
-                            demanda.passouProtocolar 
-                              ? 'bg-[#10B981]/10 text-[#065F46] border-[#10B981]' 
-                              : 'bg-slate-50 text-slate-400 border-slate-300'
-                          }`}>
-                            <CheckCircle className="h-3 w-3" /> 🔧 Protocolar: {demanda.passouProtocolar ? 'Apto' : 'Análise'}
-                          </span>
-
-                          {/* Actor Badge: Popular */}
-                          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-none text-[9px] font-mono font-bold uppercase tracking-wider border ${
-                            demanda.passouPopular 
-                              ? 'bg-[#3B82F6]/10 text-[#1E3A8A] border-[#3B82F6]' 
-                              : 'bg-slate-50 text-slate-400 border-slate-300'
-                          }`}>
-                            <Heart className="h-3 w-3" /> 👥 Popular: {demanda.passouPopular ? 'Quórum Atingido' : 'Em Curso'}
-                          </span>
-
-                          {/* Legislative filter status */}
-                          {demanda.admissibilidadeMarcar && (
-                            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-none text-[9px] font-mono font-bold uppercase tracking-wider border ${
-                              demanda.admissibilidadeMarcar === 'admissivel' 
-                                ? 'bg-[#10B981]/15 text-[#065F46] border-[#10B981]' 
-                                : 'bg-red-50 text-red-700 border-red-300'
-                            }`}>
-                              🏛️ Câmara: {demanda.admissibilidadeMarcar === 'admissivel' ? 'Admissível' : 'Barrada'}
-                            </span>
-                          )}
-
-                          {/* Execution tracker status */}
-                          {demanda.statusExecucao && (
-                            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-none text-[9px] font-mono font-bold uppercase tracking-wider border ${
-                              demanda.statusExecucao === 'concluido' 
-                                ? 'bg-emerald-100 text-emerald-800 border-emerald-400'
-                                : demanda.statusExecucao === 'frustrado'
-                                ? 'bg-red-100 text-red-800 border-red-400'
-                                : 'bg-amber-100 text-amber-800 border-amber-400'
-                            }`}>
-                              🚧 Obra: {demanda.statusExecucao}
-                            </span>
-                          )}
-                        </div>
-                        <span className="text-[10px] text-slate-400 font-mono">CRIADO EM {demanda.dataCriacao}</span>
-                      </div>
-
-                      {demanda.forkId && (
-                        <div className="mb-3 inline-flex items-center gap-1 text-[10px] bg-sky-50 text-sky-800 px-2.5 py-1 rounded-none font-mono border border-sky-300 uppercase">
-                          <GitFork className="h-3 w-3 text-sky-600" /> Ramificação: 
-                          <span className="font-bold underline">{demanda.parentTitulo}</span>
-                        </div>
-                      )}
-
-                      <h3 className="text-xl sm:text-2xl font-serif italic font-black text-slate-900 mb-2 leading-none">
-                        {demanda.titulo}
-                      </h3>
-                      <p className="text-xs text-slate-600 mb-5 leading-relaxed font-sans">
-                        {demanda.descricao}
-                      </p>
-
-                      {/* Warnings: Legislative vetos & divergence incidents */}
-                      {demanda.divergente && (
-                        <div className="mb-5 bg-red-50 border-2 border-red-600 rounded-none p-4 text-xs text-red-800">
-                          <h4 className="font-mono font-bold uppercase tracking-wider flex items-center gap-1 text-xs mb-1.5 text-red-900">
-                            ⚠️ Incidente de Divergência Institucional Ativado!
-                          </h4>
-                          <p className="mb-2 font-sans text-slate-700 leading-normal">
-                            A comunidade deliberou e apoiou esta proposta, mas o corpo de vereadores votou formalmente pela rejeição ou bloqueio sob a seguinte justificativa:
-                          </p>
-                          <blockquote className="border-l-4 border-red-600 pl-3 py-1 bg-red-100/30 font-mono italic text-red-950 mb-2.5 text-xs">
-                            "{demanda.justificativaDivergencia || demanda.justificativaInadmissibilidade}"
-                          </blockquote>
-                          <p className="text-[10px] text-slate-500 font-mono">
-                            Esse veto político é tornado público por design para garantir transparência plena.
-                          </p>
-                        </div>
-                      )}
-
-                      {isLegislativeVetoed && !demanda.divergente && (
-                        <div className="mb-5 bg-amber-50 border-2 border-[#F59E0B] rounded-none p-4 text-xs text-amber-800">
-                          <h4 className="font-mono font-bold uppercase tracking-wider flex items-center gap-1 text-xs mb-1.5 text-amber-900">
-                            🏛️ Inadmissibilidade Formal Declarada
-                          </h4>
-                          <p className="font-mono italic bg-white p-2.5 rounded-none border border-amber-200">
-                            "{demanda.justificativaInadmissibilidade}"
-                          </p>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Footer parts */}
-                    <div className="space-y-4 pt-4 border-t border-slate-200 mt-auto">
-                      
-                      {/* Portões / Progression Status */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch bg-slate-50 p-4 rounded-none border-2 border-[#1A1A1B]">
-                        {/* 1. Portão Protocolar details */}
-                        <div className="flex flex-col justify-between">
-                          <div className="text-[9px] font-mono font-bold uppercase text-slate-500 mb-1.5 flex items-center gap-1">
-                            🔧 Checagem Básica (Protocolar)
-                          </div>
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-1.5 text-xs">
-                              {demanda.criteriaProtocolar.vinculoValido ? <CheckCircle className="h-3.5 w-3.5 text-emerald-600" /> : <XCircle className="h-3.5 w-3.5 text-slate-400" />}
-                              <span className="text-slate-600 font-sans">Autor vinculado ao território</span>
-                            </div>
-                            <div className="flex items-center gap-1.5 text-xs">
-                              {demanda.criteriaProtocolar.dadosMinimos ? <CheckCircle className="h-3.5 w-3.5 text-emerald-600" /> : <XCircle className="h-3.5 w-3.5 text-slate-400" />}
-                              <span className="text-slate-600 font-sans">Formulário mínimo completo</span>
-                            </div>
-                            <div className="flex items-center gap-1.5 text-xs">
-                              {demanda.criteriaProtocolar.interessePublico ? <CheckCircle className="h-3.5 w-3.5 text-emerald-600" /> : <XCircle className="h-3.5 w-3.5 text-slate-400" />}
-                              <span className="text-slate-600 font-sans">Competência de investimento municipal</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* 2. Portão Popular Progression */}
-                        <div className="flex flex-col justify-between">
-                          <div className="flex items-center justify-between text-[9px] font-mono font-bold uppercase text-[#3B82F6] mb-1.5">
-                            <span>👥 Apoio da Comunidade</span>
-                            <span>{demanda.apoiosCount} / {demanda.apoiosNecessarios}</span>
-                          </div>
-                          <div className="w-full bg-slate-200 h-4 rounded-none overflow-hidden mb-1.5 border border-[#1A1A1B]">
-                            <div 
-                              className={`h-full ${demanda.passouPopular ? 'bg-[#3B82F6]' : 'bg-blue-400'}`}
-                              style={{ width: `${Math.min(100, (demanda.apoiosCount / demanda.apoiosNecessarios) * 100)}%` }}
-                            ></div>
-                          </div>
-                          <div className="flex justify-between items-center text-[9px] text-slate-400 font-mono uppercase">
-                            <span>Meta local (3%)</span>
-                            <span className="font-bold">{demanda.passouPopular ? 'Apto! 🎉' : `${Math.max(0, demanda.apoiosNecessarios - demanda.apoiosCount)} apoios restantes`}</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Interactive Section: Support / Fork / Secret Ballot */}
-                      <div className="flex flex-wrap gap-2 pt-2">
-                        {/* Support Button */}
-                        <button
-                          id={`btn-apoiar-${demanda.id}`}
-                          onClick={() => onApoiar(demanda.id)}
-                          disabled={demanda.passouPopular}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-none text-xs font-mono font-bold uppercase tracking-wider transition-all border-2 ${
-                            demanda.passouPopular
-                              ? 'bg-emerald-50 text-emerald-600 border-emerald-400 cursor-not-allowed opacity-75'
-                              : 'bg-white text-[#1A1A1B] border-[#1A1A1B] hover:bg-[#3B82F6] hover:text-white hover:border-[#3B82F6] shadow-[2px_2px_0px_0px_#1A1A1B] hover:shadow-none'
-                          }`}
-                        >
-                          <Heart className={`h-3.5 w-3.5 ${demanda.passouPopular ? 'fill-emerald-500 stroke-emerald-500' : ''}`} />
-                          {demanda.passouPopular ? 'Apoiada' : 'Apoiar'}
-                        </button>
-
-                        {/* Fork Button */}
-                        <button
-                          id={`btn-fork-${demanda.id}`}
-                          onClick={() => {
-                            setForkingDemandaId(forkingDemandaId === demanda.id ? null : demanda.id);
-                            setForkTitulo(`Alternativa para: ${demanda.titulo}`);
-                            setForkDescricao('');
-                          }}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-none border border-[#1A1A1B] text-xs font-bold font-mono text-purple-700 bg-purple-50 hover:bg-purple-100 shadow-[2px_2px_0px_0px_#1A1A1B] hover:shadow-none transition-all"
-                        >
-                          <GitFork className="h-3.5 w-3.5" />
-                          Ramificar (Criar Fork)
-                        </button>
-
-                      </div>
-
-                      {/* Visual Git Tree Diagram if it is a fork or has been forked */}
-                      {(demanda.forkId || demandas.some(d => d.forkId === demanda.id)) && (
-                        <div className="p-3 bg-slate-50 rounded-none border border-dashed border-slate-400 flex flex-col space-y-1.5 text-xs">
-                          <span className="font-mono font-bold text-slate-600 uppercase text-[10px] flex items-center gap-1">
-                            <GitFork className="h-3.5 w-3.5 text-purple-500" /> Árvore de Ramificações (Git Metaphor)
-                          </span>
-                          <div className="flex items-center space-x-2 font-mono text-[10px] text-slate-400 pl-4 border-l-2 border-purple-300">
-                            <span className="text-slate-600 bg-slate-200 px-1 py-0.5 rounded-none">main</span>
-                            <ArrowRight className="h-3 w-3" />
-                            <span className="font-semibold text-slate-700">
-                              {demanda.forkId ? demanda.parentTitulo : demanda.titulo}
-                            </span>
-                            {demandas.filter(d => d.forkId === demanda.id || (demanda.forkId && d.id === demanda.id)).map(f => (
-                              <React.Fragment key={f.id}>
-                                <span className="text-purple-400">|</span>
-                                <span className="text-purple-700 bg-purple-50 px-1 py-0.5 rounded-none border border-purple-200">
-                                  fork-{f.id.split('-')[1]} ({f.titulo.substring(0, 15)}...)
-                                </span>
-                              </React.Fragment>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Interactive Fork Form Box */}
-                      {showForkForm && (
-                        <div className="bg-purple-50/50 rounded-none p-4 border border-purple-300 animate-fade-in" id="fork-form-container">
-                          <h4 className="text-[10px] font-mono font-bold text-purple-900 uppercase mb-2 flex items-center gap-1">
-                            <GitFork className="h-3.5 w-3.5" /> Ramificar Demanda de Origem
-                          </h4>
-                          <p className="text-[11px] text-slate-600 mb-3 leading-relaxed">
-                            Crie uma ramificação (fork) para propor uma alternativa técnica, orçamentária ou física diferente para resolver o mesmo problema base. O apoio popular será contado separadamente para testar a preferência da comunidade.
-                          </p>
-                          <form onSubmit={(e) => handleForkSubmit(e, demanda.id)} className="space-y-3">
-                            <div>
-                              <input
-                                type="text"
-                                placeholder="Título alternativo"
-                                value={forkTitulo}
-                                onChange={(e) => setForkTitulo(e.target.value)}
-                                className="w-full p-2.5 rounded-none border border-slate-300 text-xs bg-white focus:outline-none font-mono"
-                                required
-                              />
-                            </div>
-                            <div>
-                              <textarea
-                                placeholder="Explique como sua solução proposta se diferencia ou otimiza o problema original..."
-                                rows={2}
-                                value={forkDescricao}
-                                onChange={(e) => setForkDescricao(e.target.value)}
-                                className="w-full p-2.5 rounded-none border border-slate-300 text-xs bg-white focus:outline-none font-sans"
-                                required
-                              ></textarea>
-                            </div>
-                            <button
-                              type="submit"
-                              className="px-3 py-1.5 bg-purple-700 text-white font-mono text-xs font-bold uppercase tracking-wider rounded-none border border-purple-900 hover:bg-purple-800 shadow-[2px_2px_0px_0px_#1A1A1B] hover:shadow-none transition-all"
-                            >
-                              Confirmar Ramificação (Fork)
-                            </button>
-                          </form>
-                        </div>
-                      )}
-
-                      {/* Comments Threads */}
-                      <div className="space-y-2 pt-2">
-                        <div className="text-xs font-mono font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1">
-                          <MessageSquare className="h-3.5 w-3.5 text-slate-500" />
-                          Debates da Comunidade ({demanda.comentarios.length})
-                        </div>
-                        
-                        {demanda.comentarios.length > 0 && (
-                          <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
-                            {demanda.comentarios.map((c) => (
-                              <div key={c.id} className="bg-slate-50/80 p-2.5 rounded-none text-xs border border-slate-300">
-                                <div className="flex justify-between items-center text-[9px] font-mono uppercase text-slate-500 mb-0.5">
-                                  <span className="flex items-center gap-1 text-slate-700 font-bold">
-                                    <User className="h-2.5 w-2.5" /> {c.autor}
-                                  </span>
-                                  <span>{c.data}</span>
-                                </div>
-                                <p className="text-slate-600 leading-relaxed font-sans">{c.texto}</p>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* Comentar Input */}
-                        <div className="flex gap-2">
-                          <input
-                            type="text"
-                            placeholder="Escreva um comentário público legítimo..."
-                            value={comentariosInputs[demanda.id] || ''}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setComentariosInputs(prev => ({ ...prev, [demanda.id]: val }));
-                            }}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') handleAddCommentSubmit(demanda.id);
-                            }}
-                            className="flex-1 p-2 bg-slate-50 border border-slate-300 rounded-none text-xs focus:outline-none focus:border-[#1A1A1B]"
-                          />
-                          <button
-                            onClick={() => handleAddCommentSubmit(demanda.id)}
-                            className="px-3 bg-slate-100 hover:bg-[#1A1A1B] hover:text-white rounded-none text-xs font-mono font-bold uppercase tracking-wider border border-slate-400 transition-colors"
-                          >
-                            Postar
-                          </button>
-                        </div>
-                      </div>
-
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Right side panel: Duplicates Check (Unificação) */}
-        <div className="space-y-6">
-          {/* Merge Sugestion Panel (Unificação de Demandas Parecidas) */}
-          <div className="bg-indigo-50/40 border-2 border-[#1A1A1B] rounded-none p-5 shadow-[4px_4px_0px_0px_#1A1A1B] space-y-3">
-            <h3 className="font-bold text-indigo-900 text-xs uppercase font-mono tracking-wider flex items-center gap-1.5 border-b border-indigo-200 pb-1.5">
-              <Merge className="h-4 w-4 text-indigo-700" /> Sugestões de Unificação
-            </h3>
-            <p className="text-xs text-slate-600 leading-relaxed font-sans">
-              Para evitar que o apoio popular seja dividido em propostas parecidas, nossa checagem de proximidade semântica sugere agrupamentos automáticos.
-            </p>
-
-            {filteredDemandas.length >= 2 ? (
-              <div className="bg-white border border-indigo-200 rounded-none p-3 space-y-2 text-xs shadow-sm">
-                <div className="flex items-center gap-1 text-indigo-800 font-bold font-mono uppercase text-[9px]">
-                  <Info className="h-3 w-3" /> Alta proximidade de conteúdo!
-                </div>
-                <div className="text-[10px] font-mono text-slate-500 space-y-1 pl-1">
-                  <p>1. <span className="font-bold text-slate-700">{filteredDemandas[0].titulo.substring(0, 30)}...</span></p>
-                  <p>2. <span className="font-bold text-slate-700">{filteredDemandas[1].titulo.substring(0, 30)}...</span></p>
-                </div>
-                <p className="text-[10px] text-indigo-600 font-sans">
-                  Deseja sugerir a unificação sob um único branch principal para somar as assinaturas?
-                </p>
-                {fusionSubmitted ? (
-                  <div className="bg-emerald-50 text-emerald-800 border border-emerald-300 p-2 text-center text-[10px] font-mono font-bold uppercase">
-                    ✓ Solicitação de Fusão Enviada!
-                  </div>
-                ) : (
+            <div className="space-y-4">
+              <fieldset>
+                <legend className="mb-2 text-sm font-semibold text-slate-700">Quem será beneficiado por essa melhoria?</legend>
+                <div className="grid grid-cols-2 border border-slate-300 p-1">
                   <button
-                    id="btn-sugerir-unificacao"
-                    onClick={() => setFusionSubmitted(true)}
-                    className="w-full py-1.5 px-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-none border border-indigo-800 text-[10px] font-mono font-bold uppercase tracking-wider transition-all"
+                    type="button"
+                    onClick={() => setScope('territorial')}
+                    className={`flex min-h-12 items-center justify-center gap-2 px-3 text-sm font-medium ${scope === 'territorial' ? 'bg-emerald-700 text-white' : 'text-slate-600 hover:bg-slate-100'}`}
                   >
-                    Solicitar Fusão de Ideias
+                    <MapPin className="h-4 w-4" />Apenas nosso bairro
                   </button>
-                )}
-              </div>
-            ) : (
-              <p className="text-[10px] text-slate-400 italic font-mono uppercase">
-                Nenhum duplicado flagrante identificado no momento para este bairro.
-              </p>
-            )}
-          </div>
+                  <button
+                    type="button"
+                    onClick={() => setScope('municipal')}
+                    className={`flex min-h-12 items-center justify-center gap-2 px-3 text-sm font-medium ${scope === 'municipal' ? 'bg-emerald-700 text-white' : 'text-slate-600 hover:bg-slate-100'}`}
+                  >
+                    <Building2 className="h-4 w-4" />Toda a cidade
+                  </button>
+                </div>
+              </fieldset>
 
-          {/* Dicionário de Legitimidade Educacional */}
-          <div className="bg-slate-900 rounded-none border-2 border-[#1A1A1B] p-5 text-white shadow-[4px_4px_0px_0px_#1A1A1B] space-y-3">
-            <h3 className="font-mono font-bold uppercase text-xs text-sky-400 flex items-center gap-1.5 border-b border-slate-800 pb-1.5">
-              <Shield className="h-4 w-4 text-emerald-400" /> Guia Democrático de Termos
-            </h3>
-            <p className="text-[11px] text-slate-300">
-              No Código Público, os termos complexos da política foram reescritos para serem compreendidos por todos:
-            </p>
-            <div className="space-y-2 text-[10px]">
-              <div>
-                <span className="font-semibold text-slate-200 font-mono">Checagem Básica</span> (Portão Protocolar):
-                <p className="text-slate-400">Verificação automática se a ideia cumpre dados mínimos e leis.</p>
+              <label className="block text-sm font-medium text-slate-700">
+                {scope === 'territorial' ? 'Território afetado' : 'Local de referência'}
+                <select
+                  value={selectedTerritoryId === 'todos' ? territorios[0]?.id : selectedTerritoryId}
+                  onChange={event => setSelectedTerritoryId(event.target.value)}
+                  className="mt-1.5 w-full border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-600"
+                >
+                  {territorios.map(territorio => <option key={territorio.id} value={territorio.id}>{territorio.nome}</option>)}
+                </select>
+              </label>
+
+              <div className="border-l-4 border-blue-400 bg-blue-50 p-4 text-sm text-blue-950">
+                <strong className="block">Votação desta demanda</strong>
+                <span className="mt-1 block leading-5 text-blue-800">
+                  {scope === 'municipal'
+                    ? 'Poderá ser votada por moradores de todo o município.'
+                    : `Será votada por moradores de ${territoryName(selectedTerritoryId === 'todos' ? territorios[0]?.id || '' : selectedTerritoryId)}.`}
+                </span>
               </div>
-              <div>
-                <span className="font-semibold text-slate-200 font-mono">Apoio da Comunidade</span> (Portão Popular):
-                <p className="text-slate-400">Arrecadação de assinaturas de vizinhos para validar o clamor local.</p>
-              </div>
-              <div>
-                <span className="font-semibold text-slate-200 font-mono">Comprovante de seu Voto</span> (Recibo Opaco):
-                <p className="text-slate-400">Comprova que seu voto entrou na contagem sem que ninguém saiba o que você votou.</p>
-              </div>
+
+              <button type="submit" className="w-full bg-slate-900 px-4 py-3 text-sm font-semibold text-white hover:bg-emerald-800">
+                Publicar demanda
+              </button>
             </div>
-          </div>
+          </form>
+        </section>
+      )}
 
+      <section className="border border-slate-200 bg-white p-4">
+        <div className="grid gap-3 md:grid-cols-[220px_1fr_auto]">
+          <select
+            value={selectedTerritoryId}
+            onChange={event => setSelectedTerritoryId(event.target.value)}
+            className="h-10 border border-slate-300 bg-white px-3 text-sm outline-none focus:border-emerald-600"
+            aria-label="Filtrar por território"
+          >
+            <option value="todos">Todos os territórios</option>
+            {territorios.map(territorio => <option key={territorio.id} value={territorio.id}>{territorio.nome}</option>)}
+          </select>
+          <label className="relative block">
+            <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+            <input
+              value={query}
+              onChange={event => setQuery(event.target.value)}
+              placeholder="Buscar demandas"
+              className="h-10 w-full border border-slate-300 bg-white pl-9 pr-3 text-sm outline-none focus:border-emerald-600"
+            />
+          </label>
+          <div className="flex overflow-x-auto border border-slate-300 p-1">
+            {([
+              ['todas', 'Ver todas'],
+              ['maturacao', 'Apoio popular'],
+              ['analise', 'Em estudo técnico'],
+              ['decididas', 'Votação e Obras'],
+            ] as Array<[DemandFilter, string]>).map(([value, label]) => (
+              <button
+                key={value}
+                onClick={() => setFilter(value)}
+                className={`h-8 shrink-0 px-3 text-xs font-semibold ${filter === value ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <div className="space-y-3">
+        <div className="flex items-center justify-between text-sm">
+          <strong className="text-slate-800">{visibleDemands.length} demandas encontradas</strong>
+          <span className="text-slate-500">Maturação: {cycle.prazoDias} dias</span>
         </div>
 
-      </div>
+        {visibleDemands.length === 0 ? (
+          <div className="border border-dashed border-slate-300 bg-white px-6 py-12 text-center">
+            <FileTextIcon />
+            <p className="mt-3 text-sm font-semibold text-slate-800">Nenhuma demanda encontrada</p>
+            <p className="mt-1 text-sm text-slate-500">Altere os filtros ou crie uma nova demanda.</p>
+          </div>
+        ) : visibleDemands.map(demanda => {
+          const stage = demandStage(demanda);
+          const expanded = expandedId === demanda.id;
+          const progress = Math.min(100, Math.round((demanda.apoiosCount / Math.max(1, demanda.apoiosNecessarios)) * 100));
+          const votingPlace = demanda.escopoVotacao === 'municipal' ? 'Todo o município' : territoryName(demanda.territorioId);
 
+          return (
+            <article key={demanda.id} className="border border-slate-200 bg-white">
+              <div className="p-5">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="min-w-0 flex-1">
+                    <div className="mb-3 flex flex-wrap items-center gap-2">
+                      <span className={`px-2.5 py-1 text-xs font-semibold ${toneClasses[stage.tone]}`}>{stage.label}</span>
+                      <span className="inline-flex items-center gap-1.5 text-xs text-slate-500">
+                        {demanda.escopoVotacao === 'municipal' ? <Building2 className="h-3.5 w-3.5" /> : <MapPin className="h-3.5 w-3.5" />}
+                        Votação: {votingPlace}
+                      </span>
+                      <span className="text-xs text-slate-400">Criada em {demanda.dataCriacao}</span>
+                    </div>
+                    {demanda.forkId && (
+                      <p className="mb-2 inline-flex items-center gap-1.5 text-xs font-medium text-blue-700">
+                        <Link2 className="h-3.5 w-3.5" />Proposta relacionada a {demanda.parentTitulo}
+                      </p>
+                    )}
+                    <h2 className="text-lg font-bold leading-6 text-slate-950">{demanda.titulo}</h2>
+                    <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-600">{demanda.descricao}</p>
+                  </div>
+
+                  <div className="w-full shrink-0 border-t border-slate-100 pt-4 lg:w-60 lg:border-l lg:border-t-0 lg:pl-5 lg:pt-0">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-medium text-slate-600">Apoio da comunidade</span>
+                      <strong className="text-slate-900">{demanda.apoiosCount} de {demanda.apoiosNecessarios}</strong>
+                    </div>
+                    <div className="mt-2 h-2 overflow-hidden bg-slate-200"><div className="h-full bg-emerald-600" style={{ width: `${progress}%` }} /></div>
+                    <button
+                      onClick={() => onApoiar(demanda.id)}
+                      className="mt-3 inline-flex h-9 w-full items-center justify-center gap-2 border border-slate-300 text-sm font-semibold text-slate-700 hover:border-emerald-600 hover:text-emerald-700"
+                    >
+                      <Heart className="h-4 w-4" />
+                      {demanda.passouPopular ? 'Apoiar também' : 'Apoiar demanda'}
+                    </button>
+                  </div>
+                </div>
+
+                {demanda.admissibilidadeMarcar === 'inadmissivel' && demanda.justificativaInadmissibilidade && (
+                  <div className="mt-4 border-l-4 border-red-500 bg-red-50 p-4">
+                    <strong className="text-sm text-red-900">Justificativa da decisão</strong>
+                    <p className="mt-1 text-sm leading-5 text-red-800">{demanda.justificativaInadmissibilidade}</p>
+                  </div>
+                )}
+
+                <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-4">
+                  <button onClick={() => setExpandedId(expanded ? null : demanda.id)} className="inline-flex h-9 items-center gap-2 px-3 text-sm font-medium text-slate-600 hover:bg-slate-100">
+                    <MessageCircle className="h-4 w-4" />
+                    Histórico e debate ({demanda.comentarios.length})
+                    <ChevronDown className={`h-4 w-4 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+                  </button>
+                  <button
+                    onClick={() => {
+                      setRelatedId(relatedId === demanda.id ? null : demanda.id);
+                      setRelatedTitle(`Alternativa para: ${demanda.titulo}`);
+                    }}
+                    className="inline-flex h-9 items-center gap-2 px-3 text-sm font-medium text-slate-600 hover:bg-slate-100"
+                  >
+                    <Link2 className="h-4 w-4" />
+                    Sugerir proposta relacionada
+                  </button>
+                </div>
+              </div>
+
+              {expanded && (
+                <div className="border-t border-slate-200 bg-slate-50 p-5">
+                  <div className="mb-4 flex border-b border-slate-200">
+                    <button
+                      onClick={() => setDemandTabs(curr => ({ ...curr, [demanda.id]: 'timeline' }))}
+                      className={`pb-2 pr-4 text-sm font-semibold border-b-2 outline-none ${
+                        (demandTabs[demanda.id] || 'timeline') === 'timeline'
+                          ? 'border-emerald-600 text-emerald-700'
+                          : 'border-transparent text-slate-500'
+                      }`}
+                    >
+                      Histórico e Timeline
+                    </button>
+                    <button
+                      onClick={() => setDemandTabs(curr => ({ ...curr, [demanda.id]: 'comments' }))}
+                      className={`pb-2 px-4 text-sm font-semibold border-b-2 outline-none ${
+                        demandTabs[demanda.id] === 'comments'
+                          ? 'border-emerald-600 text-emerald-700'
+                          : 'border-transparent text-slate-500'
+                      }`}
+                    >
+                      Debate Público ({demanda.comentarios.length})
+                    </button>
+                  </div>
+
+                  {(demandTabs[demanda.id] || 'timeline') === 'timeline' ? (
+                    <div className="py-2">
+                      {(() => {
+                        const publicEvents = (demanda.events || [])
+                          .filter(e => e.visibility === 'public' && !['support_added', 'vote_cast'].includes(e.type));
+                        if (publicEvents.length === 0) {
+                          return <p className="text-sm text-slate-500 py-3">Nenhum evento institucional registrado nesta demanda.</p>;
+                        }
+                        return (
+                          <div className="relative border-l-2 border-slate-200 pl-4 ml-2 mt-2 space-y-5">
+                            {publicEvents.map(event => {
+                              const formatted = formatDemandEvent(event);
+                              let bulletColor = 'bg-slate-400';
+                              if (event.type === 'viability_approved' || event.type === 'demand_approved') bulletColor = 'bg-emerald-600';
+                              if (event.type === 'viability_rejected' || event.type === 'demand_not_approved') bulletColor = 'bg-red-600';
+                              if (event.type === 'analysis_started') bulletColor = 'bg-blue-600';
+                              if (event.type === 'voting_opened') bulletColor = 'bg-purple-600';
+                              return (
+                                <div key={event.id} className="relative">
+                                  <div className={`absolute -left-[23px] top-1.5 h-3 w-3 rounded-full border-2 border-white ${bulletColor}`} />
+                                  <div className="flex flex-col">
+                                    <strong className="text-sm text-slate-900">{formatted.title}</strong>
+                                    <span className="text-xs text-slate-400 mt-0.5">
+                                      {new Date(event.createdAt).toLocaleDateString()}
+                                    </span>
+                                    <p className="text-sm text-slate-600 mt-1">{formatted.description}</p>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {demanda.comentarios.map(comment => (
+                        <div key={comment.id} className="border border-slate-200 bg-white p-3 text-sm">
+                          <div className="flex justify-between gap-3 text-xs text-slate-500"><strong className="text-slate-700">{comment.autor}</strong><span>{comment.data}</span></div>
+                          <p className="mt-1.5 leading-5 text-slate-600">{comment.texto}</p>
+                        </div>
+                      ))}
+                      <div className="flex gap-2">
+                        <input
+                          value={commentInputs[demanda.id] || ''}
+                          onChange={event => setCommentInputs(current => ({ ...current, [demanda.id]: event.target.value }))}
+                          onKeyDown={event => event.key === 'Enter' && submitComment(demanda.id)}
+                          placeholder="Escreva um comentário"
+                          className="h-10 min-w-0 flex-1 border border-slate-300 bg-white px-3 text-sm outline-none focus:border-emerald-600"
+                        />
+                        <button onClick={() => submitComment(demanda.id)} className="grid h-10 w-10 place-items-center bg-slate-900 text-white hover:bg-emerald-800" title="Enviar comentário"><Send className="h-4 w-4" /></button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {relatedId === demanda.id && (
+                <form onSubmit={event => submitRelated(event, demanda.id)} className="grid gap-3 border-t border-blue-200 bg-blue-50 p-5 md:grid-cols-2">
+                  <div>
+                    <label className="text-sm font-medium text-blue-950">Título da proposta relacionada</label>
+                    <input value={relatedTitle} onChange={event => setRelatedTitle(event.target.value)} className="mt-1.5 h-10 w-full border border-blue-300 bg-white px-3 text-sm outline-none focus:border-blue-600" required />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-blue-950">O que muda nesta proposta?</label>
+                    <textarea value={relatedDescription} onChange={event => setRelatedDescription(event.target.value)} rows={2} className="mt-1.5 w-full resize-none border border-blue-300 bg-white px-3 py-2 text-sm outline-none focus:border-blue-600" required />
+                  </div>
+                  <div className="md:col-span-2 flex justify-end">
+                    <button type="submit" className="bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-800">Publicar proposta relacionada</button>
+                  </div>
+                </form>
+              )}
+            </article>
+          );
+        })}
+      </div>
     </div>
   );
+}
+
+function FileTextIcon() {
+  return <Clock3 className="mx-auto h-8 w-8 text-slate-300" />;
 }

@@ -171,3 +171,19 @@ func (h *Handler) ListTerritoryEnvelopes(w http.ResponseWriter, r *http.Request)
 	}
 	web.WriteJSON(w, http.StatusOK, envelopes)
 }
+
+// GET /op/cycles/{id}/results (público)
+func (h *Handler) GetCycleResults(w http.ResponseWriter, r *http.Request) {
+	result, err := h.service.GetCycleResults(r.Context(), chi.URLParam(r, "id"))
+	if err != nil {
+		web.WriteError(w, err)
+		return
+	}
+	web.WriteJSON(w, http.StatusOK, result)
+}
+
+// ServiceRef expõe o service para wiring no main (ranking callback).
+func (h *Handler) ServiceRef() *Service {
+	return h.service
+}
+

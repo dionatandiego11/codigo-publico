@@ -1,444 +1,336 @@
 import { useEffect, useState } from 'react';
-import { useAuth } from './auth/AuthContext';
 import AppShell from './app/AppShell';
-import { AppView, canAccessView, isInstitutionalRole } from './app/navigation';
+import { type AppView, canAccessView, userProfile } from './app/navigation';
+import { useAuth } from './auth/AuthContext';
+import ManagementSection, { type DemandTransition } from './features/op/ManagementSection';
 import CycleDashboard from './features/op/CycleDashboard';
 import DemandsSection from './features/op/DemandsSection';
-import VotingSection from './features/op/VotingSection';
-import CouncilSection from './features/council/CouncilSection';
-import InstitutionalSection from './features/institutional/InstitutionalSection';
 import MaintainerSection from './features/op/MaintainerSection';
-import AuditorySection from './features/audit/AuditorySection';
-import ExecutionSection from './features/execution/ExecutionSection';
-import { dateOnly, mapDemand } from './features/op/adapters';
+import MemorySection from './features/op/MemorySection';
+import VotingSection from './features/op/VotingSection';
+import UserSection from './features/op/UserSection';
+import { dateOnly, mapDemand, mapRankingItem } from './features/op/adapters';
 import { opApi } from './features/op/api';
 import { useOPData } from './features/op/useOPData';
-import { 
-  INITIAL_CANDIDATOS, 
-  INITIAL_AUDIT_TRAIL,
-  calcularOrcamentoTerritorios 
-} from './demo/initialData';
-import { AuditEvent, ConselhoCandidato, CycleConfig, Demanda } from './shared/domain/types';
+import React, { Component, ErrorInfo, ReactNode } from 'react';
+
+import { calcularOrcamentoTerritorios } from './demo/initialData';
+import type { CycleConfig, Demanda } from './shared/domain/types';
+
+type DemandScope = 'territorial' | 'municipal';
+
+function pathToView(path: string): AppView {
+  switch (path) {
+    case '/demandas': return 'demandas';
+    case '/votacao': return 'votacao';
+    case '/resultados': return 'resultados';
+    case '/usuario': return 'usuario';
+    default: return 'inicio';
+  }
+}
+
+function viewToPath(view: AppView): string {
+  switch (view) {
+    case 'demandas': return '/demandas';
+    case 'votacao': return '/votacao';
+    case 'resultados': return '/resultados';
+    case 'usuario': return '/usuario';
+    default: return '/';
+  }
+}
 
 export default function App() {
-  const { isAuthenticated, user } = useAuth();
-  const [activeView, setActiveView] = useState<AppView>('painel');
-  const { cycle, setCycle, territorios, setTerritorios, demandas, setDemandas } = useOPData();
-  const [candidatos, setCandidatos] = useState<ConselhoCandidato[]>(INITIAL_CANDIDATOS);
-  const [auditTrail, setAuditTrail] = useState<AuditEvent[]>(INITIAL_AUDIT_TRAIL);
-  const activeRole = user?.role;
+  const { adminContext, isAuthenticated, user } = useAuth();
+  const [currentPath, setCurrentPath] = useState(window.location.pathname);
+  const activeView = pathToView(currentPath);
+  const { cycle, setCycle, territorios, setTerritorios, demandas, setDemandas, ranking, setRanking, cycleSnapshot } = useOPData();
+  const profile = userProfile(user?.role, adminContext);
+  const userTerritoryId = territorios.find(territorio => (
+    territorio.id === user?.territoryId || territorio.nome === user?.territoryName
+  ))?.id;
+
+  const navigateTo = (view: AppView) => {
+    const path = viewToPath(view);
+    window.history.pushState({}, '', path);
+    setCurrentPath(path);
+  };
 
   useEffect(() => {
-    if (!canAccessView(activeView, activeRole)) {
-      setActiveView('painel');
-    }
-  }, [activeRole, activeView]);
-
-  // Helper to generate mock secure sha256-like hex hashes for ledger
-  const generateHash = () => {
-    return Array.from({ length: 64 }, () => 
-      Math.floor(Math.random() * 16).toString(16)
-    ).join('');
-  };
-
-  // Add event to imutavel ledger
-  const appendAuditEvent = (tipo: AuditEvent['tipo'], descricao: string, provaAncora?: string) => {
-    const anteriorHash = auditTrail[auditTrail.length - 1]?.hash || generateHash();
-    const hash = generateHash();
-    const newEvent: AuditEvent = {
-      id: `ev-${Date.now()}`,
-      tipo,
-      descricao,
-      timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19) + ' UTC',
-      hash,
-      anteriorHash,
-      provaAncora
+    const handlePopState = () => {
+      setCurrentPath(window.location.pathname);
     };
-    setAuditTrail(prev => [...prev, newEvent]);
-  };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
-  // Callback: User updates cycle regimento parameters (Stage 0 / Maintainer)
-  const handleUpdateRegimento = (updatedFields: Partial<CycleConfig>) => {
-    setCycle(prev => {
-      const nextCycle = { ...prev, ...updatedFields };
-      
-      // Recalculate territorial budget distribution based on new envelope values
-      setTerritorios(prevTerritorios => 
-        calcularOrcamentoTerritorios(
-          prevTerritorios, 
-          nextCycle.pisoIgualBase, 
-          nextCycle.parcelaCarenciaTotal
-        )
-      );
+  useEffect(() => {
+    if (!canAccessView(activeView, profile)) {
+      navigateTo('inicio');
+    }
+  }, [activeView, profile]);
 
-      // Recalculate signatures required for all active demands
-      setDemandas(prevDemandas => 
-        prevDemandas.map(d => {
-          const t = territorios.find(currT => currT.id === d.territorioId);
-          const pop = t ? t.populacao : 1000;
-          const apoioPct = nextCycle.limiarApoioPercentual;
-          const apoiosReq = Math.round(pop * apoioPct);
-          return {
-            ...d,
-            apoiosNecessarios: apoiosReq,
-            passouPopular: d.apoiosCount >= apoiosReq
-          };
-        })
-      );
-
-      return nextCycle;
+  const handleUpdateCycle = (updates: Partial<CycleConfig>) => {
+    setCycle(current => {
+      const next = { ...current, ...updates };
+      setTerritorios(items => calcularOrcamentoTerritorios(items, next.pisoIgualBase, next.parcelaCarenciaTotal));
+      setDemandas(items => items.map(demanda => {
+        const territory = territorios.find(item => item.id === demanda.territorioId);
+        const population = demanda.escopoVotacao === 'municipal'
+          ? territorios.reduce((sum, item) => sum + item.populacao, 0)
+          : territory?.populacao || 1000;
+        const threshold = Math.max(1, Math.round(population * next.limiarApoioPercentual));
+        return { ...demanda, apoiosNecessarios: threshold, passouPopular: demanda.apoiosCount >= threshold };
+      }));
+      return next;
     });
-
-    appendAuditEvent(
-      'estado_execucao', 
-      `Regimento modificado. Novo piso: R$ ${updatedFields.pisoIgualBase?.toLocaleString()}, quórum: ${(updatedFields.limiarApoioPercentual || 0.03) * 100}%.`
-    );
   };
 
-  // Callback: Citizens adds a raw idea
-  const handleAddDemanda = async (titulo: string, descricao: string, territorioId: string) => {
-    if (!isAuthenticated) {
-      alert("Você precisa estar logado para publicar uma demanda.");
-      return;
-    }
-    
-    const t = territorios.find(curr => curr.id === territorioId);
+  const requireLogin = (message: string) => {
+    if (isAuthenticated) return true;
+    window.alert(message);
+    return false;
+  };
+
+  const handleAddDemand = async (
+    title: string,
+    description: string,
+    territoryId: string,
+    scope: DemandScope,
+  ) => {
+    if (!requireLogin('Entre com sua conta para publicar uma demanda.')) return;
+    const territory = territorios.find(item => item.id === territoryId);
     try {
-      const resp = await opApi.createDemand({
-        territoryId: territorioId,
-        title: titulo,
-        description: descricao,
-        category: "Geral",
-        location: t?.nome || territorioId
+      const response = await opApi.createDemand({
+        territoryId,
+        title,
+        description,
+        category: scope === 'municipal' ? 'Escopo municipal' : 'Escopo territorial',
+        location: scope === 'municipal' ? 'Município de Brumadinho' : territory?.nome || territoryId,
       });
-
-      const novaDemanda = mapDemand(resp, territorios);
-      setDemandas(prev => [novaDemanda, ...prev]);
-      appendAuditEvent('apoio', `Nova demanda "${titulo}" publicada em ${t?.nome || 'Brumadinho'} pelo cidadão.`);
-    } catch (e: any) {
-      alert("Erro ao publicar: " + e.message);
+      setDemandas(current => [mapDemand(response, territorios), ...current]);
+    } catch (error) {
+      window.alert(`Não foi possível publicar a demanda: ${(error as Error).message}`);
     }
   };
 
-  // Callback: Citizen supports an active idea
-  const handleApoiarDemanda = async (demandaId: string) => {
-    if (!isAuthenticated) {
-      alert("Você precisa estar logado para apoiar uma proposta.");
-      return;
-    }
+  const handleSupportDemand = async (demandId: string) => {
+    if (!requireLogin('Entre com sua conta para apoiar uma demanda.')) return;
     try {
-      const updated = await opApi.supportDemand(demandaId);
-      const mapped = mapDemand(updated, territorios);
-      
-      setDemandas(prev => 
-        prev.map(d => {
-          if (d.id === demandaId) {
-            if (mapped.passouPopular && !d.passouPopular) {
-              setTimeout(() => {
-                appendAuditEvent('apoio', `Demanda "${d.titulo}" atingiu o quórum de assinaturas de apoio e destravou o Portão Popular.`);
-              }, 100);
-            }
-
-            return { ...d, ...mapped };
-          }
-          return d;
-        })
-      );
-    } catch (e: any) {
-      alert("Erro ao apoiar: " + e.message);
+      const response = await opApi.supportDemand(demandId);
+      const mapped = mapDemand(response, territorios);
+      setDemandas(current => current.map(demanda => demanda.id === demandId ? { ...demanda, ...mapped } : demanda));
+    } catch (error) {
+      window.alert(`Não foi possível registrar o apoio: ${(error as Error).message}`);
     }
   };
 
-  // Callback: Citizen adds comment
-  const handleAddComentario = async (demandaId: string, texto: string) => {
-    if (!isAuthenticated) {
-      alert("Você precisa estar logado para comentar.");
-      return;
-    }
+  const handleComment = async (demandId: string, text: string) => {
+    if (!requireLogin('Entre com sua conta para comentar.')) return;
     try {
-      const comment = await opApi.commentDemand(demandaId, texto);
-      
-      const newComment = {
-        id: comment.id,
-        autor: comment.authorName || user?.fullName || 'Cidadão',
-        texto: comment.content,
-        data: dateOnly(comment.createdAt),
-      };
-
-      setDemandas(prev => 
-        prev.map(d => {
-          if (d.id === demandaId) {
-            return {
-              ...d,
-              comentarios: [...d.comentarios, newComment]
-            };
-          }
-          return d;
-        })
-      );
-    } catch (e: any) {
-      alert("Erro ao comentar: " + e.message);
+      const comment = await opApi.commentDemand(demandId, text);
+      setDemandas(current => current.map(demanda => demanda.id === demandId ? {
+        ...demanda,
+        comentarios: [...demanda.comentarios, {
+          id: comment.id,
+          autor: comment.authorName || user?.fullName || 'Cidadão',
+          texto: comment.content,
+          data: dateOnly(comment.createdAt),
+        }],
+      } : demanda));
+    } catch (error) {
+      window.alert(`Não foi possível publicar o comentário: ${(error as Error).message}`);
     }
   };
 
-  // Callback: Citizen branches an idea (Fork)
-  const handleForkDemanda = async (parentId: string, novoTitulo: string, novaDescricao: string) => {
-    if (!isAuthenticated) {
-      alert("Você precisa estar logado para criar um fork.");
-      return;
-    }
-
-    const parent = demandas.find(d => d.id === parentId);
+  const handleRelatedProposal = async (parentId: string, title: string, description: string) => {
+    if (!requireLogin('Entre com sua conta para sugerir uma proposta relacionada.')) return;
+    const parent = demandas.find(demanda => demanda.id === parentId);
     if (!parent) return;
+    try {
+      const response = await opApi.forkDemand(parentId, {
+        title,
+        description,
+        category: parent.escopoVotacao === 'municipal' ? 'Escopo municipal' : 'Escopo territorial',
+        reason: `Proposta relacionada à demanda ${parent.titulo}`,
+      });
+      setDemandas(current => [{
+        ...mapDemand(response, territorios),
+        forkId: parent.id,
+        parentTitulo: parent.titulo,
+      }, ...current]);
+    } catch (error) {
+      window.alert(`Não foi possível publicar a proposta relacionada: ${(error as Error).message}`);
+    }
+  };
+
+  const handleTransition = async (demandId: string, transition: DemandTransition, reason: string) => {
+    try {
+      const response = transition === 'mature'
+        ? await opApi.startMaturation(demandId, reason)
+        : transition === 'request-info'
+          ? await opApi.requestInfo(demandId, reason)
+          : transition === 'validate'
+            ? await opApi.validateTerritory(demandId, reason)
+            : await opApi.markReady(demandId, reason);
+      const mapped = mapDemand(response, territorios);
+      setDemandas(current => current.map(demanda => demanda.id === demandId ? { ...demanda, ...mapped } : demanda));
+    } catch (error) {
+      window.alert(`Não foi possível atualizar a demanda: ${(error as Error).message}`);
+    }
+  };
+
+  const handleGroup = async (demandId: string, targetDemandId: string, reason: string) => {
+    try {
+      const response = await opApi.groupDemand(demandId, targetDemandId, reason);
+      const mapped = mapDemand(response, territorios);
+      setDemandas(current => current.map(demanda => demanda.id === demandId ? { ...demanda, ...mapped } : demanda));
+    } catch (error) {
+      window.alert(`Não foi possível agrupar as demandas: ${(error as Error).message}`);
+    }
+  };
+
+  const handleViability = async (
+    demandId: string,
+    admissibility: 'admissivel' | 'inadmissivel',
+    reason: string,
+    estimatedCostCents?: number,
+  ) => {
+    const demand = demandas.find(item => item.id === demandId);
+    if (!demand) return;
 
     try {
-      const fork = await opApi.forkDemand(parentId, {
-        title: novoTitulo,
-        description: novaDescricao,
-        category: "Geral",
-        reason: `Fork criado a partir de ${parent.titulo}`
-      });
-      const novaDemanda = {
-        ...mapDemand(fork, territorios),
-        forkId: parent.id,
-        parentTitulo: parent.titulo
-      };
+      if (admissibility === 'inadmissivel') {
+        const response = await opApi.rejectDemand(demandId, 'Inviabilidade técnica ou orçamentária', reason);
+        const mapped = mapDemand(response, territorios);
+        setDemandas(current => current.map(item => item.id === demandId ? {
+          ...item,
+          ...mapped,
+          justificativaInadmissibilidade: reason,
+        } : item));
+        return;
+      }
 
-      setDemandas(prev => [novaDemanda, ...prev]);
-      appendAuditEvent('apoio', `Nova ramificação (fork) "${novoTitulo}" criada a partir da ideia base "${parent.titulo}".`);
-    } catch (e: any) {
-      alert("Erro ao criar fork: " + e.message);
-    }
-  };
+      if (!estimatedCostCents || estimatedCostCents <= 0) {
+        throw new Error('informe um custo estimado maior que zero');
+      }
 
-  // Callback: Secret ballot simulation
-  const handleVote = (demandaId: string) => {
-    const d = demandas.find(curr => curr.id === demandaId);
-    const receipt = generateHash();
-    
-    appendAuditEvent(
-      'voto', 
-      `Voto secreto computado e verificado com Recibo Opaco para proposta ID: ${demandaId.substring(0, 6)}...`
-    );
+      if (demand.status !== 'Apta para priorização') {
+        await opApi.approveDemand(demandId, reason);
+      }
 
-    return receipt;
-  };
-
-  // Callback: Add candidate to Council Lottery
-  const handleAddCandidato = (nome: string, bairro: string) => {
-    const novoCandidato: ConselhoCandidato = {
-      id: `cand-${Date.now()}`,
-      nome,
-      bairro,
-      comprovado: true,
-      sorteado: false
-    };
-    setCandidatos(prev => [novoCandidato, ...prev]);
-  };
-
-  // Callback: Council Lottery drawing completes
-  const handleLotteryComplete = (sorteados: ConselhoCandidato[], semente: string) => {
-    const sorteadosIds = new Set(sorteados.map(s => s.id));
-    
-    // update state
-    setCandidatos(prev => 
-      prev.map(c => ({
-        ...c,
-        sorteado: sorteadosIds.has(c.id)
-      }))
-    );
-
-    appendAuditEvent(
-      'sorteio', 
-      `Sorteio público do Conselho concluído usando a semente "${semente}". ${sorteados.length} membros diplomados.`,
-      `MUNICÍPIO-SRT-${Date.now().toString().substring(8)}`
-    );
-  };
-
-  // Callback: Admissibility decisions (Filtro Institucional & Divergência)
-  const handleSetAdmissibilidade = (
-    demandaId: string, 
-    admissibilidade: 'admissivel' | 'inadmissivel', 
-    justificativa: string
-  ) => {
-    setDemandas(prev => 
-      prev.map(d => {
-        if (d.id === demandaId) {
-          const isDivergente = admissibilidade === 'inadmissivel' && d.passouPopular;
-          
-          if (isDivergente) {
-            // Trigger log on active divergence
-            setTimeout(() => {
-              appendAuditEvent(
-                'veto', 
-                `Incidente de divergência pública aberto para proposta "${d.titulo}" devido a veto de admissibilidade formal.`,
-                `VETO-LEGISLATIVO-${d.id.split('-')[1]}`
-              );
-            }, 100);
-          }
-
-          return {
-            ...d,
-            admissibilidadeMarcar: admissibilidade,
-            justificativaInadmissibilidade: admissibilidade === 'inadmissivel' ? justificativa : undefined,
-            divergente: isDivergente,
-            justificativaDivergencia: isDivergente ? justificativa : undefined
-          };
-        }
-        return d;
-      })
-    );
-  };
-
-  // Callback: Edit execution status (with systematic feedback compensation loop)
-  const handleSetStatusExecucao = (
-    demandaId: string, 
-    status: Demanda['statusExecucao'], 
-    justificativa?: string
-  ) => {
-    const targetDemanda = demandas.find(d => d.id === demandaId);
-    if (!targetDemanda) return;
-
-    setDemandas(prev => 
-      prev.map(d => {
-        if (d.id === demandaId) {
-          return {
-            ...d,
-            statusExecucao: status,
-            justificativaFrustrado: status === 'frustrado' ? justificativa : undefined
-          };
-        }
-        return d;
-      })
-    );
-
-    // SYSTEM COMPENSATIVE LOOP: If marked frustrated, increase territorial vulnerability carência by +0.10!
-    if (status === 'frustrado') {
-      setTerritorios(prevT => {
-        const nextTerritorios = prevT.map(t => {
-          if (t.id === targetDemanda.territorioId) {
-            const nextIndex = Math.min(1.0, t.indiceCarencia + 0.10);
-            return {
-              ...t,
-              indiceCarencia: nextIndex
-            };
-          }
-          return t;
-        });
-
-        // Recalculate dynamic budgets instantly with updated carência values!
-        return calcularOrcamentoTerritorios(
-          nextTerritorios, 
-          cycle.pisoIgualBase, 
-          cycle.parcelaCarenciaTotal
-        );
+      const proposals = await opApi.proposals();
+      const proposal = proposals.find(item => item.demandId === demandId) || await opApi.createProposal(demandId, {
+        title: demand.titulo,
+        problemSummary: demand.descricao,
+        solutionScope: demand.escopoVotacao === 'municipal' ? 'municipal' : 'territorial',
+        estimatedCostCents,
+        category: demand.escopoVotacao === 'municipal' ? 'Escopo municipal' : 'Escopo territorial',
       });
 
-      appendAuditEvent(
-        'estado_execucao', 
-        `Obra "${targetDemanda.titulo}" marcada como frustrada. Compensação ativada: carência territorial aumentada.`
-      );
-    } else {
-      appendAuditEvent(
-        'estado_execucao', 
-        `Status da obra "${targetDemanda.titulo}" alterado formalmente para "${status}".`
-      );
+      if (cycle.faseAtual === 'votacao') {
+        const votings = await opApi.opVotings();
+        if (!votings.some(item => item.proposalId === proposal.id)) {
+          await opApi.openProposalVoting(proposal.id);
+        }
+      }
+
+      const refreshed = await opApi.getDemand(demandId);
+      const mapped = mapDemand(refreshed, territorios);
+      setDemandas(current => current.map(item => item.id === demandId ? { ...item, ...mapped } : item));
+    } catch (error) {
+      window.alert(`Não foi possível concluir a análise: ${(error as Error).message}`);
     }
   };
 
-  const currentView = canAccessView(activeView, activeRole) ? activeView : 'painel';
-
-  const page = (() => {
-    if (currentView === 'painel') {
-      return (
-        <CycleDashboard
-          cycle={cycle}
-          territorios={territorios}
-          demandas={demandas}
-          user={user}
-          onNavigate={setActiveView}
-        />
-      );
+  const handleExecution = async (demandId: string, status: Demanda['statusExecucao'], reason?: string) => {
+    if (!status) return;
+    const item = ranking.find(rankingItem => rankingItem.demandId === demandId);
+    if (!item) {
+      window.alert('A execução só pode ser atualizada depois que a votação gerar um item no ranking.');
+      return;
     }
 
-    if (currentView === 'cidadao') {
-      return (
-        <DemandsSection
-          territorios={territorios}
-          demandas={demandas}
-          cycle={cycle}
-          onAddDemanda={handleAddDemanda}
-          onApoiar={handleApoiarDemanda}
-          onAddComentario={handleAddComentario}
-          onForkDemanda={handleForkDemanda}
-        />
-      );
+    const rankingStatus = {
+      planejamento: 'Incluído na matriz',
+      licitacao: 'Incluído na matriz',
+      obra: 'Em execução',
+      concluido: 'Concluído',
+      frustrado: 'Frustrado',
+    }[status];
+    let publicReason = reason;
+    if (status === 'frustrado' && !publicReason) {
+      publicReason = window.prompt('Informe a justificativa pública para a não execução:') || undefined;
+      if (!publicReason) return;
     }
 
-    if (currentView === 'votacao') {
-      return (
-        <VotingSection
-          territorios={territorios}
-          demandas={demandas}
-          cycle={cycle}
-          onVote={handleVote}
-        />
-      );
-    }
+    await handleRankingStatus(item.id, rankingStatus, publicReason);
+    setDemandas(current => current.map(demanda => demanda.id === demandId ? {
+      ...demanda,
+      statusExecucao: status,
+      justificativaFrustrado: status === 'frustrado' ? publicReason : undefined,
+    } : demanda));
+  };
 
-    if (currentView === 'sorteio') {
-      return (
-        <CouncilSection
-          candidatos={candidatos}
-          onAddCandidato={handleAddCandidato}
-          onLotteryComplete={handleLotteryComplete}
-          cycle={cycle}
-          navigateToAuditory={() => setActiveView('auditoria')}
-        />
-      );
-    }
+  const handleVote = (demandId: string) => {
+    const seed = `${demandId}-${user?.id || 'public'}-${Date.now()}`;
+    setDemandas(current => current.map(demanda => demanda.id === demandId
+      ? { ...demanda, votosCount: (demanda.votosCount || 0) + 1 }
+      : demanda));
+    return Array.from({ length: 64 }, (_, index) => ((seed.charCodeAt(index % seed.length) + index * 7) % 16).toString(16)).join('');
+  };
 
-    if (currentView === 'institucional') {
-      return (
-        <InstitutionalSection
-          demandas={demandas}
-          territorios={territorios}
-          onSetAdmissibilidade={handleSetAdmissibilidade}
-        />
-      );
+  const handleRankingStatus = async (itemId: string, status: string, reason?: string) => {
+    try {
+      const response = await opApi.updateRankingStatus(itemId, status, reason);
+      const mapped = mapRankingItem(response);
+      setRanking(current => current.map(item => item.id === itemId ? mapped : item));
+    } catch (error) {
+      window.alert(`Erro ao atualizar status: ${(error as Error).message}`);
+      throw error;
     }
+  };
 
-    if (currentView === 'gestor') {
-      return (
-        <MaintainerSection
-          cycle={cycle}
-          territorios={territorios}
-          onUpdateRegimento={handleUpdateRegimento}
-        />
-      );
-    }
-
-    if (currentView === 'execucao') {
-      return (
-        <ExecutionSection
-          demandas={demandas}
-          territorios={territorios}
-          onSetStatusExecucao={handleSetStatusExecucao}
-          canEditStatus={isInstitutionalRole(activeRole)}
-        />
-      );
-    }
-
-    return <AuditorySection auditTrail={auditTrail} />;
-  })();
+  const currentView = canAccessView(activeView, profile) ? activeView : 'inicio';
+  const page = currentView === 'inicio' ? (
+    <CycleDashboard cycle={cycle} territorios={territorios} demandas={demandas} user={user} onNavigate={navigateTo} />
+  ) : currentView === 'demandas' ? (
+    <DemandsSection
+      territorios={territorios}
+      demandas={demandas}
+      cycle={cycle}
+      userTerritoryId={userTerritoryId}
+      onAddDemanda={handleAddDemand}
+      onApoiar={handleSupportDemand}
+      onAddComentario={handleComment}
+      onForkDemanda={handleRelatedProposal}
+    />
+  ) : currentView === 'votacao' ? (
+    <VotingSection territorios={territorios} cycle={cycle} userTerritoryId={userTerritoryId} />
+  ) : currentView === 'resultados' ? (
+    <MemorySection cycle={cycle} ranking={ranking} territorios={territorios} canEditStatus={profile === 'admin' || profile === 'management'} onUpdateStatus={handleRankingStatus} frozen={cycleSnapshot?.frozen} frozenAt={cycleSnapshot?.generatedAt} />
+  ) : currentView === 'usuario' ? (
+    profile === 'admin' ? (
+      <MaintainerSection
+        cycle={cycle}
+        territorios={territorios}
+        onUpdateRegimento={handleUpdateCycle}
+      />
+    ) : profile === 'management' ? (
+      <ManagementSection
+        demandas={demandas}
+        territorios={territorios}
+        onTransition={handleTransition}
+        onGroup={handleGroup}
+        onSetViability={handleViability}
+        onSetExecution={handleExecution}
+      />
+    ) : (
+      <UserSection />
+    )
+  ) : null;
 
   return (
-    <AppShell
-      activeView={currentView}
-      setActiveView={setActiveView}
-      cycle={cycle}
-      territoryCount={territorios.length}
-    >
+    <AppShell activeView={currentView} setActiveView={navigateTo} cycle={cycle}>
       {page}
     </AppShell>
   );

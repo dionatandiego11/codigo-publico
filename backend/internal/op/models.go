@@ -91,3 +91,47 @@ type previewEnvelopeInput struct {
 	Regimento   *RegimentoLocal   `json:"regimento"` // opcional → DefaultRegimento
 	Territories []TerritoryWeight `json:"territories"`
 }
+
+// VotingResolutionData transporta os dados de cada votação resolvida durante o
+// AdvanceCycle (batch) para que o service possa chamar o ranking depois.
+type VotingResolutionData struct {
+	VotingID      string
+	VotingPublicID string
+	CycleID       string
+	TerritoryID   string
+	TerritoryName string
+	ProposalID    string
+	ProposalTitle string
+	VotesYes      int
+	VotesNo       int
+	VotesAbstain  int
+	QuorumNeeded  int
+	QuorumReached int
+}
+
+// CycleResultSnapshot é a visão pública do resultado congelado de um ciclo.
+type CycleResultSnapshot struct {
+	ID           string `json:"id"`
+	CycleID      string `json:"cycleId"`
+	CycleLabel   string `json:"cycleLabel"`
+	Frozen       bool   `json:"frozen"`
+	GeneratedAt  string `json:"generatedAt"`
+	Items        []CycleResultItem `json:"items"`
+}
+
+// CycleResultItem é um item do resultado congelado (espelha ranking item).
+type CycleResultItem struct {
+	Position      int     `json:"position"`
+	ProposalTitle string  `json:"proposalTitle"`
+	TerritoryID   string  `json:"territoryId"`
+	TerritoryName string  `json:"territoryName"`
+	VotesYes      int     `json:"votesYes"`
+	VotesNo       int     `json:"votesNo"`
+	VotesAbstain  int     `json:"votesAbstain"`
+	TotalVotes    int     `json:"totalVotes"`
+	ApprovalPct   float64 `json:"approvalPct"`
+	QuorumReached bool    `json:"quorumReached"`
+	Approved      bool    `json:"approved"`
+	Status        string  `json:"status"`
+}
+

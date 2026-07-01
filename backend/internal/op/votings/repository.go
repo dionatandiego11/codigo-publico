@@ -52,7 +52,8 @@ const votingSelectSQL = `
 		v.votes_abstain,
 		v.status,
 		v.created_at,
-		v.updated_at
+		v.updated_at,
+		p.solution_scope
 	FROM op_votings v
 	JOIN budget_proposals p ON p.id = v.proposal_id
 	JOIN territories t ON t.id = v.territory_id
@@ -88,7 +89,8 @@ func (r *Repository) proposalRecord(ctx context.Context, identifier string) (pro
 			p.title,
 			p.problem_summary,
 			p.solution_scope,
-			p.status
+			p.status,
+			p.demand_id::text
 		FROM budget_proposals p
 		JOIN op_cycles oc ON oc.id = p.cycle_id
 		WHERE p.id::text = $1 OR p.public_id = $1
@@ -102,6 +104,7 @@ func (r *Repository) proposalRecord(ctx context.Context, identifier string) (pro
 		&rec.ProblemSummary,
 		&rec.SolutionScope,
 		&rec.Status,
+		&rec.DemandID,
 	)
 	return rec, err
 }
@@ -154,6 +157,43 @@ func (r *Repository) getVoting(ctx context.Context, identifier string) (Voting, 
 	return scanVoting(r.db.QueryRow(ctx, votingSelectSQL+`
 		WHERE v.id::text = $1 OR v.public_id = $1
 	`, identifier))
+}
+
+func (r *Repository) rankingResolutionData(ctx context.Context, identifier string) (ResolvedVotingData, error) {
+	var data ResolvedVotingData
+	err := r.db.QueryRow(ctx, `
+		SELECT
+			v.id::text,
+			v.public_id,
+			v.cycle_id::text,
+			v.territory_id::text,
+			t.name,
+			v.proposal_id::text,
+			p.title,
+			v.votes_yes,
+			v.votes_no,
+			v.votes_abstain,
+			v.quorum_needed,
+			v.quorum_reached
+		FROM op_votings v
+		JOIN territories t ON t.id = v.territory_id
+		JOIN budget_proposals p ON p.id = v.proposal_id
+		WHERE v.id::text = $1 OR v.public_id = $1
+	`, identifier).Scan(
+		&data.VotingID,
+		&data.VotingPublicID,
+		&data.CycleID,
+		&data.TerritoryID,
+		&data.TerritoryName,
+		&data.ProposalID,
+		&data.ProposalTitle,
+		&data.VotesYes,
+		&data.VotesNo,
+		&data.VotesAbstain,
+		&data.QuorumNeeded,
+		&data.QuorumReached,
+	)
+	return data, err
 }
 
 func (r *Repository) openVoting(ctx context.Context, a actor, proposal proposalRecord) (Voting, error) {
@@ -229,6 +269,21 @@ func (r *Repository) openVoting(ctx context.Context, a actor, proposal proposalR
 		return Voting{}, err
 	}
 
+	if _, err := tx.Exec(ctx, `
+		UPDATE budget_demands
+		SET status = 'Em votação', updated_at = NOW()
+		WHERE id = $1::uuid
+	`, proposal.DemandID); err != nil {
+		return Voting{}, err
+	}
+
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO demand_events (demand_id, actor_id, actor_type, event_type, visibility, payload)
+		VALUES ($1::uuid, $2::uuid, 'system', 'voting_opened', 'public', '{}'::jsonb)
+	`, proposal.DemandID, a.ID); err != nil {
+		return Voting{}, err
+	}
+
 	if err := audit.Insert(ctx, tx, audit.Actor{
 		ID:   a.ID,
 		Name: a.Name,
@@ -296,6 +351,29 @@ func (r *Repository) resolveVoting(ctx context.Context, a actor, identifier stri
 		return Voting{}, err
 	}
 
+	demandStatus := "Não aprovada"
+	eventType := "demand_not_approved"
+	if approved {
+		demandStatus = "Aprovada"
+		eventType = "demand_approved"
+	}
+	var demandID string
+	if err := tx.QueryRow(ctx, `
+		UPDATE budget_demands d
+		SET status = $1, updated_at = NOW()
+		FROM budget_proposals p
+		WHERE p.id = $2::uuid AND d.id = p.demand_id
+		RETURNING d.id::text
+	`, demandStatus, proposalID).Scan(&demandID); err != nil {
+		return Voting{}, err
+	}
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO demand_events (demand_id, actor_id, actor_type, event_type, visibility, payload)
+		VALUES ($1::uuid, $2::uuid, 'system', $3, 'public', '{}'::jsonb)
+	`, demandID, a.ID, eventType); err != nil {
+		return Voting{}, err
+	}
+
 	if err := audit.Insert(ctx, tx, audit.Actor{
 		ID: a.ID, Name: a.Name, Role: a.Role, Type: op.AuditActorType(a.Role),
 	}, audit.Event{
@@ -322,14 +400,23 @@ func (r *Repository) castVote(ctx context.Context, a actor, identifier string, s
 	}
 	defer rollback(ctx, tx)
 
-	var votingID, publicID, status, territoryID string
+	var votingID, publicID, status, territoryID, cyclePhase, solutionScope string
 	var deadline time.Time
 	if err := tx.QueryRow(ctx, `
-		SELECT id::text, public_id, status, deadline, territory_id::text
-		FROM op_votings
-		WHERE id::text = $1 OR public_id = $1
+		SELECT
+			v.id::text,
+			v.public_id,
+			v.status,
+			v.deadline,
+			v.territory_id::text,
+			c.phase,
+			p.solution_scope
+		FROM op_votings v
+		JOIN op_cycles c ON c.id = v.cycle_id
+		JOIN budget_proposals p ON p.id = v.proposal_id
+		WHERE v.id::text = $1 OR v.public_id = $1
 		FOR UPDATE
-	`, identifier).Scan(&votingID, &publicID, &status, &deadline, &territoryID); err != nil {
+	`, identifier).Scan(&votingID, &publicID, &status, &deadline, &territoryID, &cyclePhase, &solutionScope); err != nil {
 		return voteResponse{}, err
 	}
 
@@ -339,8 +426,15 @@ func (r *Repository) castVote(ctx context.Context, a actor, identifier string, s
 	if time.Now().UTC().After(deadline.UTC()) {
 		return voteResponse{}, web.NewError(http.StatusConflict, "prazo de votação encerrado")
 	}
-	if a.TerritoryID == "" || a.TerritoryID != territoryID {
-		return voteResponse{}, web.NewError(http.StatusForbidden, "somente cidadãos vinculados ao território da proposta podem votar")
+	if cyclePhase != "Votação" {
+		return voteResponse{}, web.NewError(http.StatusConflict, "voto só é permitido durante a fase de votação do ciclo")
+	}
+
+	isMunicipal := solutionScope == "municipio" || solutionScope == "municipal" || solutionScope == "Escopo municipal"
+	if !isMunicipal {
+		if a.TerritoryID == "" || a.TerritoryID != territoryID {
+			return voteResponse{}, web.NewError(http.StatusForbidden, "somente cidadãos vinculados ao território da proposta podem votar")
+		}
 	}
 
 	receiptCode, err := generateReceiptCode()
@@ -358,6 +452,23 @@ func (r *Repository) castVote(ctx context.Context, a actor, identifier string, s
 		if errors.Is(err, pgx.ErrNoRows) {
 			return voteResponse{}, web.NewError(http.StatusConflict, "cidadão já votou nesta votação")
 		}
+		return voteResponse{}, err
+	}
+
+	var demandID string
+	err = tx.QueryRow(ctx, `
+		SELECT demand_id::text
+		FROM budget_proposals
+		WHERE id = (SELECT proposal_id FROM op_votings WHERE id = $1::uuid)
+	`, votingID).Scan(&demandID)
+	if err != nil {
+		return voteResponse{}, err
+	}
+
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO demand_events (demand_id, actor_id, actor_type, event_type, visibility, payload)
+		VALUES ($1::uuid, $2::uuid, 'citizen', 'vote_cast', 'audit_only', '{}'::jsonb)
+	`, demandID, a.ID); err != nil {
 		return voteResponse{}, err
 	}
 
@@ -441,6 +552,7 @@ func scanVoting(row rowScanner) (Voting, error) {
 		&voting.Status,
 		&createdAt,
 		&updatedAt,
+		&voting.Scope,
 	)
 	if err != nil {
 		return Voting{}, err

@@ -19,6 +19,12 @@ func NewHandler(db *pgxpool.Pool) *Handler {
 	return &Handler{service: NewService(NewRepository(db))}
 }
 
+// ServiceRef expõe o service para que main.go possa registrar o callback
+// OnResolve do módulo de ranking.
+func (h *Handler) ServiceRef() *Service {
+	return h.service
+}
+
 func (h *Handler) ListVotings(w http.ResponseWriter, r *http.Request) {
 	votings, err := h.service.ListVotings(r.Context())
 	if err != nil {

@@ -78,18 +78,32 @@ func TestCanMarkReady(t *testing.T) {
 	}
 }
 
+// ApproveDemand usa este mesmo gate. Estes casos impedem que uma aprovação
+// administrativa contorne validação territorial ou apoio mínimo.
+func TestApprovalGateRejectsIncompleteDemand(t *testing.T) {
+	if status := statusOf(t, canMarkReady(statusReceived, 100, 10)); status != http.StatusConflict {
+		t.Fatalf("demanda não validada deveria ser rejeitada mesmo com apoios; status %d", status)
+	}
+	if status := statusOf(t, canMarkReady(statusTerritoriallyValid, 9, 10)); status != http.StatusConflict {
+		t.Fatalf("demanda abaixo do apoio mínimo deveria ser rejeitada; status %d", status)
+	}
+}
+
 func TestCanSupportDemand(t *testing.T) {
-	if err := canSupportDemand("Coleta", "territorio-1", "territorio-1"); err != nil {
+	if err := canSupportDemand("Coleta", "territorio-1", "territorio-1", false); err != nil {
 		t.Errorf("apoio no território durante Coleta deveria passar: %v", err)
 	}
-	if status := statusOf(t, canSupportDemand("Votação", "territorio-1", "territorio-1")); status != http.StatusConflict {
+	if status := statusOf(t, canSupportDemand("Votação", "territorio-1", "territorio-1", false)); status != http.StatusConflict {
 		t.Errorf("apoio fora da Coleta deveria ser 409, foi %d", status)
 	}
-	if status := statusOf(t, canSupportDemand("Coleta", "", "territorio-1")); status != http.StatusForbidden {
+	if status := statusOf(t, canSupportDemand("Coleta", "", "territorio-1", false)); status != http.StatusForbidden {
 		t.Errorf("apoio sem vínculo territorial deveria ser 403, foi %d", status)
 	}
-	if status := statusOf(t, canSupportDemand("Coleta", "territorio-2", "territorio-1")); status != http.StatusForbidden {
+	if status := statusOf(t, canSupportDemand("Coleta", "territorio-2", "territorio-1", false)); status != http.StatusForbidden {
 		t.Errorf("apoio de outro território deveria ser 403, foi %d", status)
+	}
+	if err := canSupportDemand("Coleta", "territorio-2", "territorio-1", true); err != nil {
+		t.Errorf("apoio municipal deveria aceitar cidadão de outro território: %v", err)
 	}
 }
 
@@ -126,6 +140,11 @@ func TestCanGroup(t *testing.T) {
 	tgt.TerritoryID = "t2"
 	if statusOf(t, canGroup(src, tgt)) != http.StatusConflict {
 		t.Error("territórios diferentes deveria ser 409 (ainda não habilitado)")
+	}
+	src.MunicipalScope = true
+	tgt.MunicipalScope = true
+	if err := canGroup(src, tgt); err != nil {
+		t.Errorf("demandas municipais do mesmo ciclo deveriam poder ser agrupadas: %v", err)
 	}
 }
 

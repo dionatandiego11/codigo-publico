@@ -329,23 +329,115 @@ func territoryWeights(ctx context.Context, tx pgx.Tx) ([]TerritoryWeight, error)
 
 // transitionPhase aplica uma mudança de fase já validada pela política, com lock
 // de linha (recheck da fase esperada) e auditoria encadeada.
-func (r *Repository) transitionPhase(ctx context.Context, mover actor, cycleID, expectedPhase, newPhase, action, reason string) (Cycle, error) {
+// Retorna também os dados de resolução de votações (quando aplicável) para que o
+// service possa computar o ranking após o commit.
+func (r *Repository) transitionPhase(ctx context.Context, mover actor, cycleID, expectedPhase, newPhase, action, reason string) (Cycle, []VotingResolutionData, error) {
 	tx, err := r.db.Begin(ctx)
 	if err != nil {
-		return Cycle{}, err
+		return Cycle{}, nil, err
 	}
 	defer rollback(ctx, tx)
 
 	var current string
 	if err := tx.QueryRow(ctx, `SELECT phase FROM op_cycles WHERE id = $1::uuid FOR UPDATE`, cycleID).Scan(&current); err != nil {
-		return Cycle{}, err
+		return Cycle{}, nil, err
 	}
 	if current != expectedPhase {
-		return Cycle{}, web.NewError(http.StatusConflict, "o ciclo não está na fase esperada para esta transição")
+		return Cycle{}, nil, web.NewError(http.StatusConflict, "o ciclo não está na fase esperada para esta transição")
 	}
 
 	if _, err := tx.Exec(ctx, `UPDATE op_cycles SET phase = $1, updated_at = NOW() WHERE id = $2::uuid`, newPhase, cycleID); err != nil {
-		return Cycle{}, err
+		return Cycle{}, nil, err
+	}
+
+	var resolutionData []VotingResolutionData
+
+	if newPhase == "Consolidação" {
+		rows, err := tx.Query(ctx, `
+			SELECT
+				v.id::text,
+				v.public_id,
+				v.proposal_id::text,
+				v.territory_id::text,
+				t.name,
+				p.title,
+				v.quorum_needed,
+				v.quorum_reached,
+				v.votes_yes,
+				v.votes_no,
+				v.votes_abstain
+			FROM op_votings v
+			JOIN territories t ON t.id = v.territory_id
+			JOIN budget_proposals p ON p.id = v.proposal_id
+			WHERE v.cycle_id = $1::uuid
+		`, cycleID)
+		if err != nil {
+			return Cycle{}, nil, err
+		}
+
+		type localResolution struct {
+			data       VotingResolutionData
+			proposalID string
+			approved   bool
+		}
+		var resolutions []localResolution
+
+		for rows.Next() {
+			var lr localResolution
+			if err := rows.Scan(
+				&lr.data.VotingID, &lr.data.VotingPublicID,
+				&lr.data.ProposalID, &lr.data.TerritoryID, &lr.data.TerritoryName,
+				&lr.data.ProposalTitle,
+				&lr.data.QuorumNeeded, &lr.data.QuorumReached,
+				&lr.data.VotesYes, &lr.data.VotesNo, &lr.data.VotesAbstain,
+			); err != nil {
+				rows.Close()
+				return Cycle{}, nil, err
+			}
+			lr.data.CycleID = cycleID
+			lr.proposalID = lr.data.ProposalID
+			lr.approved = lr.data.QuorumReached >= lr.data.QuorumNeeded && lr.data.VotesYes > lr.data.VotesNo
+			resolutions = append(resolutions, lr)
+		}
+		rows.Close()
+
+		for _, res := range resolutions {
+			if _, err := tx.Exec(ctx, `UPDATE op_votings SET status = 'Encerrada', updated_at = NOW() WHERE id = $1::uuid`, res.data.VotingID); err != nil {
+				return Cycle{}, nil, err
+			}
+
+			proposalStatus := "Retornada para maturação"
+			demandStatus := "Não aprovada"
+			eventType := "demand_not_approved"
+
+			if res.approved {
+				proposalStatus = "Priorizada"
+				demandStatus = "Aprovada"
+				eventType = "demand_approved"
+			}
+
+			if _, err := tx.Exec(ctx, `UPDATE budget_proposals SET status = $1, updated_at = NOW() WHERE id = $2::uuid`, proposalStatus, res.proposalID); err != nil {
+				return Cycle{}, nil, err
+			}
+
+			var demandID string
+			if err := tx.QueryRow(ctx, `SELECT demand_id::text FROM budget_proposals WHERE id = $1::uuid`, res.proposalID).Scan(&demandID); err != nil {
+				return Cycle{}, nil, err
+			}
+
+			if _, err := tx.Exec(ctx, `UPDATE budget_demands SET status = $1, updated_at = NOW() WHERE id = $2::uuid`, demandStatus, demandID); err != nil {
+				return Cycle{}, nil, err
+			}
+
+			if _, err := tx.Exec(ctx, `
+				INSERT INTO demand_events (demand_id, actor_id, actor_type, event_type, visibility, payload)
+				VALUES ($1::uuid, $2::uuid, 'system', $3, 'public', '{}'::jsonb)
+			`, demandID, mover.ID, eventType); err != nil {
+				return Cycle{}, nil, err
+			}
+
+			resolutionData = append(resolutionData, res.data)
+		}
 	}
 
 	if err := audit.Insert(ctx, tx, institutionalAuditActor(mover), audit.Event{
@@ -355,14 +447,15 @@ func (r *Repository) transitionPhase(ctx context.Context, mover actor, cycleID, 
 		EntityPublicID: cycleID,
 		Metadata:       map[string]any{"fromPhase": current, "toPhase": newPhase, "reason": reason},
 	}); err != nil {
-		return Cycle{}, err
+		return Cycle{}, nil, err
 	}
 
 	if err := tx.Commit(ctx); err != nil {
-		return Cycle{}, err
+		return Cycle{}, nil, err
 	}
 
-	return r.getCycle(ctx, cycleID)
+	cycle, err := r.getCycle(ctx, cycleID)
+	return cycle, resolutionData, err
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -391,4 +484,99 @@ func nullTimePtr(value sql.NullTime) *string {
 
 	formatted := value.Time.UTC().Format(time.RFC3339)
 	return &formatted
+}
+
+// snapshotCycleResult congela o resultado do ranking como JSONB.
+func (r *Repository) snapshotCycleResult(ctx context.Context, cycleID string) error {
+	var cycleLabel string
+	if err := r.db.QueryRow(ctx, `SELECT label FROM op_cycles WHERE id = $1::uuid`, cycleID).Scan(&cycleLabel); err != nil {
+		return err
+	}
+
+	rows, err := r.db.Query(ctx, `
+		SELECT
+			ri.position,
+			ri.proposal_title,
+			ri.territory_id::text,
+			ri.territory_name,
+			ri.votes_yes,
+			ri.votes_no,
+			ri.votes_abstain,
+			ri.total_votes,
+			ri.approval_pct,
+			ri.quorum_reached,
+			ri.approved,
+			ri.status
+		FROM op_ranking_items ri
+		WHERE ri.cycle_id = $1::uuid
+		ORDER BY ri.territory_name, ri.position
+	`, cycleID)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	items := make([]CycleResultItem, 0)
+	for rows.Next() {
+		var item CycleResultItem
+		if err := rows.Scan(
+			&item.Position, &item.ProposalTitle,
+			&item.TerritoryID, &item.TerritoryName,
+			&item.VotesYes, &item.VotesNo, &item.VotesAbstain,
+			&item.TotalVotes, &item.ApprovalPct,
+			&item.QuorumReached, &item.Approved, &item.Status,
+		); err != nil {
+			return err
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	snapshot := CycleResultSnapshot{
+		CycleID:    cycleID,
+		CycleLabel: cycleLabel,
+		Frozen:     true,
+		Items:      items,
+	}
+
+	snapshotJSON, err := json.Marshal(snapshot)
+	if err != nil {
+		return err
+	}
+
+	_, err = r.db.Exec(ctx, `
+		INSERT INTO cycle_result_snapshots (cycle_id, snapshot_data)
+		VALUES ($1::uuid, $2::jsonb)
+		ON CONFLICT (cycle_id) DO UPDATE SET snapshot_data = EXCLUDED.snapshot_data, generated_at = NOW()
+	`, cycleID, snapshotJSON)
+	return err
+}
+
+// getCycleResultSnapshot retorna o snapshot congelado do resultado, ou nil se não existir.
+func (r *Repository) getCycleResultSnapshot(ctx context.Context, cycleID string) (*CycleResultSnapshot, error) {
+	var snapshotJSON []byte
+	var generatedAt time.Time
+	var id string
+	err := r.db.QueryRow(ctx, `
+		SELECT id::text, snapshot_data, generated_at
+		FROM cycle_result_snapshots
+		WHERE cycle_id = $1::uuid
+	`, cycleID).Scan(&id, &snapshotJSON, &generatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	var snapshot CycleResultSnapshot
+	if err := json.Unmarshal(snapshotJSON, &snapshot); err != nil {
+		return nil, err
+	}
+	snapshot.ID = id
+	snapshot.GeneratedAt = generatedAt.UTC().Format(time.RFC3339)
+
+	return &snapshot, nil
 }

@@ -1,97 +1,71 @@
-import type { LucideIcon } from 'lucide-react';
 import {
-  CheckSquare,
-  ClipboardList,
-  Landmark,
-  LayoutDashboard,
-  Layers,
-  MapPin,
-  Shield,
+  BarChart3,
+  ClipboardCheck,
+  FileText,
+  Home,
+  Settings,
   Vote,
+  User,
+  type LucideIcon,
 } from 'lucide-react';
+import type { AdminContext } from '../auth/AuthContext';
 
-export type AppView =
-  | 'painel'
-  | 'cidadao'
-  | 'sorteio'
-  | 'votacao'
-  | 'execucao'
-  | 'auditoria'
-  | 'institucional'
-  | 'gestor';
+export type AppView = 'inicio' | 'demandas' | 'votacao' | 'resultados' | 'usuario';
+export type UserProfile = 'guest' | 'citizen' | 'management' | 'admin';
 
-type AccessLevel = 'public' | 'institutional' | 'general';
+type AccessLevel = 'public' | 'management' | 'admin';
 
 export interface NavItem {
   id: AppView;
   label: string;
   icon: LucideIcon;
-  num: string;
   access: AccessLevel;
 }
 
 export const navItems: NavItem[] = [
-  { id: 'painel', label: 'Painel do Ciclo', icon: LayoutDashboard, num: '00', access: 'public' },
-  { id: 'cidadao', label: 'Meu Território', icon: MapPin, num: '01', access: 'public' },
-  { id: 'sorteio', label: 'Conselho Territorial', icon: Layers, num: '02', access: 'public' },
-  { id: 'votacao', label: 'Votação Territorial', icon: Vote, num: '03', access: 'public' },
-  { id: 'execucao', label: 'Execução e Aprendizado', icon: CheckSquare, num: '04', access: 'public' },
-  { id: 'auditoria', label: 'Auditoria Pública', icon: Shield, num: '05', access: 'public' },
-  { id: 'institucional', label: 'Matriz e Câmara', icon: Landmark, num: '06', access: 'institutional' },
-  { id: 'gestor', label: 'Gestão do Ciclo', icon: ClipboardList, num: '07', access: 'general' },
+  { id: 'inicio', label: 'Início', icon: Home, access: 'public' },
+  { id: 'demandas', label: 'Demandas', icon: FileText, access: 'public' },
+  { id: 'votacao', label: 'Votação', icon: Vote, access: 'public' },
+  { id: 'resultados', label: 'Resultados', icon: BarChart3, access: 'public' },
+  { id: 'usuario', label: 'Minha Área', icon: User, access: 'public' },
 ];
-
-const institutionalRoles = new Set([
-  'sysadmin',
-  'admin',
-  'institutional_admin',
-  'legislative_admin',
-  'vereador',
-  'mesa_diretora',
-]);
-
-const generalRoles = new Set([
-  ...institutionalRoles,
-]);
 
 function normalizeRole(role?: string | null) {
   return role?.trim().toLowerCase() || 'guest';
 }
 
-export function isInstitutionalRole(role?: string | null) {
-  return institutionalRoles.has(normalizeRole(role));
+export function userProfile(role?: string | null, adminContext?: AdminContext | null): UserProfile {
+  const normalizedRole = normalizeRole(role);
+  if (normalizedRole === 'sysadmin' || normalizedRole === 'admin' || adminContext?.canTechnical || adminContext?.canGeneral) {
+    return 'admin';
+  }
+  if (
+    ['institutional_admin', 'legislative_admin', 'vereador', 'mesa_diretora'].includes(normalizedRole) ||
+    adminContext?.canTerritorial
+  ) {
+    return 'management';
+  }
+  return normalizedRole === 'guest' ? 'guest' : 'citizen';
 }
 
-export function isGeneralRole(role?: string | null) {
-  return generalRoles.has(normalizeRole(role));
-}
-
-export function canAccessView(view: string, role?: string | null) {
+export function canAccessView(view: string, profile: UserProfile) {
   const item = navItems.find(navItem => navItem.id === view);
   if (!item) return false;
   if (item.access === 'public') return true;
-  if (item.access === 'institutional') return isInstitutionalRole(role);
-  return isGeneralRole(role);
+  if (item.access === 'management') return profile === 'management' || profile === 'admin';
+  return profile === 'admin';
 }
 
-export function visibleNavItems(role?: string | null) {
-  return navItems.filter(item => canAccessView(item.id, role));
+export function visibleNavItems(profile: UserProfile) {
+  return navItems.filter(item => canAccessView(item.id, profile));
 }
 
-export function roleLabel(role?: string | null) {
-  switch (normalizeRole(role)) {
-    case 'sysadmin':
-      return 'Maintainer técnico';
+export function profileLabel(profile: UserProfile) {
+  switch (profile) {
     case 'admin':
       return 'Administrador';
-    case 'institutional_admin':
-      return 'Admin institucional';
-    case 'legislative_admin':
-      return 'Admin legislativo';
-    case 'vereador':
-      return 'Vereador';
-    case 'mesa_diretora':
-      return 'Mesa diretora';
+    case 'management':
+      return 'Gestão';
     case 'citizen':
       return 'Cidadão';
     default:

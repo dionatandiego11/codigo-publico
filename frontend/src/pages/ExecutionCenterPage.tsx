@@ -16,7 +16,7 @@ export function ExecutionCenter({
       <PageTitle
         eyebrow="Pós-release"
         title="Fiscalização da execução"
-        subtitle="Depois do merge institucional, a plataforma acompanha regulamentação, orçamento, evidências e andamento."
+        subtitle="Depois da consolidação e inclusão na matriz do OP, a plataforma acompanha o andamento, orçamento e entregas públicas."
       />
       <div className="grid gap-4 lg:grid-cols-2">
         {trackers.length === 0 && <p className="glass-panel p-6 text-sm text-[var(--color-git-muted)] rounded-[20px]">Nenhuma execução vinculada.</p>}
